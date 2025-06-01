@@ -47,11 +47,12 @@ export function useFileUploadManager() {
 
   const uploadFileAndCreateRecord = useCallback(
     async (user: User | null): Promise<FileUploadManagerResult> => {
-      if (!user || !user.uid || user.uid.trim() === '') {
-        const msg = 'Usuário não autenticado ou UID inválido.';
-        console.error(`[useFileUploadManager_upload] Critical: ${msg}`);
+      if (!user || !user.uid || typeof user.uid !== 'string' || user.uid.trim() === '') {
+        const msg = 'Usuário não autenticado ou UID inválido para iniciar upload.';
+        console.error(`[useFileUploadManager_upload] CRITICAL: ${msg}. User object:`, JSON.stringify(user));
         toast({ title: 'Erro de Autenticação', description: msg, variant: 'destructive' });
         setUploadError(msg);
+        setIsUploading(false); // Ensure uploading state is reset
         return { analysisId: null, fileName: fileToUpload?.name || null, error: msg };
       }
       if (!fileToUpload) {
@@ -59,6 +60,7 @@ export function useFileUploadManager() {
         console.warn(`[useFileUploadManager_upload] ${msg}`);
         toast({ title: 'Nenhum Arquivo', description: msg, variant: 'destructive' });
         setUploadError(msg);
+        setIsUploading(false);
         return { analysisId: null, fileName: null, error: msg };
       }
       if (!fileToUpload.name || fileToUpload.name.trim() === "") {
@@ -66,13 +68,14 @@ export function useFileUploadManager() {
         console.warn(`[useFileUploadManager_upload] ${msg}`);
         toast({ title: 'Nome Inválido', description: msg, variant: 'destructive' });
         setUploadError(msg);
+        setIsUploading(false);
         return { analysisId: null, fileName: null, error: msg };
       }
 
       setIsUploading(true);
       setUploadProgress(0);
       setUploadError(null);
-      const currentUserId = user.uid;
+      const currentUserId = user.uid; // Ensured to be a valid string by the check above
       const currentFileName = fileToUpload.name;
 
       console.log(`[useFileUploadManager_upload] Attempting to create initial record for: ${currentFileName}, User: ${currentUserId}`);
@@ -85,7 +88,6 @@ export function useFileUploadManager() {
         toast({ title: 'Erro ao Iniciar Análise', description: createRecordError || 'Não foi possível criar o registro da análise no Firestore.', variant: 'destructive' });
         setIsUploading(false);
         setUploadError(createRecordError || 'Falha na criação do registro no Firestore.');
-        // Retorna o erro, o upload para o Storage não deve prosseguir
         return { analysisId: null, fileName: currentFileName, error: createRecordError || 'Falha na criação do registro no Firestore.' };
       }
 
@@ -102,8 +104,7 @@ export function useFileUploadManager() {
             try {
               const currentUploadPercentage = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
               setUploadProgress(currentUploadPercentage);
-              // Atualiza o progresso no Firestore de forma "best-effort"
-              if (newAnalysisId) { // Verifica se newAnalysisId é válido
+              if (newAnalysisId) {
                 await updateAnalysisUploadProgressAction(currentUserId, newAnalysisId, currentUploadPercentage);
               }
             } catch (progressError) {
@@ -117,7 +118,7 @@ export function useFileUploadManager() {
               toast({ title: 'Erro no Upload do Arquivo', description: errorMessage, variant: 'destructive' });
               setIsUploading(false);
               setUploadError(errorMessage);
-              if (newAnalysisId) { // Verifica se newAnalysisId é válido
+              if (newAnalysisId) {
                 await markUploadAsFailedAction(currentUserId, newAnalysisId, errorMessage);
               }
               resolve({ analysisId: newAnalysisId, fileName: currentFileName, error: errorMessage });
@@ -134,7 +135,7 @@ export function useFileUploadManager() {
               
               const { success: finalizeSuccess, error: finalizeError } = await finalizeFileUploadRecordAction(
                 currentUserId,
-                newAnalysisId, // newAnalysisId deve ser válido aqui
+                newAnalysisId,
                 downloadURL
               );
 

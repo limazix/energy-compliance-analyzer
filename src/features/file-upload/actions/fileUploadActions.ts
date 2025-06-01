@@ -4,8 +4,6 @@
 
 import { addDoc, collection, doc, serverTimestamp, updateDoc, Timestamp, getDoc, FirestoreError } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-// Omit 'Analysis' type import if not strictly needed for the simplified initial object.
-// import type { Analysis } from '@/types/analysis';
 
 const MAX_ERROR_MESSAGE_LENGTH = 1500;
 
@@ -15,8 +13,8 @@ export async function createInitialAnalysisRecordAction(
 ): Promise<{ analysisId?: string; error?: string }> {
   console.log(`[Action_createInitialAnalysisRecord] Received userId: '${userId}', fileName: '${fileName}'`);
 
-  if (!userId || userId.trim() === "") {
-    const msg = "[Action_createInitialAnalysisRecord] User ID é obrigatório e não pode ser vazio.";
+  if (!userId || typeof userId !== 'string' || userId.trim() === "") {
+    const msg = `[Action_createInitialAnalysisRecord] CRITICAL: userId is invalid (null, empty, or whitespace): '${userId}'. Aborting.`;
     console.error(msg);
     return { error: msg };
   }
@@ -34,17 +32,10 @@ export async function createInitialAnalysisRecordAction(
     uploadProgress: 0,
     tags: [],
     createdAt: serverTimestamp() as Timestamp,
-    // Campos opcionais são omitidos e adicionados depois via updateDoc
-    // powerQualityDataUrl: null, // Não incluir aqui
-    // identifiedRegulations: null, // Não incluir aqui
-    // summary: null, // Não incluir aqui
-    // complianceReport: null, // Não incluir aqui
-    // errorMessage: null, // Não incluir aqui
-    // completedAt: null, // Não incluir aqui
   };
   
   const analysisCollectionPath = `users/${userId}/analyses`;
-  console.log(`[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: '${analysisCollectionPath}'. Data:`, JSON.stringify(analysisDataForFirestore, null, 2));
+  console.log(`[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: '${analysisCollectionPath}'. Data for user '${userId}'. Project: '${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}'`);
 
   try {
     const analysisCollectionRef = collection(db, 'users', userId, 'analyses');
@@ -55,7 +46,7 @@ export async function createInitialAnalysisRecordAction(
     let errorMessage = 'Falha ao criar registro inicial da análise.';
     if (error instanceof FirestoreError) {
       errorMessage = `Falha ao criar registro inicial da análise: ${error.code} ${error.message}`;
-      if (error.code === 'permission-denied' || error.code === 7) { // 7 é o código gRPC para PERMISSION_DENIED
+      if (error.code === 'permission-denied' || error.code === 7) {
         console.error(`[Action_createInitialAnalysisRecord] PERMISSION_DENIED ao tentar criar documento para userId: '${userId}' no caminho '${analysisCollectionPath}'. Verifique as regras do Firestore e se elas foram implantadas no projeto Firebase CORRETO (${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}). Erro original: ${error.message}`);
       }
     } else if (error instanceof Error) {
@@ -71,9 +62,8 @@ export async function updateAnalysisUploadProgressAction(
   analysisId: string,
   uploadProgress: number
 ): Promise<{ success: boolean; error?: string }> {
-  // console.log(`[Action_updateAnalysisUploadProgress] userId: ${userId}, analysisId: ${analysisId}, uploadProgress: ${uploadProgress}`);
-  if (!userId || userId.trim() === "" || !analysisId) {
-    const msg = "[Action_updateAnalysisUploadProgress] User ID e Analysis ID são obrigatórios.";
+  if (!userId || typeof userId !== 'string' || userId.trim() === "" || !analysisId || typeof analysisId !== 'string' || analysisId.trim() === "") {
+    const msg = `[Action_updateAnalysisUploadProgress] CRITICAL: userId ('${userId}') or analysisId ('${analysisId}') is invalid. Aborting.`;
     console.error(msg);
     return { success: false, error: msg };
   }
@@ -93,7 +83,6 @@ export async function updateAnalysisUploadProgressAction(
         uploadProgress: Math.round(uploadProgress), 
         progress: overallProgressBasedOnUpload 
     });
-    // console.log(`[Action_updateAnalysisUploadProgress] Document ${analysisId} progress updated.`);
     return { success: true };
   } catch (error) {
     let errorMessage = 'Falha ao atualizar progresso do upload.';
@@ -112,9 +101,8 @@ export async function finalizeFileUploadRecordAction(
   analysisId: string,
   downloadURL: string
 ): Promise<{ success: boolean; error?: string }> {
-  // console.log(`[Action_finalizeFileUploadRecord] userId: ${userId}, analysisId: ${analysisId}, downloadURL present: ${!!downloadURL}`);
-  if (!userId || userId.trim() === "" || !analysisId || !downloadURL) {
-    const msg = "[Action_finalizeFileUploadRecord] User ID, Analysis ID, e Download URL são obrigatórios.";
+  if (!userId || typeof userId !== 'string' || userId.trim() === "" || !analysisId || typeof analysisId !== 'string' || analysisId.trim() === "" || !downloadURL) {
+    const msg = `[Action_finalizeFileUploadRecord] CRITICAL: userId ('${userId}'), analysisId ('${analysisId}'), or downloadURL is invalid. Aborting.`;
     console.error(msg);
     return { success: false, error: msg };
   }
@@ -153,17 +141,16 @@ export async function markUploadAsFailedAction(
   analysisId: string | null, 
   uploadErrorMessage: string
 ): Promise<{ success: boolean; error?: string }> {
-  // console.log(`[Action_markUploadAsFailed] userId: ${userId}, analysisId: ${analysisId}, uploadErrorMessage: ${uploadErrorMessage}`);
-  if (!userId || userId.trim() === "") {
-    const msg = "[Action_markUploadAsFailed] User ID é obrigatório.";
+  if (!userId || typeof userId !== 'string' || userId.trim() === "") {
+    const msg = `[Action_markUploadAsFailed] CRITICAL: userId is invalid ('${userId}'). Aborting.`;
     console.error(msg);
     return { success: false, error: msg };
   }
   
-  if (!analysisId) {
-    const noIdMsg = `[Action_markUploadAsFailed] Analysis ID não fornecido. Provável falha na criação do registro. Erro original do upload: ${uploadErrorMessage}`;
+  if (!analysisId || typeof analysisId !== 'string' || analysisId.trim() === "") {
+    const noIdMsg = `[Action_markUploadAsFailed] Analysis ID inválido ou não fornecido ('${analysisId}'). Provável falha na criação do registro. Erro original do upload: ${uploadErrorMessage}`;
     console.warn(noIdMsg);
-    return { success: true, error: "ID da análise não disponível para marcar falha (criação pode ter falhado)." };
+    return { success: true, error: "ID da análise inválido para marcar falha (criação pode ter falhado)." };
   }
   
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
@@ -194,5 +181,3 @@ export async function markUploadAsFailedAction(
     return { success: false, error: errorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH) };
   }
 }
-
-    
