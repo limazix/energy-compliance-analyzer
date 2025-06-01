@@ -173,7 +173,12 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
       const fsErrorMsg = firestoreError instanceof Error ? firestoreError.message : String(firestoreError);
       console.error(`[processAnalysisFile] CRITICAL: Failed to update Firestore with overall error status for analysis ${analysisId} (Original error: ${finalErrorMessageForFirestore.substring(0,200)}...):`, fsErrorMsg);
     }
-    throw new Error(originalErrorMessage);
+    // CRUCIAL: Re-throw an error that the client can handle.
+    // Instead of: throw new Error(originalErrorMessage);
+    // Let's try a simpler, fixed error message to test if the original message content is the problem.
+    const clientSafeErrorMessage = `Erro no processamento da análise (ID: ${analysisId}). Detalhes no log do servidor.`;
+    console.error(`[processAnalysisFile] Re-throwing client-safe error: "${clientSafeErrorMessage}" Original was: "${originalErrorMessage}"`);
+    throw new Error(clientSafeErrorMessage);
   }
 }
 
@@ -201,9 +206,9 @@ export async function getPastAnalysesAction(userId: string): Promise<Analysis[]>
       } as Analysis;
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[getPastAnalysesAction] Error fetching analyses for userId ${userId}:`, errorMessage);
-    throw new Error(errorMessage);
+    const originalErrorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[getPastAnalysesAction] Error fetching analyses for userId ${userId}:`, originalErrorMessage);
+    throw new Error(originalErrorMessage);
   }
 }
 
@@ -230,9 +235,9 @@ export async function addTagToAction(userId: string, analysisId: string, tag: st
       console.log(`[addTagToAction] Tag "${tag.trim()}" already exists on analysis ${analysisId}`);
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[addTagToAction] Error adding tag to analysis ${analysisId} for user ${userId}:`, errorMessage);
-    throw new Error(errorMessage);
+    const originalErrorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[addTagToAction] Error adding tag to analysis ${analysisId} for user ${userId}:`, originalErrorMessage);
+    throw new Error(originalErrorMessage);
   }
 }
 
@@ -255,9 +260,9 @@ export async function removeTagAction(userId: string, analysisId: string, tagToR
     await updateDoc(analysisRef, { tags: currentTags.filter((t: string) => t !== tagToRemove.trim()) });
     console.log(`[removeTagAction] Tag "${tagToRemove.trim()}" removed from analysis ${analysisId}`);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[removeTagAction] Error removing tag from analysis ${analysisId} for user ${userId}:`, errorMessage);
-    throw new Error(errorMessage);
+    const originalErrorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[removeTagAction] Error removing tag from analysis ${analysisId} for user ${userId}:`, originalErrorMessage);
+    throw new Error(originalErrorMessage);
   }
 }
 
@@ -279,8 +284,9 @@ export async function deleteAnalysisAction(userId: string, analysisId: string): 
     await updateDoc(analysisRef, { status: 'deleted', summary: null, complianceReport: null, identifiedRegulations: null, errorMessage: 'Análise excluída pelo usuário.' });
     console.log(`[deleteAnalysisAction] Analysis ${analysisId} marked as deleted for user ${userId}.`);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[deleteAnalysisAction] Error soft deleting analysis ${analysisId} for user ${userId}:`, errorMessage);
-    throw new Error(errorMessage);
+    const originalErrorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[deleteAnalysisAction] Error soft deleting analysis ${analysisId} for user ${userId}:`, originalErrorMessage);
+    throw new Error(originalErrorMessage);
   }
 }
+
