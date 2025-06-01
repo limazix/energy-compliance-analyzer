@@ -3,15 +3,14 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { User } from 'firebase/auth';
-import { doc, onSnapshot, addDoc, collection, serverTimestamp, updateDoc, Timestamp, getDoc, FirestoreError } from 'firebase/firestore';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { doc, onSnapshot, Timestamp, FirestoreError } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import type { Analysis, AnalysisStep } from '@/types/analysis';
 import { processAnalysisFile, getPastAnalysesAction, addTagToAction, removeTagAction, deleteAnalysisAction } from '@/app/actions';
 
 const BASE_ANALYSIS_STEPS: Omit<AnalysisStep, 'status' | 'progress' | 'details'>[] = [
-  { name: 'Upload do Arquivo' },
+  { name: 'Upload do Arquivo e Preparação' }, // Ajustado para refletir que o upload é gerenciado externamente
   { name: 'Identificando Resoluções ANEEL' },
   { name: 'Analisando Conformidade' },
   { name: 'Gerando Resultados' },
@@ -22,17 +21,14 @@ export function useAnalysisManager(user: User | null) {
   const [currentAnalysis, setCurrentAnalysis] = useState<Analysis | null>(null);
   const [pastAnalyses, setPastAnalyses] = useState<Analysis[]>([]);
   const [isLoadingPastAnalyses, setIsLoadingPastAnalyses] = useState(false);
-  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [_uploadProgress, setUploadProgressInternal] = useState(0);
   const [tagInput, setTagInput] = useState('');
 
+  // Efeito para ouvir mudanças no documento da análise ATUAL via onSnapshot
   useEffect(() => {
     let unsub: (() => void) | undefined;
-    console.log('[useAnalysisManager_useEffect_onSnapshot] Evaluating subscription. User:', JSON.stringify(user, null, 2), 'CurrentAnalysis ID:', currentAnalysis?.id, 'Status:', currentAnalysis?.status);
 
     if (user && user.uid && currentAnalysis?.id && !currentAnalysis.id.startsWith('error-')) {
-      console.log(`[useAnalysisManager_useEffect_onSnapshot] Attempting to subscribe to analysis ID: ${currentAnalysis.id} for user UID: ${user.uid}.`);
+      console.log(`[useAnalysisManager_onSnapshot] Subscribing to analysis ID: ${currentAnalysis.id} for user UID: ${user.uid}. Current local status: ${currentAnalysis?.status}`);
       const analysisDocumentRef = doc(db, 'users', user.uid, 'analyses', currentAnalysis.id);
       
       try {
@@ -40,16 +36,18 @@ export function useAnalysisManager(user: User | null) {
           (docSnap) => {
             if (docSnap.exists()) {
               const data = docSnap.data();
-              console.log(`[useAnalysisManager_useEffect_onSnapshot] Snapshot received for ${currentAnalysis.id}:`, JSON.stringify(data, null, 2));
-              const validStatuses = ['uploading', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted'];
-              const statusIsValid = data.status && validStatuses.includes(data.status);
+              console.log(`[useAnalysisManager_onSnapshot] Snapshot for ${currentAnalysis.id}: Status: ${data.status}, Progress: ${data.progress}, ErrMsg: ${data.errorMessage}`);
+              
+              const validStatuses: Analysis['status'][] = ['uploading', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted'];
+              const statusIsValid = data.status && validStatuses.includes(data.status as Analysis['status']);
 
               const updatedAnalysis: Analysis = {
                 id: docSnap.id,
                 userId: typeof data.userId === 'string' ? data.userId : user.uid,
-                fileName: typeof data.fileName === 'string' ? data.fileName : 'Nome de arquivo desconhecido',
-                status: statusIsValid ? data.status : 'error',
+                fileName: typeof data.fileName === 'string' ? data.fileName : currentAnalysis?.fileName || 'Nome de arquivo desconhecido',
+                status: statusIsValid ? (data.status as Analysis['status']) : 'error',
                 progress: typeof data.progress === 'number' ? data.progress : 0,
+                uploadProgress: typeof data.uploadProgress === 'number' ? data.uploadProgress : undefined,
                 powerQualityDataUrl: typeof data.powerQualityDataUrl === 'string' ? data.powerQualityDataUrl : undefined,
                 identifiedRegulations: Array.isArray(data.identifiedRegulations) ? data.identifiedRegulations.map(String) : undefined,
                 summary: typeof data.summary === 'string' ? data.summary : undefined,
@@ -61,7 +59,8 @@ export function useAnalysisManager(user: User | null) {
               };
               setCurrentAnalysis(updatedAnalysis);
             } else {
-              console.warn(`[useAnalysisManager_useEffect_onSnapshot] Document ${currentAnalysis?.id} not found. Current local status: ${currentAnalysis?.status}.`);
+              console.warn(`[useAnalysisManager_onSnapshot] Document ${currentAnalysis?.id} not found. Current local status: ${currentAnalysis?.status}.`);
+              // Apenas atualiza para erro se não for um erro já e se o documento deveria existir
               if (currentAnalysis && currentAnalysis.id && !currentAnalysis.id.startsWith('error-') && currentAnalysis.status !== 'deleted' && currentAnalysis.status !== 'error') {
                 setCurrentAnalysis(prev => {
                   if (prev && prev.id === currentAnalysis.id && prev.status !== 'error' && prev.status !== 'deleted') {
@@ -73,7 +72,7 @@ export function useAnalysisManager(user: User | null) {
             }
           },
           (error: FirestoreError) => {
-            console.error(`[useAnalysisManager_useEffect_onSnapshot] Error in onSnapshot for ${currentAnalysis?.id}: Code: ${error.code}, Message: ${error.message}`, error);
+            console.error(`[useAnalysisManager_onSnapshot] Firestore onSnapshot error for ${currentAnalysis?.id}: Code: ${error.code}, Message: ${error.message}`, error);
             toast({ title: 'Erro ao Sincronizar Análise', description: `Não foi possível obter atualizações: ${error.message}`, variant: 'destructive' });
             setCurrentAnalysis(prev => {
               if (prev && currentAnalysis?.id && prev.id === currentAnalysis.id && !prev.id.startsWith('error-') && prev.status !== 'error') {
@@ -84,256 +83,53 @@ export function useAnalysisManager(user: User | null) {
           }
         );
       } catch (e) {
-        console.error("[useAnalysisManager_useEffect_onSnapshot] Exception setting up onSnapshot:", e);
+        console.error("[useAnalysisManager_onSnapshot] Exception setting up onSnapshot:", e);
       }
     } else {
-      console.log(`[useAnalysisManager_useEffect_onSnapshot] Conditions not met for subscription. User: ${!!user}, User UID: ${user?.uid}, CurrentAnalysis ID: ${currentAnalysis?.id}, IsErrorID: ${!!currentAnalysis?.id?.startsWith('error-')}`);
+      console.log(`[useAnalysisManager_onSnapshot] Conditions not met for subscription. User: ${!!user}, User UID: ${user?.uid}, CurrentAnalysis ID: ${currentAnalysis?.id}, IsErrorID: ${!!currentAnalysis?.id?.startsWith('error-')}`);
     }
     return () => {
       if (unsub) {
-        console.log(`[useAnalysisManager_useEffect_onSnapshot] Unsubscribing from analysis ID: ${currentAnalysis?.id}`);
+        console.log(`[useAnalysisManager_onSnapshot] Unsubscribing from analysis ID: ${currentAnalysis?.id}`);
         unsub();
       }
     };
-  }, [user, currentAnalysis?.id]); // Removed toast from dependencies
+  }, [user, currentAnalysis?.id]); // Depende apenas de user e currentAnalysis.id
 
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
-        setFileToUpload(file);
-        console.log(`[useAnalysisManager_handleFileChange] File selected: ${file.name}, type: ${file.type}`);
-      } else {
-        toast({ title: 'Arquivo inválido', description: 'Por favor, selecione um arquivo CSV.', variant: 'destructive' });
-        setFileToUpload(null);
-      }
-    }
-  };
-
-  const handleUploadAndAnalyze = useCallback(async (onSuccessCallback?: () => void) => {
-    console.log('[useAnalysisManager_handleUploadAndAnalyze] Initiated. User object:', JSON.stringify(user, null, 2));
-    console.log('[useAnalysisManager_handleUploadAndAnalyze] File to upload:', fileToUpload?.name);
-
-    if (!user) {
-      console.error('[useAnalysisManager_handleUploadAndAnalyze] Error: User object is null.');
-      toast({ title: 'Usuário não autenticado', description: 'O objeto de usuário é nulo. Por favor, faça login.', variant: 'destructive' });
-      setIsUploading(false);
-      setCurrentAnalysis(null);
+  // Função para iniciar o processamento AI (chamada após o upload ser bem-sucedido)
+  const startAiProcessing = useCallback(async (analysisId: string, userId: string) => {
+    console.log(`[useAnalysisManager_startAiProcessing] Calling server action processAnalysisFile for ID: ${analysisId}, UserID: ${userId}`);
+    if (!analysisId || !userId) {
+      console.error('[useAnalysisManager_startAiProcessing] Analysis ID or User ID is missing.');
+      setCurrentAnalysis(prev => prev && prev.id === analysisId ? { ...prev, status: 'error', errorMessage: 'ID da análise ou usuário ausente para iniciar processamento.'} : prev);
       return;
     }
-    if (!user.uid || user.uid.trim() === "") {
-      console.error('[useAnalysisManager_handleUploadAndAnalyze] Error: User UID is missing or empty. User UID:', user.uid);
-      toast({ title: 'ID de Usuário Inválido', description: 'O ID do usuário está ausente ou é inválido. Por favor, tente fazer login novamente.', variant: 'destructive' });
-      setIsUploading(false);
-      setCurrentAnalysis(null);
-      return;
-    }
-
-    if (!fileToUpload) {
-      console.warn('[useAnalysisManager_handleUploadAndAnalyze] No file selected.');
-      toast({ title: 'Nenhum arquivo selecionado', description: 'Por favor, selecione um arquivo CSV para análise.', variant: 'destructive' });
-      setIsUploading(false);
-      setCurrentAnalysis(null);
-      return;
-    }
-    if (!fileToUpload.name || fileToUpload.name.trim() === "") {
-        console.warn('[useAnalysisManager_handleUploadAndAnalyze] Invalid file name.');
-        toast({ title: 'Nome de arquivo inválido', description: 'O arquivo selecionado não possui um nome válido.', variant: 'destructive' });
-        setIsUploading(false);
-        setCurrentAnalysis(null);
-        return;
-    }
-
-    setIsUploading(true);
-    setUploadProgressInternal(0);
-    setCurrentAnalysis(null); 
-    
-    let analysisDocId = '';
-    const currentUserId = user.uid; // Capture UID to avoid issues if user object changes mid-flight
-    const currentFileName = fileToUpload.name;
-
     try {
-      console.log(`[useAnalysisManager_handleUploadAndAnalyze] User UID for Firestore operations: ${currentUserId}, File Name: ${currentFileName}`);
-      
-      const dataToAdd = {
-        userId: currentUserId,
-        fileName: currentFileName,
-        status: 'uploading' as Analysis['status'],
-        progress: 0,
-        createdAt: serverTimestamp(),
-        tags: [],
-        powerQualityDataUrl: null,
-        identifiedRegulations: null,
-        summary: null,
-        complianceReport: null,
-        errorMessage: null,
-        completedAt: null,
-      };
-      
-      console.log('[useAnalysisManager_handleUploadAndAnalyze] Data to add to Firestore:', JSON.stringify(dataToAdd, null, 2));
-      const newAnalysisCollectionRef = collection(db, 'users', currentUserId, 'analyses');
-      const analysisDocRef = await addDoc(newAnalysisCollectionRef, dataToAdd);
-      analysisDocId = analysisDocRef.id;
-      console.log(`[useAnalysisManager_handleUploadAndAnalyze] Firestore document created with ID: ${analysisDocId}.`);
-
-      const docSnap = await getDoc(analysisDocRef);
-      if (docSnap.exists()) {
-        const initialData = docSnap.data();
-        const initialAnalysisData: Analysis = {
-          id: analysisDocId,
-          userId: currentUserId,
-          fileName: currentFileName,
-          status: 'uploading',
-          progress: 0,
-          createdAt: (initialData.createdAt instanceof Timestamp) ? initialData.createdAt.toDate().toISOString() : new Date().toISOString(),
-          tags: initialData.tags || [],
-          powerQualityDataUrl: initialData.powerQualityDataUrl || undefined,
-          identifiedRegulations: initialData.identifiedRegulations || undefined,
-          summary: initialData.summary || undefined,
-          complianceReport: initialData.complianceReport || undefined,
-          errorMessage: initialData.errorMessage || undefined,
-          completedAt: initialData.completedAt ? (initialData.completedAt as Timestamp).toDate().toISOString() : undefined,
-        };
-        setCurrentAnalysis(initialAnalysisData);
-        console.log(`[useAnalysisManager_handleUploadAndAnalyze] currentAnalysis set with real ID: ${analysisDocId}.`);
-      } else {
-         const criticalErrorMsg = `[useAnalysisManager_handleUploadAndAnalyze] CRITICAL: Newly created analysis document ${analysisDocId} not found immediately.`;
-         console.error(criticalErrorMsg);
-         // Set currentAnalysis to an error state so UI can reflect this
-         setCurrentAnalysis({
-             id: `error-firestore-fetch-${Date.now()}`, userId: currentUserId, fileName: currentFileName,
-             status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
-             errorMessage: 'Falha ao buscar o documento da análise recém-criado.'
-         });
-         setIsUploading(false);
-         return; // Stop further processing
-      }
-
-      const filePath = `user_uploads/${currentUserId}/${analysisDocId}/${currentFileName}`;
-      console.log(`[useAnalysisManager_handleUploadAndAnalyze] Starting GCS upload to: ${filePath}`);
-      const fileStorageRef = storageRef(storage, filePath);
-      const uploadTask = uploadBytesResumable(fileStorageRef, fileToUpload);
-
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          try {
-            const currentUploadPercentage = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            setUploadProgressInternal(currentUploadPercentage);
-            if (analysisDocId) { // Ensure analysisDocId is available
-              const progressData = { progress: currentUploadPercentage };
-              updateDoc(doc(db, 'users', currentUserId, 'analyses', analysisDocId), progressData)
-                .catch(err => {
-                  const firestoreError = err as FirestoreError;
-                  console.warn(`[useAnalysisManager_handleUploadAndAnalyze_onStateChanged] Minor error updating upload progress in Firestore (doc: ${analysisDocId}): Code: ${firestoreError.code}, Message: ${firestoreError.message}`);
-                });
+      // A action processAnalysisFile atualizará o status no Firestore, e o onSnapshot pegará.
+      await processAnalysisFile(analysisId, userId);
+      console.log(`[useAnalysisManager_startAiProcessing] Server action processAnalysisFile finished or threw for ID: ${analysisId}`);
+    } catch (processError) {
+        const errorMsg = processError instanceof Error ? processError.message : String(processError);
+        console.error(`[useAnalysisManager_startAiProcessing] Error calling processAnalysisFile for ${analysisId}:`, processError);
+        // O erro idealmente já foi tratado e logado pela action, e o status 'error' definido no Firestore.
+        // O onSnapshot deve pegar essa mudança. Se não, podemos forçar uma atualização aqui, mas é arriscado (pode sobrescrever um erro mais específico da action).
+        // Apenas para garantir que a UI reflita um erro se a action falhar silenciosamente ou não atualizar o Firestore:
+        setCurrentAnalysis(prev => {
+            if (prev && prev.id === analysisId && prev.status !== 'error') {
+                return { ...prev, status: 'error', errorMessage: `Falha ao iniciar processamento AI: ${errorMsg}`};
             }
-          } catch (progressUpdateError) {
-             console.error(`[useAnalysisManager_handleUploadAndAnalyze_onStateChanged] Error inside progress callback for ${analysisDocId}:`, progressUpdateError);
-          }
-        },
-        async (uploadError) => {
-          try {
-            console.error(`[useAnalysisManager_handleUploadAndAnalyze_uploadErrorCallback] GCS Upload error for ${analysisDocId || 'unknown_id'}:`, uploadError);
-            toast({ title: 'Erro no Upload do Arquivo', description: uploadError.message || 'Falha desconhecida no upload.', variant: 'destructive' });
-            setIsUploading(false);
-            if (analysisDocId) {
-              const errorData = {
-                status: 'error' as Analysis['status'],
-                errorMessage: `Falha no upload do arquivo: ${uploadError.message || 'Erro desconhecido.'}`,
-                progress: 0,
-              };
-              await updateDoc(doc(db, 'users', currentUserId, 'analyses', analysisDocId), errorData);
-            } else {
-               setCurrentAnalysis({
-                  id: `error-upload-${Date.now()}`, userId: currentUserId, fileName: currentFileName,
-                  status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
-                  errorMessage: `Falha no upload do arquivo (sem ID de análise): ${uploadError.message || 'Erro desconhecido.'}`
-              });
-            }
-          } catch (errorHandlingError) {
-            console.error(`[useAnalysisManager_handleUploadAndAnalyze_uploadErrorCallback] CRITICAL: Error while handling GCS upload error for ${analysisDocId}:`, errorHandlingError);
-          }
-        },
-        async () => { 
-          try {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            console.log(`[useAnalysisManager_handleUploadAndAnalyze_uploadCompleteCallback] GCS Upload complete for ${analysisDocId}. URL: ${downloadURL}`);
-            
-            if (!analysisDocId) {
-                const criticalMsg = "[useAnalysisManager_handleUploadAndAnalyze_uploadCompleteCallback] CRITICAL: analysisDocId is empty after successful upload.";
-                console.error(criticalMsg);
-                toast({ title: 'Erro Crítico Pós-Upload', description: 'ID da análise não encontrado. A análise pode não prosseguir.', variant: 'destructive' });
-                setIsUploading(false);
-                setCurrentAnalysis(prev => prev ? { ...prev, status: 'error', errorMessage: 'ID da análise perdido após upload.' } : {
-                    id: `error-no-id-post-upload-${Date.now()}`, userId: currentUserId, fileName: currentFileName,
-                    status: 'error', progress: 100, /* Mark upload as done */ createdAt: new Date().toISOString(), tags: [],
-                    errorMessage: 'ID da análise perdido após upload completo do arquivo.'
-                });
-                return;
-            }
-
-            const postUploadData = {
-              powerQualityDataUrl: downloadURL,
-              status: 'identifying_regulations' as Analysis['status'],
-              progress: 10, 
-            };
-            await updateDoc(doc(db, 'users', currentUserId, 'analyses', analysisDocId), postUploadData);
-            
-            setIsUploading(false);
-            setFileToUpload(null); 
-            
-            onSuccessCallback?.(); 
-
-            console.log(`[useAnalysisManager_handleUploadAndAnalyze_uploadCompleteCallback] Calling server action processAnalysisFile for ID: ${analysisDocId}, UserID: ${currentUserId}`);
-            await processAnalysisFile(analysisDocId, currentUserId);
-            console.log(`[useAnalysisManager_handleUploadAndAnalyze_uploadCompleteCallback] Server action processAnalysisFile likely completed or errored for ID: ${analysisDocId}`);
-
-          } catch (postUploadProcessError) {
-            const errorMsg = postUploadProcessError instanceof Error ? postUploadProcessError.message : String(postUploadProcessError);
-            console.error(`[useAnalysisManager_handleUploadAndAnalyze_uploadCompleteCallback] Error during post-GCS-upload processing for ${analysisDocId}:`, postUploadProcessError);
-            toast({ title: 'Erro Pós-Upload', description: errorMsg, variant: 'destructive' });
-            setIsUploading(false); // Ensure this is reset
-            if (analysisDocId) { 
-              try {
-                const errorData = {
-                    status: 'error' as Analysis['status'],
-                    errorMessage: `Falha no processamento pós-upload: ${errorMsg}`,
-                    progress: 0, // Reset progress as this phase failed
-                };
-                await updateDoc(doc(db, 'users', currentUserId, 'analyses', analysisDocId), errorData);
-              } catch (updateError) {
-                 console.error(`[useAnalysisManager_handleUploadAndAnalyze_uploadCompleteCallback] CRITICAL: Failed to update Firestore with post-upload error for ${analysisDocId}:`, updateError);
-              }
-            } else {
-                 setCurrentAnalysis({
-                    id: `error-post-upload-no-id-${Date.now()}`, userId: currentUserId, fileName: currentFileName,
-                    status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
-                    errorMessage: `Falha no processamento pós-upload (sem ID de análise): ${errorMsg}`
-                });
-            }
-          }
-        }
-      );
-    } catch (initialError) {
-      const errorMessage = initialError instanceof Error ? initialError.message : String(initialError);
-      const firestoreErrorCode = (initialError as FirestoreError)?.code;
-      console.error(`[useAnalysisManager_handleUploadAndAnalyze_initialError] Critical error starting analysis (e.g., Firestore addDoc): Code: ${firestoreErrorCode}, Message: ${errorMessage}`, initialError);
-      toast({ title: 'Erro Crítico ao Iniciar Análise', description: `Erro: ${errorMessage}`, variant: 'destructive' });
-      setIsUploading(false);
-      setCurrentAnalysis({
-          id: `error-initial-${Date.now()}`,
-          userId: currentUserId || 'unknown_user', // Use captured currentUserId or fallback
-          fileName: currentFileName || "Arquivo desconhecido",
-          status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
-          errorMessage: `Falha ao criar registro da análise: ${errorMessage}`
-      });
+            return prev;
+        });
+        toast({ title: 'Erro no Processamento', description: `Falha ao processar análise: ${errorMsg}`, variant: 'destructive'});
     }
-  }, [fileToUpload, user, toast]); // onSuccessCallback was removed as it's a param, not a hook dependency
+  }, [toast]);
+
 
   const fetchPastAnalyses = useCallback(async () => {
     if (!user || !user.uid) {
       console.log('[useAnalysisManager_fetchPastAnalyses] No user or user.uid, skipping fetch.');
+      setPastAnalyses([]); // Limpa análises se o usuário deslogar
       return;
     }
     setIsLoadingPastAnalyses(true);
@@ -354,9 +150,11 @@ export function useAnalysisManager(user: User | null) {
     const currentUserId = user.uid;
     try {
       await addTagToAction(currentUserId, analysisId, tag.trim());
+      // Atualizações de estado serão tratadas pelo onSnapshot se for currentAnalysis,
+      // ou manualmente para pastAnalyses.
       setPastAnalyses(prev => prev.map(a => a.id === analysisId ? { ...a, tags: [...new Set([...(a.tags || []), tag.trim()])]} : a));
       if (currentAnalysis && currentAnalysis.id === analysisId) {
-        setCurrentAnalysis(prev => prev ? { ...prev, tags: [...new Set([...(prev.tags || []), tag.trim()])]} : null);
+        // Deixar onSnapshot atualizar ou forçar aqui? Por ora, onSnapshot.
       }
       setTagInput('');
       toast({ title: 'Tag adicionada', description: `Tag "${tag.trim()}" adicionada.` });
@@ -373,7 +171,7 @@ export function useAnalysisManager(user: User | null) {
       await removeTagAction(currentUserId, analysisId, tagToRemove);
       setPastAnalyses(prev => prev.map(a => a.id === analysisId ? { ...a, tags: (a.tags || []).filter(t => t !== tagToRemove) } : a));
       if (currentAnalysis && currentAnalysis.id === analysisId) {
-        setCurrentAnalysis(prev => prev ? { ...prev, tags: (prev.tags || []).filter(t => t !== tagToRemove)} : null);
+        // Deixar onSnapshot atualizar.
       }
       toast({ title: 'Tag removida', description: `Tag "${tagToRemove}" removida.` });
     } catch (error) {
@@ -388,9 +186,9 @@ export function useAnalysisManager(user: User | null) {
     const currentUserId = user.uid;
     try {
       await deleteAnalysisAction(currentUserId, analysisId);
-      setPastAnalyses(prev => prev.filter(a => a.id !== analysisId));
+      setPastAnalyses(prev => prev.filter(a => a.id !== analysisId)); // Remove da lista local
       if (currentAnalysis?.id === analysisId) {
-        setCurrentAnalysis(null);
+        setCurrentAnalysis(null); // Limpa se for a análise atual
       }
       toast({ title: 'Análise excluída', description: 'A análise foi marcada como excluída.' });
       onDeleted?.();
@@ -421,78 +219,90 @@ export function useAnalysisManager(user: User | null) {
 
     if (!currentAnalysis || currentAnalysis.id.startsWith('error-')) {
         if (currentAnalysis && currentAnalysis.errorMessage) {
-             steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'error', details: currentAnalysis.errorMessage, progress: 0};
+             steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'error', details: currentAnalysis.errorMessage, progress: currentAnalysis.uploadProgress ?? 0};
         } else {
              steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'pending', details: 'Aguardando início da análise ou configuração inicial.', progress: 0};
         }
+        // As etapas subsequentes permanecem pendentes se a primeira falhar ou estiver pendente
         for (let i = 1; i < steps.length; i++) {
             steps[i] = { ...BASE_ANALYSIS_STEPS[i], status: 'pending', progress: 0 };
         }
         return steps;
     }
 
-    const { status, progress, errorMessage, powerQualityDataUrl, identifiedRegulations, summary } = currentAnalysis;
+    const { status, progress, errorMessage, powerQualityDataUrl, identifiedRegulations, summary, uploadProgress } = currentAnalysis;
     
-    const sanitizedProgress = typeof progress === 'number' ? Math.min(100, Math.max(0, progress)) : 0;
-    const currentStepProgress = (status === 'uploading') ? _uploadProgress : sanitizedProgress;
+    const sanitizedOverallProgress = typeof progress === 'number' ? Math.min(100, Math.max(0, progress)) : 0;
 
-
-    switch (status) {
-      case 'uploading':
-        steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'in_progress', progress: _uploadProgress }; 
-        break;
-      case 'identifying_regulations':
-        steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'completed', progress: 100 };
-        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'in_progress', progress: currentStepProgress }; 
-        break;
-      case 'assessing_compliance':
-        steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'completed', progress: 100 };
-        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'completed', progress: 100 };
-        steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'in_progress', progress: currentStepProgress }; 
-        break;
-      case 'completed':
-        steps = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'completed', progress: 100 }));
-        break;
-      case 'error':
-        let errorStepIndex = 3; 
-        if (errorMessage?.toLowerCase().includes('upload') || (!powerQualityDataUrl && !identifiedRegulations && !summary)) {
-            errorStepIndex = 0;
-        } else if (errorMessage?.toLowerCase().includes('resolution') || (powerQualityDataUrl && !identifiedRegulations && !summary)) {
-            errorStepIndex = 1;
-        } else if (errorMessage?.toLowerCase().includes('compliance') || (powerQualityDataUrl && identifiedRegulations && !summary)) {
-            errorStepIndex = 2;
-        }
-        
-        steps = steps.map((step, index) => {
-          if (index < errorStepIndex) return { ...step, status: 'completed', progress: 100 };
-          if (index === errorStepIndex) return { ...step, status: 'error', details: errorMessage || 'Erro desconhecido', progress: currentStepProgress };
-          return { ...step, status: 'pending', progress: 0 };
-        });
-        break;
-      case 'deleted':
-         steps = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'pending', details: 'Análise excluída', progress: 0 }));
-         break;
-      default:
-        console.error(`[useAnalysisManager_displayedAnalysisSteps] Unhandled status: ${status}`);
-        steps = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'error', details: `Status desconhecido ou inválido: ${status}`, progress: 0 }));
-        break;
+    // Etapa 0: Upload e Preparação
+    if (powerQualityDataUrl || status === 'identifying_regulations' || status === 'assessing_compliance' || status === 'completed') {
+      steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'completed', progress: 100 };
+    } else if (status === 'uploading') { // Este status agora significa que o upload está em andamento OU o registro inicial foi criado
+        steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'in_progress', progress: uploadProgress ?? 0 };
+    } else if (status === 'error' && (!powerQualityDataUrl && !identifiedRegulations && !summary)) { // Erro durante o upload/preparação
+        steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'error', details: errorMessage, progress: uploadProgress ?? 0 };
     }
+
+
+    // Etapa 1: Identificando Resoluções
+    if (status === 'identifying_regulations') {
+        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'in_progress', progress: sanitizedOverallProgress };
+    } else if (status === 'assessing_compliance' || status === 'completed') {
+        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'completed', progress: 100 };
+    } else if (status === 'error' && powerQualityDataUrl && (!identifiedRegulations && !summary)) { // Erro nesta etapa
+        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'error', details: errorMessage, progress: sanitizedOverallProgress };
+    }
+    
+    // Etapa 2: Analisando Conformidade
+    if (status === 'assessing_compliance') {
+        steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'in_progress', progress: sanitizedOverallProgress };
+    } else if (status === 'completed') {
+        steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'completed', progress: 100 };
+    } else if (status === 'error' && powerQualityDataUrl && identifiedRegulations && !summary) { // Erro nesta etapa
+        steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'error', details: errorMessage, progress: sanitizedOverallProgress };
+    }
+
+    // Etapa 3: Gerando Resultados (Considerada em progresso se as anteriores estiverem completas mas a análise geral não)
+    // Ou completa se a análise geral estiver completa.
+    if (status === 'completed') {
+        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 };
+    } else if (status === 'error' && summary) { // Erro na etapa final ou após ter sumário
+        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'error', details: errorMessage, progress: sanitizedOverallProgress };
+    } else if (steps[0].status === 'completed' && steps[1].status === 'completed' && steps[2].status === 'completed' && status !== 'error') {
+        // Se as etapas anteriores estão completas, mas o status geral ainda não é 'completed', esta está em progresso.
+        // Isso cobre o caso onde o 'completedAt' ainda não foi setado.
+        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'in_progress', progress: sanitizedOverallProgress };
+    }
+    
+    // Se o status geral for erro, e não foi capturado por uma etapa específica, a última etapa em progresso ou pendente mostra o erro.
+    if (status === 'error' && !steps.find(s => s.status === 'error')) {
+        let errorAssigned = false;
+        for (let i = steps.length - 1; i >= 0; i--) {
+            if (steps[i].status === 'in_progress' || steps[i].status === 'pending') {
+                steps[i] = { ...steps[i], status: 'error', details: errorMessage, progress: steps[i].progress === 100 ? sanitizedOverallProgress : steps[i].progress };
+                errorAssigned = true;
+                break;
+            }
+        }
+        if (!errorAssigned) { // Se todas já estavam 'completed', mas o status geral é erro (improvável mas seguro)
+            steps[steps.length -1] = { ...steps[steps.length-1], status: 'error', details: errorMessage, progress: sanitizedOverallProgress};
+        }
+    }
+
+
     return steps;
-  }, [currentAnalysis, _uploadProgress]);
+  }, [currentAnalysis]);
 
 
   return {
     currentAnalysis,
-    setCurrentAnalysis,
+    setCurrentAnalysis, // Permite que a HomePage defina a análise após o upload
     pastAnalyses,
     isLoadingPastAnalyses,
-    fileToUpload,
-    isUploading,
     tagInput,
     setTagInput,
-    handleFileChange,
-    handleUploadAndAnalyze,
-    fetchPastAnalyses,
+    fetchPastAnalyses, // Para carregar análises passadas
+    startAiProcessing, // Para iniciar o processamento AI após o upload
     handleAddTag,
     handleRemoveTag,
     handleDeleteAnalysis,
@@ -500,3 +310,4 @@ export function useAnalysisManager(user: User | null) {
     displayedAnalysisSteps,
   };
 }
+

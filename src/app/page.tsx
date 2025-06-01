@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react';
 
 import { AppHeader } from '@/components/app-header';
 import { useAuth } from '@/contexts/auth-context';
+import { useFileUploadManager, type FileUploadManagerResult } from '@/features/file-upload/hooks/useFileUploadManager';
 import { useAnalysisManager } from '@/hooks/useAnalysisManager';
 
 import { DashboardView } from '@/components/features/dashboard/DashboardView';
@@ -14,6 +15,8 @@ import { NewAnalysisForm } from '@/components/features/analysis/NewAnalysisForm'
 import { AnalysisView } from '@/components/features/analysis/AnalysisView';
 import { PastAnalysesView } from '@/components/features/past-analyses/PastAnalysesView';
 import type { Analysis } from '@/types/analysis';
+import { getDoc, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 
 type ViewState = 'dashboard' | 'new_analysis' | 'analysis_view' | 'past_analyses';
@@ -24,17 +27,23 @@ export default function HomePage() {
   const [viewState, setViewState] = useState<ViewState>('dashboard');
 
   const {
+    fileToUpload,
+    isUploading,
+    uploadProgress, // Progresso do upload do arquivo
+    uploadError,
+    handleFileSelection,
+    uploadFileAndCreateRecord,
+  } = useFileUploadManager();
+
+  const {
     currentAnalysis,
     setCurrentAnalysis,
     pastAnalyses,
     isLoadingPastAnalyses,
-    fileToUpload,
-    isUploading,
     tagInput,
     setTagInput,
-    handleFileChange,
-    handleUploadAndAnalyze,
     fetchPastAnalyses,
+    startAiProcessing,
     handleAddTag,
     handleRemoveTag,
     handleDeleteAnalysis,
@@ -42,36 +51,130 @@ export default function HomePage() {
     displayedAnalysisSteps,
   } = useAnalysisManager(user);
 
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace('/login');
     }
   }, [user, authLoading, router]);
 
-  // Navigate to analysis view when currentAnalysis is set (e.g., after upload starts or selecting past analysis)
-  useEffect(() => {
-    if (currentAnalysis && (viewState === 'new_analysis' || viewState === 'past_analyses')) {
-      // Check if it's a new upload that just started or an existing analysis being viewed
-      if (currentAnalysis.status === 'uploading' || currentAnalysis.status === 'identifying_regulations' || currentAnalysis.status === 'assessing_compliance' || currentAnalysis.status === 'completed' || currentAnalysis.status === 'error') {
-         setViewState('analysis_view');
+  // Observa o resultado do upload e inicia o processamento AI se necessário
+  const handleUploadResult = useCallback(async (result: FileUploadManagerResult) => {
+    if (result.analysisId && !result.error && user && user.uid) {
+      // Upload e criação do registro foram bem-sucedidos.
+      // Buscar o documento completo para definir currentAnalysis.
+      try {
+        const analysisDocRef = doc(db, 'users', user.uid, 'analyses', result.analysisId);
+        const docSnap = await getDoc(analysisDocRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const fetchedAnalysis: Analysis = { // Construir o objeto Analysis
+            id: docSnap.id,
+            userId: data.userId,
+            fileName: data.fileName,
+            status: data.status,
+            progress: data.progress,
+            uploadProgress: data.uploadProgress,
+            powerQualityDataUrl: data.powerQualityDataUrl,
+            identifiedRegulations: data.identifiedRegulations,
+            summary: data.summary,
+            complianceReport: data.complianceReport,
+            errorMessage: data.errorMessage,
+            tags: data.tags || [],
+            createdAt: data.createdAt.toDate().toISOString(),
+            completedAt: data.completedAt ? data.completedAt.toDate().toISOString() : undefined,
+          };
+          setCurrentAnalysis(fetchedAnalysis);
+          setViewState('analysis_view'); // Navega para a visualização da análise
+          // Inicia o processamento AI
+          if (fetchedAnalysis.status === 'identifying_regulations') { // Ou o status que indica pronto para processar
+             await startAiProcessing(result.analysisId, user.uid);
+          }
+        } else {
+          console.error(`[HomePage_handleUploadResult] Document ${result.analysisId} not found after upload.`);
+           setCurrentAnalysis({
+            id: `error-fetch-${Date.now()}`, userId: user.uid, fileName: result.fileName || "Desconhecido",
+            status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
+            errorMessage: 'Falha ao buscar o documento da análise recém-criado após upload.'
+           });
+           setViewState('analysis_view');
+        }
+      } catch (fetchError) {
+        console.error(`[HomePage_handleUploadResult] Error fetching document ${result.analysisId}:`, fetchError);
+         setCurrentAnalysis({
+            id: `error-fetch-catch-${Date.now()}`, userId: user.uid, fileName: result.fileName || "Desconhecido",
+            status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
+            errorMessage: 'Erro ao buscar detalhes da análise após upload.'
+           });
+        setViewState('analysis_view');
       }
+    } else if (result.error) {
+      // Erro durante o upload, currentAnalysis pode precisar ser definido para um estado de erro se um ID foi criado
+      if (result.analysisId && user && user.uid) {
+         setCurrentAnalysis({
+            id: result.analysisId, // usa o ID que pode ter sido criado
+            userId: user.uid,
+            fileName: result.fileName || "Desconhecido",
+            status: 'error',
+            progress: 0,
+            uploadProgress: uploadProgress, // usa o progresso atual do upload
+            errorMessage: result.error,
+            tags: [],
+            createdAt: new Date().toISOString(),
+        });
+      } else if (user && user.uid) { // Nenhum ID foi criado, mas houve um erro de upload
+         setCurrentAnalysis({
+            id: `error-upload-${Date.now()}`,
+            userId: user.uid,
+            fileName: result.fileName || "Desconhecido",
+            status: 'error',
+            progress: 0,
+            uploadProgress: uploadProgress,
+            errorMessage: result.error,
+            tags: [],
+            createdAt: new Date().toISOString(),
+        });
+      }
+      setViewState('analysis_view'); // Mostra a view de análise com o erro
+    }
+  }, [user, setCurrentAnalysis, startAiProcessing, uploadProgress]);
+
+
+  const handleStartUploadAndAnalyze = useCallback(async () => {
+    if (!user) {
+      // Deveria ser pego antes, mas como segurança
+      router.replace('/login');
+      return;
+    }
+    // setCurrentAnalysis(null); // Limpa análise anterior antes de iniciar uma nova
+    const result = await uploadFileAndCreateRecord(user);
+    await handleUploadResult(result);
+  }, [user, uploadFileAndCreateRecord, handleUploadResult, router]);
+  
+
+  // Efeito para mudar para 'analysis_view' quando currentAnalysis é definido ou atualizado
+  // (e não é um estado inicial de "nova análise")
+  useEffect(() => {
+    if (currentAnalysis && viewState !== 'analysis_view') {
+       // Se currentAnalysis existe e não estamos já na view de análise, navega para lá.
+       // Isso cobre casos onde currentAnalysis é setado por selecionar uma análise passada,
+       // ou após o upload iniciar (que agora acontece via handleUploadResult).
+       if (currentAnalysis.status !== 'uploading' || currentAnalysis.powerQualityDataUrl) { // Evita transição se ainda estiver no meio do upload inicial
+        setViewState('analysis_view');
+       }
     }
   }, [currentAnalysis, viewState]);
 
 
-  const navigateToDashboard = () => setViewState('dashboard');
+  const navigateToDashboard = () => {
+    setCurrentAnalysis(null);
+    setViewState('dashboard');
+  }
   const navigateToNewAnalysis = () => {
-    setCurrentAnalysis(null); // Clear any previous analysis
+    setCurrentAnalysis(null); // Limpa qualquer análise anterior
     setViewState('new_analysis');
   };
   
-  const handleStartUploadAndAnalyze = useCallback(async () => {
-    await handleUploadAndAnalyze(() => {
-      // This callback is called on successful start of upload process (after Firestore doc is created)
-      // The useEffect above will then navigate to 'analysis_view' when currentAnalysis is updated by onSnapshot
-    });
-  }, [handleUploadAndAnalyze]);
-
 
   const navigateToPastAnalyses = useCallback(() => {
     fetchPastAnalyses().then(() => {
@@ -80,16 +183,14 @@ export default function HomePage() {
   }, [fetchPastAnalyses]);
 
   const viewAnalysisDetails = (analysis: Analysis) => {
-    setCurrentAnalysis(analysis);
-    setViewState('analysis_view');
+    setCurrentAnalysis(analysis); // Isso acionará o useEffect acima para mudar a view
   };
   
   const afterDeleteAnalysis = () => {
-    // If current view is analysis_view and that analysis was deleted, go to dashboard
-    if (viewState === 'analysis_view' && !currentAnalysis) {
+    if (viewState === 'analysis_view' && !currentAnalysis) { // Se a análise atual foi deletada
         navigateToDashboard();
     }
-    // If viewing past analyses and one is deleted, pastAnalyses state is already updated by the hook
+    // Se estiver em past_analyses, a lista já foi atualizada pelo hook.
   };
 
 
@@ -118,7 +219,9 @@ export default function HomePage() {
           <NewAnalysisForm
             fileToUpload={fileToUpload}
             isUploading={isUploading}
-            onFileChange={handleFileChange}
+            uploadProgress={uploadProgress} // Passa o progresso do upload
+            uploadError={uploadError} // Passa o erro do upload
+            onFileChange={handleFileSelection}
             onUploadAndAnalyze={handleStartUploadAndAnalyze}
             onCancel={navigateToDashboard}
           />
@@ -127,12 +230,12 @@ export default function HomePage() {
         {viewState === 'analysis_view' && currentAnalysis && (
           <AnalysisView
             analysis={currentAnalysis}
-            analysisSteps={displayedAnalysisSteps}
+            analysisSteps={displayedAnalysisSteps} // Usa as etapas do useAnalysisManager
             onDownloadReport={downloadReportAsTxt}
             tagInput={tagInput}
             onTagInputChange={setTagInput}
-            onAddTag={handleAddTag}
-            onRemoveTag={handleRemoveTag}
+            onAddTag={(tag) => handleAddTag(currentAnalysis.id, tag)}
+            onRemoveTag={(tag) => handleRemoveTag(currentAnalysis.id, tag)}
             onStartNewAnalysis={navigateToNewAnalysis}
             onViewPastAnalyses={navigateToPastAnalyses}
           />
@@ -154,5 +257,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
