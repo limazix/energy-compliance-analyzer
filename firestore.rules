@@ -3,17 +3,16 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow a user to read and write only to their own analysis documents.
-    // This means that for a path like /users/USER_ID_123/analyses/ANALYSIS_ID_ABC,
-    // the authenticated user's UID (request.auth.uid) must be equal to USER_ID_123.
+    // Permite que um usuário leia (get), atualize (update) e exclua (delete)
+    // seus próprios documentos de análise individuais.
     match /users/{userId}/analyses/{analysisId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow get, update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Example: If you had user profile documents directly under /users/{userId}
-    // match /users/{userId} {
-    //   allow read: if request.auth != null;
-    //   allow write: if request.auth != null && request.auth.uid == userId;
-    // }
+    // Permite que um usuário liste (list) sua coleção de análises
+    // e crie (create) novas análises em sua própria coleção.
+    match /users/{userId}/analyses {
+      allow list, create: if request.auth != null && request.auth.uid == userId;
+    }
   }
 }
