@@ -164,7 +164,7 @@ As regras de segurança para Firestore e Firebase Storage são cruciais para o f
 Se você encontrar erros de `PERMISSION_DENIED` no Firestore ou Storage, siga este checklist rigorosamente:
 
 1.  **Conteúdo das Regras Locais:**
-    *   Verifique se o arquivo `firestore.rules` na raiz do seu projeto contém as regras esperadas (por exemplo, `allow read, write: if request.auth != null && request.auth.uid == userId;` para o caminho relevante).
+    *   Verifique se o arquivo `firestore.rules` na raiz do seu projeto contém as regras esperadas (por exemplo, `allow read, write: if request.auth != null && request.auth.uid == userId;` para o caminho relevante, ou as versões mais granulares para `list`, `create`, `get`, `update`, `delete`).
     *   Verifique se o arquivo `storage.rules` na raiz do seu projeto contém as regras esperadas (por exemplo, `allow write: if request.auth != null && request.auth.uid == userId;` para o caminho de upload).
 
 2.  **Seleção do Projeto Firebase no CLI:**
@@ -186,23 +186,23 @@ Se você encontrar erros de `PERMISSION_DENIED` no Firestore ou Storage, siga es
     *   Vá para **Firestore Database > Aba "Regras"**.
     *   **Compare o texto COMPLETO das regras exibidas aqui, linha por linha, com o conteúdo do seu arquivo `firestore.rules` local.** Eles devem ser *idênticos*. Se não forem, o deploy não atualizou as regras como esperado, ou você está olhando para o projeto errado.
     *   Faça o mesmo para **Storage > Aba "Regras"**, comparando com seu arquivo `storage.rules` local.
-    *   **Logs do Servidor Next.js:** Verifique os logs do seu servidor Next.js (console onde você executou `npm run dev`). As Server Actions já possuem logs que indicam o `userId` e o caminho que estão tentando acessar, e o `PROJECT_ID` que o servidor acredita estar usando.
-        *   Exemplo de log: `[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: 'users/USER_ID_AQUI/analyses'. Data for user 'USER_ID_AQUI'. Project: 'SEU_PROJECT_ID_AQUI'`
-        *   Se um erro de permissão do Firestore ocorrer na action, ela logará: `[Action_createInitialAnalysisRecord] PERMISSION_DENIED ao tentar criar documento para userId: 'USER_ID_AQUI' no caminho 'users/USER_ID_AQUI/analyses'. ...`
-        *   Confirme se o `USER_ID_AQUI` é o UID esperado do usuário logado e se o `SEU_PROJECT_ID_AQUI` é o projeto correto.
 
-6.  **Estado de Autenticação do Usuário:**
+6.  **Logs do Servidor Next.js (e Console do Navegador):**
+    *   Verifique os logs do seu servidor Next.js (console onde você executou `npm run dev`). As Server Actions já possuem logs que indicam o `userId` (aparado de espaços), o caminho que estão tentando acessar, e o `PROJECT_ID` que o servidor acredita estar usando.
+        *   Exemplo de log da action `getPastAnalysesAction`: `[getPastAnalysesAction] Attempting to query Firestore collection at path: 'users/USER_ID_AQUI/analyses' for userId: 'USER_ID_AQUI' (Project: 'SEU_PROJECT_ID_AQUI')`
+        *   Se um erro de permissão do Firestore ocorrer na action, ela logará: `[getPastAnalysesAction] PERMISSION_DENIED while querying path 'users/USER_ID_AQUI/analyses' for userId: 'USER_ID_AQUI'. ... Firestore error code: 7 ...`
+    *   Verifique os logs do console do navegador (DevTools). O `AuthProvider` loga o `currentUser` (ex: `[AuthProvider] Auth state changed. currentUser: {"uid":"USER_ID_DO_CLIENTE", ...}`).
+    *   **Confirme se o `USER_ID_AQUI` dos logs do servidor (usado pela action) é o mesmo `USER_ID_DO_CLIENTE` que você vê no `currentUser` dos logs do navegador.** Uma incompatibilidade aqui indica um problema na forma como o estado de autenticação está sendo passado ou interpretado.
+    *   Confirme se o `SEU_PROJECT_ID_AQUI` nos logs do servidor corresponde ao projeto correto.
+
+7.  **Estado de Autenticação do Usuário:**
     *   No seu aplicativo, assegure-se de que o usuário está autenticado (`user` não é `null` e `user.uid` está presente e é uma string válida) *antes* de tentar operações que exigem autenticação. O `AuthProvider` e os hooks `useAuth`, `useFileUploadManager`, `useAnalysisManager` já possuem logs e verificações para isso.
-    *   No console do navegador, verifique se há erros de autenticação do Firebase.
-    *   Verifique se os logs do `AuthProvider` no console do navegador mostram um `currentUser` com um `uid` válido.
 
-7.  **Caminhos no Código vs. Regras:**
+8.  **Caminhos no Código vs. Regras:**
     *   Verifique se os caminhos que seu código está tentando acessar no Firestore/Storage (visíveis nos logs do servidor) correspondem exatamente aos caminhos definidos nas suas regras (incluindo a variável `userId`).
 
-Seguir este checklist rigorosamente geralmente resolve a maioria dos problemas de `PERMISSION_DENIED`. Se o problema persistir após uma verificação minuciosa de todos esses pontos, a causa pode ser mais sutil e exigir uma investigação mais profunda do estado de autenticação ou da configuração específica do projeto Firebase.
+Seguir este checklist rigorosamente geralmente resolve a maioria dos problemas de `PERMISSION_DENIED`. Se o problema persistir após uma verificação minuciosa de todos esses pontos, a causa pode ser mais sutil e exigir uma investigação mais profunda do estado de autenticação, da propagação das credenciais para as Server Actions, ou da configuração específica do projeto Firebase.
 
 ## Licença
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
-```
