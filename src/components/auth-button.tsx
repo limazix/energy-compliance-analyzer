@@ -1,3 +1,4 @@
+
 'use client';
 
 import { signInWithPopup, signOut } from 'firebase/auth';
@@ -52,11 +53,16 @@ export function AuthButton() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-          <Avatar className="h-10 w-10">
+        <Button variant="ghost" className="flex items-center space-x-2 rounded-md h-10 px-2">
+          <Avatar className="h-8 w-8">
             <AvatarImage src={user.photoURL ?? undefined} alt={user.displayName ?? 'User Avatar'} />
             <AvatarFallback>{user.displayName?.charAt(0).toUpperCase() ?? <UserIcon />}</AvatarFallback>
           </Avatar>
+          {user.displayName && (
+            <span className="text-sm font-medium text-foreground hidden sm:inline-block">
+              {user.displayName.split(' ')[0]}
+            </span>
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
