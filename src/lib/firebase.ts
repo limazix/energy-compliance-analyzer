@@ -3,10 +3,6 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { config } from 'dotenv';
-
-// Initialize dotenv to load environment variables from .env file
-config();
 
 const requiredEnvVars = [
   'NEXT_PUBLIC_FIREBASE_API_KEY',
