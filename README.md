@@ -72,7 +72,7 @@ Para executar o projeto localmente, siga os passos abaixo:
 
     NEXT_PUBLIC_GEMINI_API_KEY="SUA_API_KEY_DO_GEMINI"
     ```
-    **MUITO IMPORTANTE PARA EVITAR ERROS DE PERMISSÃO:** Certifique-se de que `NEXT_PUBLIC_FIREBASE_PROJECT_ID` corresponde **EXATAMENTE** ao ID do projeto Firebase para o qual você implantará as regras de segurança. Uma incompatibilidade aqui é a causa mais comum de erros de `PERMISSION_DENIED`. Verifique o ID do seu projeto no Firebase Console.
+    **MUITO IMPORTANTE PARA EVITAR ERROS DE PERMISSÃO:** Certifique-se de que `NEXT_PUBLIC_FIREBASE_PROJECT_ID` corresponde **EXATAMENTE** ao ID do projeto Firebase para o qual você implantará as regras de segurança. Uma incompatibilidade aqui é a causa mais comum de erros de `PERMISSION_DENIED`. Verifique o ID do seu projeto no Firebase Console (geralmente visível na URL ou nas Configurações do Projeto).
 
 4.  **Configure os Domínios Autorizados no Firebase Authentication:**
     No console do Firebase, vá em "Authentication" > "Settings" > "Authorized domains" e adicione `localhost`. Se estiver usando o Firebase Studio ou outro ambiente de desenvolvimento em nuvem, adicione os respectivos domínios (ex: `*.cloudworkstations.dev`).
@@ -161,41 +161,48 @@ As regras de segurança para Firestore e Firebase Storage são cruciais para o f
 
 ## **Troubleshooting de Erros `PERMISSION_DENIED`**
 
-Se você encontrar erros de `PERMISSION_DENIED` no Firestore ou Storage, siga este checklist:
+Se você encontrar erros de `PERMISSION_DENIED` no Firestore ou Storage, siga este checklist rigorosamente:
 
 1.  **Conteúdo das Regras Locais:**
-    *   Verifique se o arquivo `firestore.rules` contém as regras corretas (geralmente permitindo acesso se `request.auth.uid == userId`).
-    *   Verifique se o arquivo `storage.rules` contém as regras corretas.
+    *   Verifique se o arquivo `firestore.rules` na raiz do seu projeto contém as regras esperadas (por exemplo, `allow read, write: if request.auth != null && request.auth.uid == userId;` para o caminho relevante).
+    *   Verifique se o arquivo `storage.rules` na raiz do seu projeto contém as regras esperadas (por exemplo, `allow write: if request.auth != null && request.auth.uid == userId;` para o caminho de upload).
 
 2.  **Seleção do Projeto Firebase no CLI:**
-    *   Execute `firebase projects:list` no terminal para ver seus projetos.
+    *   Execute `firebase projects:list` no terminal para ver seus projetos e qual está ativo.
     *   Execute `firebase use SEU_ID_DE_PROJETO_CORRETO` (substitua pelo ID do projeto que você está usando para este app, ex: `electric-magnitudes-analizer`). Este deve ser o mesmo projeto configurado no app.
 
-3.  **Variáveis de Ambiente do App:**
-    *   Confirme que `NEXT_PUBLIC_FIREBASE_PROJECT_ID` no seu arquivo `.env` é **exatamente** o mesmo ID do projeto que você selecionou no passo anterior e para o qual as regras foram implantadas. Qualquer diferença causará erros de permissão.
-    *   Verifique também `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` e outras configurações do Firebase no `.env`.
+3.  **Variáveis de Ambiente do App (Arquivo `.env`):**
+    *   Confirme que `NEXT_PUBLIC_FIREBASE_PROJECT_ID` no seu arquivo `.env` é **EXATAMENTE** o mesmo ID do projeto que você selecionou no passo anterior e para o qual as regras serão implantadas. Qualquer diferença, incluindo letras maiúsculas/minúsculas ou espaços extras, causará erros de permissão.
+    *   Verifique também `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` e outras configurações do Firebase no `.env`. Elas devem corresponder às configurações do projeto Firebase correto.
 
 4.  **Deployment das Regras:**
-    *   Execute `firebase deploy --only firestore:rules` e `firebase deploy --only storage:rules`.
-    *   Observe a saída do comando no terminal. Ele deve indicar sucesso e para qual projeto as regras foram implantadas.
+    *   Execute `firebase deploy --only firestore:rules`.
+    *   Execute `firebase deploy --only storage:rules`.
+    *   Observe a saída dos comandos no terminal. Eles devem indicar sucesso e para qual projeto as regras foram implantadas. Certifique-se de que não há mensagens de erro durante o deploy.
 
-5.  **VERIFICAÇÃO CRÍTICA - Regras Ativas no Firebase Console:**
+5.  **VERIFICAÇÃO CRÍTICA E VISUAL - Regras Ativas no Firebase Console:**
     *   Abra o Firebase Console ([console.firebase.google.com](https://console.firebase.google.com/)).
-    *   Selecione o projeto correto.
-    *   Vá para **Firestore Database > Regras**.
-    *   **Compare o texto das regras exibidas aqui com o conteúdo do seu arquivo `firestore.rules` local.** Eles devem ser idênticos. Se não forem, o deploy não funcionou como esperado ou foi para o projeto errado.
-    *   Faça o mesmo para **Storage > Regras**, comparando com seu arquivo `storage.rules`.
+    *   Selecione o projeto correto (o mesmo ID que está no seu `.env` e que você usou com `firebase use`).
+    *   Vá para **Firestore Database > Aba "Regras"**.
+    *   **Compare o texto COMPLETO das regras exibidas aqui, linha por linha, com o conteúdo do seu arquivo `firestore.rules` local.** Eles devem ser *idênticos*. Se não forem, o deploy não atualizou as regras como esperado, ou você está olhando para o projeto errado.
+    *   Faça o mesmo para **Storage > Aba "Regras"**, comparando com seu arquivo `storage.rules` local.
+    *   **Logs do Servidor Next.js:** Verifique os logs do seu servidor Next.js (console onde você executou `npm run dev`). As Server Actions já possuem logs que indicam o `userId` e o caminho que estão tentando acessar, e o `PROJECT_ID` que o servidor acredita estar usando.
+        *   Exemplo de log: `[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: 'users/USER_ID_AQUI/analyses'. Data for user 'USER_ID_AQUI'. Project: 'SEU_PROJECT_ID_AQUI'`
+        *   Se um erro de permissão do Firestore ocorrer na action, ela logará: `[Action_createInitialAnalysisRecord] PERMISSION_DENIED ao tentar criar documento para userId: 'USER_ID_AQUI' no caminho 'users/USER_ID_AQUI/analyses'. ...`
+        *   Confirme se o `USER_ID_AQUI` é o UID esperado do usuário logado e se o `SEU_PROJECT_ID_AQUI` é o projeto correto.
 
 6.  **Estado de Autenticação do Usuário:**
-    *   No seu aplicativo, assegure-se de que o usuário está autenticado (`user` não é `null` e `user.uid` está presente) antes de tentar operações que exigem autenticação.
+    *   No seu aplicativo, assegure-se de que o usuário está autenticado (`user` não é `null` e `user.uid` está presente e é uma string válida) *antes* de tentar operações que exigem autenticação. O `AuthProvider` e os hooks `useAuth`, `useFileUploadManager`, `useAnalysisManager` já possuem logs e verificações para isso.
     *   No console do navegador, verifique se há erros de autenticação do Firebase.
-    *   Nos logs do servidor Next.js, as actions já devem estar logando o `userId` que recebem. Confirme se este `userId` é o esperado.
+    *   Verifique se os logs do `AuthProvider` no console do navegador mostram um `currentUser` com um `uid` válido.
 
 7.  **Caminhos no Código vs. Regras:**
-    *   Verifique se os caminhos que seu código está tentando acessar no Firestore/Storage correspondem exatamente aos caminhos definidos nas suas regras (incluindo a variável `userId`). Os logs do servidor que adicionamos recentemente devem ajudar a verificar isso.
+    *   Verifique se os caminhos que seu código está tentando acessar no Firestore/Storage (visíveis nos logs do servidor) correspondem exatamente aos caminhos definidos nas suas regras (incluindo a variável `userId`).
 
-Seguir este checklist rigorosamente geralmente resolve a maioria dos problemas de `PERMISSION_DENIED`.
+Seguir este checklist rigorosamente geralmente resolve a maioria dos problemas de `PERMISSION_DENIED`. Se o problema persistir após uma verificação minuciosa de todos esses pontos, a causa pode ser mais sutil e exigir uma investigação mais profunda do estado de autenticação ou da configuração específica do projeto Firebase.
 
 ## Licença
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+```

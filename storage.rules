@@ -17,7 +17,7 @@ service firebase.storage {
       // uma regra de leitura explícita aqui pode não ser estritamente necessária
       // para o fluxo atual de download de relatórios.
       // Se você precisar que o cliente leia diretamente (ex: exibir uma imagem do storage):
-      // allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
     }
 
     // Para outros caminhos/arquivos, você pode querer regras diferentes.
