@@ -2,13 +2,26 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Permite que um usuário autenticado realize todas as operações de leitura (get, list)
-    // e todas as operações de escrita (create, update, delete)
-    // em seus próprios documentos e subcoleção de 'analyses'.
-    // O curinga {doc=**} aplica a regra a todos os documentos e subcoleções aninhadas
-    // sob /users/{userId}/analyses.
-    match /users/{userId}/analyses/{doc=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+    // Regra para documentos individuais dentro da subcoleção 'analyses'
+    // Permite ler (get), atualizar e excluir documentos específicos.
+    match /users/{userId}/analyses/{analysisId} {
+      allow get, update, delete: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Regra para a subcoleção 'analyses' como um todo
+    // Permite listar (list) os documentos da coleção e criar (create) novos documentos nela.
+    // A permissão 'list' aqui é crucial para que getPastAnalysesAction funcione,
+    // mesmo que a coleção 'analyses' ainda não exista para um novo usuário (ela retornará vazia).
+    match /users/{userId}/analyses {
+      allow list, create: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Adicione aqui quaisquer outras regras para outras coleções.
+    // Exemplo:
+    // match /users/{userId} {
+    //   allow read: if request.auth != null; // Qualquer usuário autenticado pode ler perfis (exemplo)
+    //   allow write: if request.auth != null && request.auth.uid == userId; // Só o próprio usuário pode escrever no seu perfil
+    // }
   }
 }

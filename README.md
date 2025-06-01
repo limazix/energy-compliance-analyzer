@@ -72,6 +72,7 @@ Para executar o projeto localmente, siga os passos abaixo:
 
     NEXT_PUBLIC_GEMINI_API_KEY="SUA_API_KEY_DO_GEMINI"
     ```
+    Certifique-se de que `NEXT_PUBLIC_FIREBASE_PROJECT_ID` corresponde exatamente ao ID do projeto Firebase para o qual você implantará as regras de segurança.
     Você também pode criar um arquivo `.env.development` para configurações específicas de desenvolvimento.
 
 4.  **Configure os Domínios Autorizados no Firebase Authentication:**
@@ -101,9 +102,9 @@ Este projeto é configurado para ser implantado no projeto Firebase `electric-ma
 ### Pré-requisitos para Deploy
 
 *   Ensure you have the [Firebase CLI](https://firebase.google.com/docs/cli) installed and you are logged in (`firebase login`).
-*   Make sure your local project directory is associated with the `electric-magnitudes-analizer` project. The `.firebaserc` file included in this project sets this as the default. You can confirm by running `firebase use electric-magnitudes-analizer` or check with `firebase projects:list`.
+*   Make sure your local project directory is associated with the `electric-magnitudes-analizer` project. The `.firebaserc` file included in this project sets this as the default. You can confirm by running `firebase use electric-magnitudes-analizer` ou verificar com `firebase projects:list`. Se não estiver correto, use `firebase use SEU_PROJECT_ID_CORRETO`.
 
-### Deployment
+### Deployment da Aplicação (App Hosting)
 
 To deploy this application to Firebase App Hosting:
 
@@ -126,6 +127,37 @@ To deploy this application to Firebase App Hosting:
 
 For more details, refer to the [Firebase App Hosting documentation](https://firebase.google.com/docs/app-hosting).
 
+### **Importante: Deployment das Regras de Segurança do Firebase**
+
+As regras de segurança para Firestore e Firebase Storage são cruciais para o funcionamento correto das permissões. Elas estão definidas nos arquivos `firestore.rules` e `storage.rules` na raiz do projeto.
+
+**Você DEVE implantar essas regras manualmente usando o Firebase CLI:**
+
+1.  **Certifique-se de estar no projeto Firebase correto:**
+    ```bash
+    firebase use electric-magnitudes-analizer  # Substitua se seu Project ID for diferente
+    ```
+    Você pode verificar o projeto ativo com `firebase projects:list`.
+
+2.  **Implante as regras do Firestore:**
+    ```bash
+    firebase deploy --only firestore:rules
+    ```
+
+3.  **Implante as regras do Firebase Storage:**
+    ```bash
+    firebase deploy --only storage:rules  # ou apenas 'storage' se for a versão mais recente do CLI
+    ```
+
+    Ou para implantar ambas de uma vez:
+    ```bash
+    firebase deploy --only firestore,storage
+    ```
+
+4.  **Verifique as regras no Firebase Console:** Após o deploy, vá ao Firebase Console, selecione seu projeto, e navegue para "Firestore Database" > "Regras" e para "Storage" > "Regras" para confirmar que as regras implantadas são as que estão nos seus arquivos locais. Se um erro de `PERMISSION_DENIED` persistir, a causa mais provável é que as regras não foram implantadas corretamente no projeto Firebase ativo que sua aplicação está usando.
+
 ## Licença
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+```
