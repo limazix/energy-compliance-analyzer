@@ -199,22 +199,63 @@ export async function getPastAnalysesAction(userId: string): Promise<Analysis[]>
   try {
     const snapshot = await getDocs(q);
     console.log(`[getPastAnalysesAction] Found ${snapshot.docs.length} analyses for userId: ${userId} at path ${analysesCollectionPath}`);
+    
+    const mapTimestampToISO = (timestampFieldValue: any): string | undefined => {
+      if (timestampFieldValue && typeof timestampFieldValue.toDate === 'function') {
+        return (timestampFieldValue as Timestamp).toDate().toISOString();
+      }
+      if (typeof timestampFieldValue === 'string') {
+        // Basic check if it might be an ISO string already
+        if (/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/.test(timestampFieldValue)) {
+            return timestampFieldValue;
+        }
+      }
+      return undefined;
+    };
+
     return snapshot.docs.map(docSnap => {
       const data = docSnap.data();
-      return {
+      
+      const analysisResult: Partial<Analysis> = {
         id: docSnap.id,
-        ...data,
-        createdAt: (data.createdAt as Timestamp)?.toDate().toISOString(),
-        completedAt: (data.completedAt as Timestamp)?.toDate().toISOString(),
-      } as Analysis;
+        userId: data.userId as string,
+        fileName: data.fileName as string,
+        status: data.status as Analysis['status'],
+        progress: data.progress as number,
+        uploadProgress: data.uploadProgress as number | undefined,
+        powerQualityDataUrl: data.powerQualityDataUrl as string | undefined,
+        identifiedRegulations: data.identifiedRegulations as string[] | undefined,
+        summary: data.summary as string | undefined,
+        complianceReport: data.complianceReport as string | undefined,
+        errorMessage: data.errorMessage as string | undefined,
+        tags: (data.tags || []) as string[],
+      };
+      
+      const createdAt = mapTimestampToISO(data.createdAt);
+      if (createdAt) {
+        analysisResult.createdAt = createdAt;
+      } else {
+        // createdAt is mandatory in Analysis type. Fallback or log error.
+        console.warn(`[getPastAnalysesAction] Analysis ${docSnap.id} for user ${userId} has missing or invalid 'createdAt'. Using epoch as fallback.`);
+        analysisResult.createdAt = new Date(0).toISOString(); 
+      }
+
+      const completedAt = mapTimestampToISO(data.completedAt);
+      if (completedAt) {
+        analysisResult.completedAt = completedAt;
+      }
+      // completedAt is optional, so it's fine if it remains undefined
+
+      return analysisResult as Analysis;
     });
   } catch (error) {
     const originalErrorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[getPastAnalysesAction] Error fetching analyses for userId ${userId} from path ${analysesCollectionPath}:`, originalErrorMessage);
+    console.error(`[getPastAnalysesAction] Error fetching analyses for userId ${userId} from path ${analysesCollectionPath}:`, originalErrorMessage, error);
     if (error instanceof FirestoreError && (error.code === 'permission-denied' || error.code === 7)) {
         console.error(`[getPastAnalysesAction] PERMISSION_DENIED while querying path '${analysesCollectionPath}' for userId '${userId}'. Check Firestore rules against active project '${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}'. Auth state in rules might be incorrect or userId mismatch.`);
     }
-    throw new Error(originalErrorMessage);
+    // Re-throw a generic serializable error for the client
+    throw new Error(`Falha ao buscar análises anteriores: ${originalErrorMessage}`);
   }
 }
 
@@ -226,6 +267,7 @@ export async function addTagToAction(userId: string, analysisId: string, tag: st
   }
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = doc(db, analysisDocPath);
+  console.log(`[addTagToAction] Attempting to add tag '${tag}' to analysis '${analysisId}' for user '${userId}' at path '${analysisDocPath}'. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}`);
   try {
     const analysisSnap = await getDoc(analysisRef);
     if (!analysisSnap.exists()) {
@@ -253,6 +295,7 @@ export async function removeTagAction(userId: string, analysisId: string, tagToR
   }
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = doc(db, analysisDocPath);
+  console.log(`[removeTagAction] Attempting to remove tag '${tagToRemove}' from analysis '${analysisId}' for user '${userId}' at path '${analysisDocPath}'. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}`);
   try {
     const analysisSnap = await getDoc(analysisRef);
     if (!analysisSnap.exists()) {
@@ -279,6 +322,7 @@ export async function deleteAnalysisAction(userId: string, analysisId: string): 
   }
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = doc(db, analysisDocPath);
+  console.log(`[deleteAnalysisAction] Attempting to mark analysis '${analysisId}' as 'deleted' for user '${userId}' at path '${analysisDocPath}'. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}`);
   try {
     const analysisSnap = await getDoc(analysisRef);
     if (!analysisSnap.exists()) {
@@ -294,3 +338,6 @@ export async function deleteAnalysisAction(userId: string, analysisId: string): 
     throw new Error(originalErrorMessage);
   }
 }
+
+
+    
