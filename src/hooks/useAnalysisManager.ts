@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { User } from 'firebase/auth';
 import { doc, onSnapshot, addDoc, collection, serverTimestamp, updateDoc, getDoc } from 'firebase/firestore';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -281,16 +281,14 @@ export function useAnalysisManager(user: User | null) {
           // Simplified error step determination.
           // Assumes error happens at the current named status if not upload.
           // For upload, error is always at step 0.
-          if (status === 'error' && !powerQualityDataUrl) {
-            errorStepIndex = 0; // Error during or before upload completion
-          } else if (status === 'error' && powerQualityDataUrl && !identifiedRegulations) {
-            errorStepIndex = 1; // Error during identifying regulations
-          } else if (status === 'error' && identifiedRegulations && !summary ) {
-            errorStepIndex = 2; // Error during assessing compliance
-          } else if (status === 'error' && summary) { // Error during final report generation (less likely with current structure)
+          if (!powerQualityDataUrl) { // Error likely during or before upload completion
+            errorStepIndex = 0; 
+          } else if (!identifiedRegulations) { // Error likely during identifying regulations
+            errorStepIndex = 1; 
+          } else if (!summary ) { // Error likely during assessing compliance
+            errorStepIndex = 2; 
+          } else { // Error during final report generation or unknown
             errorStepIndex = 3; 
-          } else { // Default to first step if specific point of error unclear
-            errorStepIndex = 0;
           }
           
           steps = steps.map((step, index) => {
