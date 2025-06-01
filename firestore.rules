@@ -2,15 +2,14 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Rule for operations on a specific analysis document
-    match /users/{userId}/analyses/{analysisId} {
-      allow get, update, delete: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Rule for operations on the 'analyses' collection for a user
-    // (listing existing analyses or creating a new one)
-    match /users/{userId}/analyses {
-      allow list, create: if request.auth != null && request.auth.uid == userId;
+    // Permite que um usuário autenticado leia e escreva
+    // qualquer documento ou subcoleção sob seu próprio nó de usuário.
+    // Isso cobre:
+    // - Criar novos documentos de análise em /users/{userId}/analyses
+    // - Listar análises de /users/{userId}/analyses
+    // - Obter, atualizar ou excluir um documento de análise específico em /users/{userId}/analyses/{analysisId}
+    match /users/{userId}/{path=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
