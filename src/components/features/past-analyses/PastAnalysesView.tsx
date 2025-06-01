@@ -40,10 +40,7 @@ export function PastAnalysesView({
       <Card className="shadow-xl relative">
         <CardHeader>
           <CardTitle className="text-2xl font-headline text-primary">Análises Anteriores</CardTitle>
-          <Button variant="outline" onClick={onBackToDashboard} className="absolute top-6 right-6">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar ao Dashboard
-          </Button>
+          {/* Botão "Voltar ao Dashboard" removido daqui */}
         </CardHeader>
         <CardContent>
           {isLoading && <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />}
