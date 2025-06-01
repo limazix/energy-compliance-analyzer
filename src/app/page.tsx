@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -6,9 +7,9 @@ import { useAuth } from '@/contexts/auth-context';
 import { AppHeader } from '@/components/app-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, History, FileText, AlertTriangle, CheckCircle2, Loader2, UploadCloud, ListChecks, FileCheck2 } from 'lucide-react';
+import { PlusCircle, History, FileText, AlertTriangle, CheckCircle2, Loader2, UploadCloud, ListChecks, FileCheck2, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { addDoc, collection, doc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { processAnalysisFile, getPastAnalysesAction, deleteAnalysisAction, addTagToAction, removeTagAction } from './actions';
@@ -56,7 +57,7 @@ export default function HomePage() {
       });
       return () => unsub();
     }
-  }, [user, currentAnalysis?.id]);
+  }, [user, currentAnalysis?.id, currentAnalysis?.status]);
 
 
   const fetchPastAnalyses = async () => {
@@ -133,17 +134,15 @@ export default function HomePage() {
         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
         await updateDoc(doc(db, 'users', user.uid, 'analyses', analysisDoc.id), {
           powerQualityDataUrl: downloadURL,
-          status: 'identifying_regulations', // Initial status before processing starts
-          progress: 0, // Reset progress for next phase
+          status: 'identifying_regulations', 
+          progress: 0, 
         });
         setCurrentAnalysis(prev => prev ? {...prev, powerQualityDataUrl: downloadURL, status: 'identifying_regulations', progress: 0} : null);
         setIsUploading(false);
         setFileToUpload(null);
         
-        // Trigger server action for processing
         try {
           await processAnalysisFile(analysisDoc.id, user.uid);
-          // Status updates will be handled by onSnapshot
         } catch (processingError) {
           console.error("Processing error:", processingError);
           toast({ title: 'Erro no Processamento', description: (processingError as Error).message, variant: 'destructive' });
@@ -206,7 +205,7 @@ export default function HomePage() {
   };
 
   if (authLoading || (!user && !authLoading)) {
-    return ( // Full screen loader or minimal content until redirect to /login happens
+    return ( 
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
@@ -243,7 +242,7 @@ export default function HomePage() {
         if (errorStepIndex !== -1) {
           analysisSteps[errorStepIndex].status = 'error';
           analysisSteps[errorStepIndex].details = currentAnalysis.errorMessage;
-        } else { // Error might occur at a general level or after some steps completed
+        } else { 
            const lastCompletedStepIndex = analysisSteps.slice().reverse().findIndex(s => s.status === 'completed');
            const errorIdx = lastCompletedStepIndex !== -1 ? analysisSteps.length - 1 - lastCompletedStepIndex + 1 : 0;
            if (errorIdx < analysisSteps.length) {
@@ -259,7 +258,7 @@ export default function HomePage() {
     if (status === 'in_progress') return <Loader2 className="h-5 w-5 animate-spin text-primary" />;
     if (status === 'completed') return <CheckCircle2 className="h-5 w-5 text-green-500" />;
     if (status === 'error') return <AlertTriangle className="h-5 w-5 text-destructive" />;
-    return <Loader2 className="h-5 w-5 text-muted-foreground" />; // Pending
+    return <Loader2 className="h-5 w-5 text-muted-foreground" />; 
   };
 
   return (
@@ -407,73 +406,91 @@ export default function HomePage() {
         )}
 
         {viewState === 'past_analyses' && (
-          <Card className="shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-2xl font-headline text-primary">Análises Anteriores</CardTitle>
-              <Button variant="outline" onClick={() => setViewState('dashboard')} className="absolute top-4 right-4">Voltar</Button>
-            </CardHeader>
-            <CardContent>
-              {isLoadingPastAnalyses && <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />}
-              {!isLoadingPastAnalyses && pastAnalyses.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">Nenhuma análise anterior encontrada.</p>
-              )}
-              {!isLoadingPastAnalyses && pastAnalyses.length > 0 && (
-                <ul className="space-y-4">
-                  {pastAnalyses.map(analysis => (
-                    <li key={analysis.id} className="p-4 border rounded-lg shadow-sm hover:shadow-md transition-shadow bg-card">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="text-lg font-semibold text-primary-foreground">{analysis.fileName}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Criada em: {format(new Date(analysis.createdAt as string), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Status: <Badge variant={
-                              analysis.status === 'completed' ? 'default' :
-                              analysis.status === 'error' ? 'destructive' : 'secondary'
-                            } className={analysis.status === 'completed' ? 'bg-green-500 text-white' : ''}>
-                              {analysis.status === 'uploading' && 'Enviando'}
-                              {analysis.status === 'identifying_regulations' && 'Identificando Resoluções'}
-                              {analysis.status === 'assessing_compliance' && 'Analisando Conformidade'}
-                              {analysis.status === 'completed' && 'Concluída'}
-                              {analysis.status === 'error' && 'Erro'}
-                            </Badge>
-                          </p>
-                          {analysis.tags && analysis.tags.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {analysis.tags.map(tag => <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>)}
-                            </div>
-                          )}
+          <>
+            <div className="mb-4 flex items-center space-x-2 text-sm">
+              <span 
+                onClick={() => setViewState('dashboard')} 
+                className="text-muted-foreground hover:text-primary cursor-pointer"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && setViewState('dashboard')}
+              >
+                Dashboard
+              </span>
+              <span className="text-muted-foreground">/</span>
+              <span className="font-semibold text-foreground">Análises Anteriores</span>
+            </div>
+            <Card className="shadow-xl relative"> {/* Added relative positioning for absolute button */}
+              <CardHeader>
+                <CardTitle className="text-2xl font-headline text-primary">Análises Anteriores</CardTitle>
+                <Button variant="outline" onClick={() => setViewState('dashboard')} className="absolute top-6 right-6">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Voltar ao Dashboard
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {isLoadingPastAnalyses && <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />}
+                {!isLoadingPastAnalyses && pastAnalyses.length === 0 && (
+                  <p className="text-center text-muted-foreground py-8">Nenhuma análise anterior encontrada.</p>
+                )}
+                {!isLoadingPastAnalyses && pastAnalyses.length > 0 && (
+                  <ul className="space-y-4">
+                    {pastAnalyses.map(analysis => (
+                      <li key={analysis.id} className="p-4 border rounded-lg shadow-sm hover:shadow-md transition-shadow bg-card">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="text-lg font-semibold text-primary-foreground">{analysis.fileName}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Criada em: {analysis.createdAt ? format(new Date(analysis.createdAt as string), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'Data indisponível'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Status: <Badge variant={
+                                analysis.status === 'completed' ? 'default' :
+                                analysis.status === 'error' ? 'destructive' : 'secondary'
+                              } className={analysis.status === 'completed' ? 'bg-green-500 text-white' : ''}>
+                                {analysis.status === 'uploading' && 'Enviando'}
+                                {analysis.status === 'identifying_regulations' && 'Identificando Resoluções'}
+                                {analysis.status === 'assessing_compliance' && 'Analisando Conformidade'}
+                                {analysis.status === 'completed' && 'Concluída'}
+                                {analysis.status === 'error' && 'Erro'}
+                              </Badge>
+                            </p>
+                            {analysis.tags && analysis.tags.length > 0 && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {analysis.tags.map(tag => <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                             <Button variant="outline" size="sm" onClick={() => { setCurrentAnalysis(analysis); setViewState('analysis_results'); }}>
+                               <FileCheck2 className="mr-1 h-4 w-4" /> Ver Detalhes
+                             </Button>
+                             <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm">Excluir</Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tem certeza que deseja excluir a análise do arquivo "{analysis.fileName}"? Esta ação marcará a análise como excluída.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteAnalysis(analysis.id)}>Excluir</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                           <Button variant="outline" size="sm" onClick={() => { setCurrentAnalysis(analysis); setViewState('analysis_results'); }}>
-                             <FileCheck2 className="mr-1 h-4 w-4" /> Ver Detalhes
-                           </Button>
-                           <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="destructive" size="sm">Excluir</Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Tem certeza que deseja excluir a análise do arquivo "{analysis.fileName}"? Esta ação não pode ser desfeita permanentemente.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteAnalysis(analysis.id)}>Excluir</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </>
         )}
       </main>
       <footer className="py-6 text-center text-sm text-muted-foreground border-t">
@@ -482,3 +499,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
