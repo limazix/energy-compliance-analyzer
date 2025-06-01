@@ -1,34 +1,17 @@
-import type { SVGProps } from 'react';
+import type { HTMLAttributes } from 'react';
+import Image from 'next/image';
 
-export function Logo(props: SVGProps<SVGSVGElement>) {
+// Props atualizadas para refletir um elemento de imagem e permitir className
+export function Logo(props: HTMLAttributes<HTMLImageElement>) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 200 50"
-      width="150"
-      height="37.5"
-      aria-label="Energy Compliance Analyzer Logo"
-      {...props}
-    >
-      <defs>
-        <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" style={{ stopColor: 'hsl(var(--primary))', stopOpacity: 1 }} />
-          <stop offset="100%" style={{ stopColor: 'hsl(var(--accent))', stopOpacity: 1 }} />
-        </linearGradient>
-      </defs>
-      <rect width="200" height="50" rx="5" fill="transparent" />
-      <path d="M10 40 L20 10 L30 40 L40 10 L50 40" stroke="url(#logoGradient)" strokeWidth="3" fill="none" />
-      <text
-        x="58"
-        y="33"
-        fontFamily="Inter, sans-serif"
-        fontSize="20"
-        fontWeight="bold"
-        fill="hsl(var(--foreground))"
-        className="font-headline"
-      >
-        Compliance
-      </text>
-    </svg>
+    <Image
+      src="https://placehold.co/200x50.png" // Placeholder com proporção 200x50
+      alt="Energy Compliance Analyzer Logo"
+      width={200} // Largura intrínseca da imagem para aspect ratio
+      height={50}  // Altura intrínseca da imagem para aspect ratio
+      data-ai-hint="electrical energy" // Hint para busca de imagem por IA
+      priority // Otimiza o carregamento do logo
+      {...props} // Permite passar className e outros atributos HTML
+    />
   );
 }
