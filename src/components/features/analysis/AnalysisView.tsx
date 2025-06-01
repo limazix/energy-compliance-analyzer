@@ -8,7 +8,7 @@ import { PlusCircle, History, AlertTriangle } from 'lucide-react';
 import { AnalysisProgressDisplay } from './AnalysisProgressDisplay';
 import { AnalysisResultsDisplay } from './AnalysisResultsDisplay';
 import { TagEditor } from './TagEditor';
-import { AnalysisStepItem } from './AnalysisStepItem'; // For error state
+import { AnalysisStepItem } from './AnalysisStepItem';
 
 type AnalysisViewProps = {
   analysis: Analysis;
@@ -19,7 +19,7 @@ type AnalysisViewProps = {
   onAddTag: (analysisId: string, tag: string) => void;
   onRemoveTag: (analysisId: string, tag: string) => void;
   onStartNewAnalysis: () => void;
-  onViewPastAnalyses: () => void;
+  // onViewPastAnalyses foi removido
 };
 
 export function AnalysisView({
@@ -31,7 +31,6 @@ export function AnalysisView({
   onAddTag,
   onRemoveTag,
   onStartNewAnalysis,
-  onViewPastAnalyses,
 }: AnalysisViewProps) {
   const isCompleted = analysis.status === 'completed';
   const isError = analysis.status === 'error';
@@ -85,13 +84,9 @@ export function AnalysisView({
           <Button onClick={onStartNewAnalysis} size="lg">
             <PlusCircle className="mr-2 h-5 w-5" /> Iniciar Nova Análise
           </Button>
-          <Button onClick={onViewPastAnalyses} variant="outline" size="lg">
-            <History className="mr-2 h-5 w-5" /> Ver Análises Anteriores
-          </Button>
+          {/* Botão "Ver Análises Anteriores" foi removido daqui */}
         </div>
       </CardContent>
     </Card>
   );
 }
-
-    
