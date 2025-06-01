@@ -16,9 +16,9 @@ async function getFileContentFromStorage(filePath: string): Promise<string> {
   try {
     downloadURL = await getDownloadURL(fileRef);
   } catch (error) {
-    console.error(`[getFileContentFromStorage] Failed to get download URL for ${filePath}:`, error);
-    if (error instanceof Error) throw error;
-    throw new Error(`Failed to get download URL: ${String(error)}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[getFileContentFromStorage] Failed to get download URL for ${filePath}:`, errorMessage);
+    throw new Error(`Failed to get download URL: ${errorMessage}`);
   }
   console.log(`[getFileContentFromStorage] Got download URL: ${downloadURL}`);
 
@@ -26,9 +26,9 @@ async function getFileContentFromStorage(filePath: string): Promise<string> {
   try {
     response = await fetch(downloadURL);
   } catch (error) {
-    console.error(`[getFileContentFromStorage] Network error fetching ${downloadURL}:`, error);
-    if (error instanceof Error) throw error;
-    throw new Error(`Network error fetching file: ${String(error)}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[getFileContentFromStorage] Network error fetching ${downloadURL}:`, errorMessage);
+    throw new Error(`Network error fetching file: ${errorMessage}`);
   }
 
   if (!response.ok) {
@@ -46,9 +46,9 @@ async function getFileContentFromStorage(filePath: string): Promise<string> {
   try {
     textContent = await response.text();
   } catch (error) {
-     console.error(`[getFileContentFromStorage] Error reading response text:`, error);
-     if (error instanceof Error) throw error;
-     throw new Error(`Error reading file content: ${String(error)}`);
+     const errorMessage = error instanceof Error ? error.message : String(error);
+     console.error(`[getFileContentFromStorage] Error reading response text:`, errorMessage);
+     throw new Error(`Error reading file content: ${errorMessage}`);
   }
   console.log(`[getFileContentFromStorage] File content fetched. Length: ${textContent.length}`);
   return textContent;
@@ -81,7 +81,7 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
       const noFilePathMsg = `[processAnalysisFile] File path (powerQualityDataUrl) not found for analysisId: ${analysisId}.`;
       console.error(noFilePathMsg);
       await updateDoc(analysisRef, { status: 'error', errorMessage: 'URL do arquivo de dados não encontrada no registro da análise.', progress: 0 });
-      throw new Error(noFilePathMsg); // Throw error to signal failure
+      throw new Error(noFilePathMsg);
     }
 
     console.log(`[processAnalysisFile] File path: ${filePath}. Current status: ${analysisData.status}. Updating to 'identifying_regulations'.`);
@@ -94,11 +94,10 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
       powerQualityData = await getFileContentFromStorage(filePath);
       console.log(`[processAnalysisFile] File content read. Length: ${powerQualityData.length}.`);
     } catch (fileError) {
-      console.error(`[processAnalysisFile] Error getting file content for ${analysisId}:`, fileError);
       const errMsg = fileError instanceof Error ? fileError.message : String(fileError);
+      console.error(`[processAnalysisFile] Error getting file content for ${analysisId}:`, errMsg);
       await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha ao ler arquivo: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 0 });
-      if (fileError instanceof Error) throw fileError;
-      throw new Error(String(fileError));
+      throw new Error(errMsg);
     }
 
     console.log(`[processAnalysisFile] Calling identifyAEEEResolutions. Data length: ${powerQualityData.length}`);
@@ -106,11 +105,10 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
     try {
       resolutionsOutput = await identifyAEEEResolutions({ powerQualityData });
     } catch (aiError) {
-      console.error(`[processAnalysisFile] Error from identifyAEEEResolutions for ${analysisId}:`, aiError);
       const errMsg = aiError instanceof Error ? aiError.message : String(aiError);
+      console.error(`[processAnalysisFile] Error from identifyAEEEResolutions for ${analysisId}:`, errMsg);
       await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na identificação de resoluções pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 25 });
-      if (aiError instanceof Error) throw aiError;
-      throw new Error(String(aiError));
+      throw new Error(errMsg);
     }
 
     const identifiedRegulations = resolutionsOutput.relevantResolutions;
@@ -131,11 +129,10 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
         identifiedRegulations: identifiedRegulationsString
       });
     } catch (aiError) {
-      console.error(`[processAnalysisFile] Error from analyzeComplianceReport for ${analysisId}:`, aiError);
       const errMsg = aiError instanceof Error ? aiError.message : String(aiError);
+      console.error(`[processAnalysisFile] Error from analyzeComplianceReport for ${analysisId}:`, errMsg);
       await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na análise de conformidade pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 50 });
-      if (aiError instanceof Error) throw aiError;
-      throw new Error(String(aiError));
+      throw new Error(errMsg);
     }
 
     console.log(`[processAnalysisFile] Compliance report generated. Summary (first 100 chars): ${reportOutput.summary.substring(0, 100)}... Updating status to 'completed'.`);
@@ -150,36 +147,33 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
     console.log(`[processAnalysisFile] Analysis ${analysisId} completed successfully for user ${userId}.`);
 
   } catch (error) {
-    console.error(`[processAnalysisFile] Overall error processing analysis ${analysisId} for user ${userId}:`, error);
-    let detailedErrorMessage = 'Erro desconhecido durante o processamento.';
+    const originalErrorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[processAnalysisFile] Overall error processing analysis ${analysisId} for user ${userId}:`, originalErrorMessage, error);
+    
+    let detailedErrorMessageForFirestore = 'Erro desconhecido durante o processamento.';
     if (error instanceof Error) {
-        detailedErrorMessage = `Error: ${error.message}`;
+        detailedErrorMessageForFirestore = `Error: ${error.message}`;
         if (error.stack) {
-            detailedErrorMessage += ` Stack: ${error.stack.substring(0, 500)}`;
+            detailedErrorMessageForFirestore += ` Stack: ${error.stack.substring(0, 500)}`;
         }
     } else {
-        detailedErrorMessage = String(error);
+        detailedErrorMessageForFirestore = String(error);
     }
-    const finalErrorMessage = detailedErrorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH);
+    const finalErrorMessageForFirestore = detailedErrorMessageForFirestore.substring(0, MAX_ERROR_MESSAGE_LENGTH);
 
     try {
-      // Attempt to update Firestore with the error status as a best effort
       const currentSnap = await getDoc(analysisRef);
       if (currentSnap.exists()) {
-        await updateDoc(analysisRef, { status: 'error', errorMessage: finalErrorMessage, progress: 0 });
+        await updateDoc(analysisRef, { status: 'error', errorMessage: finalErrorMessageForFirestore, progress: 0 });
         console.log(`[processAnalysisFile] Firestore updated with error status for analysis ${analysisId}.`);
       } else {
          console.error(`[processAnalysisFile] CRITICAL: Analysis document ${analysisId} (path users/${userId}/analyses/${analysisId}) not found when trying to update with overall error status.`);
       }
     } catch (firestoreError) {
-      // Log this secondary error, but the primary goal is to throw the original error
-      console.error(`[processAnalysisFile] CRITICAL: Failed to update Firestore with overall error status for analysis ${analysisId} (Original error: ${finalErrorMessage.substring(0,200)}...):`, firestoreError);
+      const fsErrorMsg = firestoreError instanceof Error ? firestoreError.message : String(firestoreError);
+      console.error(`[processAnalysisFile] CRITICAL: Failed to update Firestore with overall error status for analysis ${analysisId} (Original error: ${finalErrorMessageForFirestore.substring(0,200)}...):`, fsErrorMsg);
     }
-    // ALWAYS re-throw the original error (or a wrapped version) to the client
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error(String(error));
+    throw new Error(originalErrorMessage);
   }
 }
 
@@ -207,9 +201,9 @@ export async function getPastAnalysesAction(userId: string): Promise<Analysis[]>
       } as Analysis;
     });
   } catch (error) {
-    console.error(`[getPastAnalysesAction] Error fetching analyses for userId ${userId}:`, error);
-    if (error instanceof Error) throw error;
-    throw new Error(String(error));
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[getPastAnalysesAction] Error fetching analyses for userId ${userId}:`, errorMessage);
+    throw new Error(errorMessage);
   }
 }
 
@@ -236,9 +230,9 @@ export async function addTagToAction(userId: string, analysisId: string, tag: st
       console.log(`[addTagToAction] Tag "${tag.trim()}" already exists on analysis ${analysisId}`);
     }
   } catch (error) {
-    console.error(`[addTagToAction] Error adding tag to analysis ${analysisId} for user ${userId}:`, error);
-    if (error instanceof Error) throw error;
-    throw new Error(String(error));
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[addTagToAction] Error adding tag to analysis ${analysisId} for user ${userId}:`, errorMessage);
+    throw new Error(errorMessage);
   }
 }
 
@@ -261,9 +255,9 @@ export async function removeTagAction(userId: string, analysisId: string, tagToR
     await updateDoc(analysisRef, { tags: currentTags.filter((t: string) => t !== tagToRemove.trim()) });
     console.log(`[removeTagAction] Tag "${tagToRemove.trim()}" removed from analysis ${analysisId}`);
   } catch (error) {
-    console.error(`[removeTagAction] Error removing tag from analysis ${analysisId} for user ${userId}:`, error);
-    if (error instanceof Error) throw error;
-    throw new Error(String(error));
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[removeTagAction] Error removing tag from analysis ${analysisId} for user ${userId}:`, errorMessage);
+    throw new Error(errorMessage);
   }
 }
 
@@ -276,7 +270,6 @@ export async function deleteAnalysisAction(userId: string, analysisId: string): 
   }
   const analysisRef = doc(db, 'users', userId, 'analyses', analysisId);
   try {
-    // Ensure the document exists before attempting to update it to 'deleted'
     const analysisSnap = await getDoc(analysisRef);
     if (!analysisSnap.exists()) {
         const errorMsg = `[deleteAnalysisAction] Analysis not found: ${analysisId} for user ${userId}. Cannot mark as deleted.`;
@@ -286,11 +279,8 @@ export async function deleteAnalysisAction(userId: string, analysisId: string): 
     await updateDoc(analysisRef, { status: 'deleted', summary: null, complianceReport: null, identifiedRegulations: null, errorMessage: 'Análise excluída pelo usuário.' });
     console.log(`[deleteAnalysisAction] Analysis ${analysisId} marked as deleted for user ${userId}.`);
   } catch (error) {
-    console.error(`[deleteAnalysisAction] Error soft deleting analysis ${analysisId} for user ${userId}:`, error);
-    if (error instanceof Error) throw error;
-    throw new Error(String(error));
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[deleteAnalysisAction] Error soft deleting analysis ${analysisId} for user ${userId}:`, errorMessage);
+    throw new Error(errorMessage);
   }
 }
-
-
-    
