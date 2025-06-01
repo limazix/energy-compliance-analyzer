@@ -24,29 +24,39 @@ export async function createInitialAnalysisRecordAction(
   }
 
   try {
-    const analysisData: Omit<Analysis, 'id' | 'createdAt'> & { createdAt: Timestamp } = {
+    // Objeto para Firestore: campos opcionais devem ser null se não tiverem valor inicial.
+    const analysisDataForFirestore: Omit<Analysis, 'id' | 'createdAt' | 'tags'> & { createdAt: Timestamp; tags: string[]; powerQualityDataUrl: null; powerQualityDataPreview: null; identifiedRegulations: null; summary: null; complianceReport: null; errorMessage: null; completedAt: null; uploadProgress: number; } = {
       userId,
       fileName,
-      status: 'uploading', // Status inicial enquanto o upload está em progresso
+      status: 'uploading',
       progress: 0, // Progresso geral da análise
       uploadProgress: 0, // Progresso específico do upload do arquivo
-      tags: [],
+      tags: [], // Tags são obrigatórias, mas podem começar vazias
       createdAt: serverTimestamp() as Timestamp, // Firestore preencherá isso
-      // Outros campos opcionais são null por padrão
-      powerQualityDataUrl: undefined,
-      identifiedRegulations: undefined,
-      summary: undefined,
-      complianceReport: undefined,
-      errorMessage: undefined,
-      completedAt: undefined,
+      
+      // Campos opcionais inicializados como null
+      powerQualityDataUrl: null,
+      powerQualityDataPreview: null,
+      identifiedRegulations: null,
+      summary: null,
+      complianceReport: null,
+      errorMessage: null,
+      completedAt: null,
     };
+    
+    console.log('[createInitialAnalysisRecordAction] Data to be added to Firestore:', JSON.stringify(analysisDataForFirestore, null, 2));
+
     const analysisCollectionRef = collection(db, 'users', userId, 'analyses');
-    const docRef = await addDoc(analysisCollectionRef, analysisData);
+    const docRef = await addDoc(analysisCollectionRef, analysisDataForFirestore);
     console.log(`[createInitialAnalysisRecordAction] Document created with ID: ${docRef.id} for user ${userId}`);
     return { analysisId: docRef.id };
   } catch (error) {
-    const firestoreError = error as FirestoreError;
-    const errorMessage = `Falha ao criar registro inicial da análise: ${firestoreError.message} (Code: ${firestoreError.code})`;
+    let errorMessage = 'Falha ao criar registro inicial da análise.';
+    if (error instanceof FirestoreError) {
+      errorMessage = `Falha ao criar registro inicial da análise: ${error.message} (Code: ${error.code})`;
+    } else if (error instanceof Error) {
+      errorMessage = `Falha ao criar registro inicial da análise: ${error.message}`;
+    }
     console.error(`[createInitialAnalysisRecordAction] ${errorMessage}`, error);
     return { error: errorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH) };
   }
@@ -88,12 +98,10 @@ export async function finalizeFileUploadRecordAction(
   }
   try {
     const analysisRef = doc(db, 'users', userId, 'analyses', analysisId);
-    // Ao finalizar o upload, o status muda para 'identifying_regulations' e o progresso geral avança.
-    // O 'uploadProgress' pode ser mantido em 100 ou removido se não for mais necessário.
     await updateDoc(analysisRef, {
       powerQualityDataUrl: downloadURL,
-      status: 'identifying_regulations', // Próximo estado lógico
-      progress: 10, // Progresso geral após upload bem-sucedido
+      status: 'identifying_regulations', 
+      progress: 10, 
       uploadProgress: 100,
     });
     console.log(`[finalizeFileUploadRecordAction] Document ${analysisId} updated with download URL and status 'identifying_regulations'.`);
