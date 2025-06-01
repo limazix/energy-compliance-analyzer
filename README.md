@@ -219,12 +219,12 @@ Se você encontrar erros de `PERMISSION_DENIED` no Firestore ou Storage, siga es
 
 6.  **Logs do Servidor Next.js (e Console do Navegador):**
     *   Verifique os logs do seu servidor Next.js (console onde você executou `npm run dev`).
-        *   Exemplo da action `createInitialAnalysisRecordAction`: `[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: 'users/USER_ID_AQUI/analyses'. Data for user 'USER_ID_AQUI'. Project: 'electric-magnitudes-analizer'`
+        *   Exemplo da action `createInitialAnalysisRecordAction`: `[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: 'users/USER_ID_AQUI/analyses'. Data for user 'USER_ID_AQUI'. Project: 'electric-magnitudes-analizer'` (Verifique o 'Project' ID aqui!).
         *   Exemplo de erro: `[Action_createInitialAnalysisRecord] PERMISSION_DENIED ao tentar criar documento para userId: 'USER_ID_AQUI' ...`
         *   Exemplo de `getPastAnalysesAction`: `[getPastAnalysesAction] Attempting to query Firestore collection at path: 'users/USER_ID_AQUI/analyses' for userId: 'USER_ID_AQUI' (Project: 'electric-magnitudes-analizer')`
     *   Verifique os logs do console do navegador (DevTools). O `AuthProvider` loga o `currentUser` (ex: `[AuthProvider] Auth state changed. currentUser: {"uid":"USER_ID_DO_CLIENTE", ...}`).
     *   **Confirme se o `USER_ID_AQUI` dos logs do servidor é o mesmo `USER_ID_DO_CLIENTE` que você vê no `currentUser` dos logs do navegador.**
-    *   Confirme se o `electric-magnitudes-analizer` nos logs do servidor corresponde ao projeto correto.
+    *   Confirme se o `electric-magnitudes-analizer` nos logs do servidor (na mensagem `Project: '...'`) corresponde ao projeto correto e ao `NEXT_PUBLIC_FIREBASE_PROJECT_ID` no seu `.env`.
 
 7.  **Estado de Autenticação do Usuário:**
     *   No seu aplicativo, assegure-se de que o usuário está autenticado (`user` não é `null` e `user.uid` está presente e é uma string válida) *antes* de tentar operações que exigem autenticação.
@@ -237,3 +237,5 @@ Seguir este checklist rigorosamente geralmente resolve a maioria dos problemas d
 ## Licença
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+```
