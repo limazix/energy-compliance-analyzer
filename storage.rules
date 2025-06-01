@@ -1,29 +1,13 @@
-
 rules_version = '2';
 
 service firebase.storage {
-  match /b/{bucket}/o { // Corresponde a todos os arquivos no seu bucket
-    // Permite que usuários autenticados façam upload de arquivos para
-    // um caminho que corresponda ao seu UID.
-    // O caminho usado no código é: user_uploads/{userId}/{analysisId}/{fileName}
+  match /b/{bucket}/o {
+    // Allow user to write to their own folder in user_uploads
     match /user_uploads/{userId}/{analysisId}/{fileName} {
-      // Permite a escrita (upload) se o usuário estiver autenticado
-      // e o {userId} no caminho do arquivo for igual ao UID do usuário autenticado.
       allow write: if request.auth != null && request.auth.uid == userId;
-
-      // Você pode adicionar uma regra de leitura se os usuários precisarem ler
-      // diretamente os arquivos. No entanto, como estamos usando getDownloadURL
-      // (que opera com permissões de serviço ou regras mais permissivas se o objeto for público),
-      // uma regra de leitura explícita aqui pode não ser estritamente necessária
-      // para o fluxo atual de download de relatórios.
-      // Se você precisar que o cliente leia diretamente (ex: exibir uma imagem do storage):
-      allow read: if request.auth != null && request.auth.uid == userId;
     }
-
-    // Para outros caminhos/arquivos, você pode querer regras diferentes.
-    // Por exemplo, se você tivesse arquivos públicos:
-    // match /public_files/{allPaths=**} {
-    //   allow read: if true;
-    // }
+    // You might want to add read access if users need to download their own files directly
+    // or if other services need to read them based on auth.
+    // e.g., allow read: if request.auth != null && request.auth.uid == userId;
   }
 }

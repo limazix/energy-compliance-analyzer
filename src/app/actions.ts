@@ -52,16 +52,19 @@ async function getFileContentFromStorage(filePath: string): Promise<string> {
   return textContent;
 }
 
-export async function processAnalysisFile(analysisId: string, userId: string): Promise<void> {
+export async function processAnalysisFile(analysisIdInput: string, userIdInput: string): Promise<void> {
+  const userId = userIdInput ? userIdInput.trim() : '';
+  const analysisId = analysisIdInput ? analysisIdInput.trim() : '';
+
   console.log(`[processAnalysisFile] Starting for analysisId: ${analysisId}, userId: ${userId}`);
 
-  if (!userId || typeof userId !== 'string' || userId.trim() === "") {
-    const criticalMsg = `[processAnalysisFile] CRITICAL: userId is invalid (null, empty, or whitespace): '${userId}' for analysisId: ${analysisId}. Aborting.`;
+  if (!userId || typeof userId !== 'string' || userId.trim() === "") { // Redundant check after trim
+    const criticalMsg = `[processAnalysisFile] CRITICAL: userId is invalid (null, empty, or whitespace after trim): '${userIdInput}' -> '${userId}' for analysisId: ${analysisId}. Aborting.`;
     console.error(criticalMsg);
     throw new Error(criticalMsg);
   }
-  if (!analysisId || typeof analysisId !== 'string' || analysisId.trim() === "") {
-    const criticalMsg = `[processAnalysisFile] CRITICAL: analysisId is invalid (null, empty, or whitespace): '${analysisId}' for userId: ${userId}. Aborting.`;
+  if (!analysisId || typeof analysisId !== 'string' || analysisId.trim() === "") { // Redundant check after trim
+    const criticalMsg = `[processAnalysisFile] CRITICAL: analysisId is invalid (null, empty, or whitespace after trim): '${analysisIdInput}' -> '${analysisId}' for userId: ${userId}. Aborting.`;
     console.error(criticalMsg);
     throw new Error(criticalMsg);
   }
@@ -183,10 +186,12 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
 }
 
 
-export async function getPastAnalysesAction(userId: string): Promise<Analysis[]> {
-  console.log(`[getPastAnalysesAction] Fetching for userId: ${userId}`);
-  if (!userId || typeof userId !== 'string' || userId.trim() === "") {
-    const errorMsg = `[getPastAnalysesAction] CRITICAL: userId is invalid (null, empty, or whitespace): '${userId}'. Aborting.`;
+export async function getPastAnalysesAction(userIdInput: string): Promise<Analysis[]> {
+  const userId = userIdInput ? userIdInput.trim() : '';
+  console.log(`[getPastAnalysesAction] Fetching for trimmed userId: ${userId}`);
+
+  if (!userId || typeof userId !== 'string' || userId.trim() === "") { // Redundant check after trim
+    const errorMsg = `[getPastAnalysesAction] CRITICAL: userId is invalid (null, empty, or whitespace after trim): '${userIdInput}' -> '${userId}'. Aborting.`;
     console.error(errorMsg);
     throw new Error(errorMsg);
   }
@@ -205,7 +210,6 @@ export async function getPastAnalysesAction(userId: string): Promise<Analysis[]>
         return (timestampFieldValue as Timestamp).toDate().toISOString();
       }
       if (typeof timestampFieldValue === 'string') {
-        // Basic check if it might be an ISO string already
         if (/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/.test(timestampFieldValue)) {
             return timestampFieldValue;
         }
@@ -218,7 +222,7 @@ export async function getPastAnalysesAction(userId: string): Promise<Analysis[]>
       
       const analysisResult: Partial<Analysis> = {
         id: docSnap.id,
-        userId: data.userId as string,
+        userId: data.userId as string, // Assuming userId from doc is already clean
         fileName: data.fileName as string,
         status: data.status as Analysis['status'],
         progress: data.progress as number,
@@ -235,7 +239,6 @@ export async function getPastAnalysesAction(userId: string): Promise<Analysis[]>
       if (createdAt) {
         analysisResult.createdAt = createdAt;
       } else {
-        // createdAt is mandatory in Analysis type. Fallback or log error.
         console.warn(`[getPastAnalysesAction] Analysis ${docSnap.id} for user ${userId} has missing or invalid 'createdAt'. Using epoch as fallback.`);
         analysisResult.createdAt = new Date(0).toISOString(); 
       }
@@ -244,7 +247,6 @@ export async function getPastAnalysesAction(userId: string): Promise<Analysis[]>
       if (completedAt) {
         analysisResult.completedAt = completedAt;
       }
-      // completedAt is optional, so it's fine if it remains undefined
 
       return analysisResult as Analysis;
     });
@@ -252,22 +254,25 @@ export async function getPastAnalysesAction(userId: string): Promise<Analysis[]>
     const originalErrorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[getPastAnalysesAction] Error fetching analyses for userId ${userId} from path ${analysesCollectionPath}:`, originalErrorMessage, error);
     if (error instanceof FirestoreError && (error.code === 'permission-denied' || error.code === 7)) {
-        console.error(`[getPastAnalysesAction] PERMISSION_DENIED while querying path '${analysesCollectionPath}' for userId '${userId}'. Check Firestore rules against active project '${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}'. Auth state in rules might be incorrect or userId mismatch.`);
+        console.error(`[getPastAnalysesAction] PERMISSION_DENIED while querying path '${analysesCollectionPath}' for userId '${userId}'. Check Firestore rules against active project '${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}'. Auth state in rules might be incorrect or userId mismatch. Firestore error code: ${error.code}, message: ${error.message}`);
     }
-    // Re-throw a generic serializable error for the client
     throw new Error(`Falha ao buscar análises anteriores: ${originalErrorMessage}`);
   }
 }
 
-export async function addTagToAction(userId: string, analysisId: string, tag: string): Promise<void> {
-  if (!userId || typeof userId !== 'string' || userId.trim() === "" || !analysisId || typeof analysisId !== 'string' || analysisId.trim() === "" || !tag || tag.trim() === "") {
-    const errorMsg = `[addTagToAction] CRITICAL: Invalid parameters. userId: '${userId}', analysisId: '${analysisId}', tag: '${tag}'. Aborting.`;
+export async function addTagToAction(userIdInput: string, analysisIdInput: string, tag: string): Promise<void> {
+  const userId = userIdInput ? userIdInput.trim() : '';
+  const analysisId = analysisIdInput ? analysisIdInput.trim() : '';
+  const trimmedTag = tag ? tag.trim() : '';
+
+  if (!userId || typeof userId !== 'string' || userId.trim() === "" || !analysisId || typeof analysisId !== 'string' || analysisId.trim() === "" || !trimmedTag) {
+    const errorMsg = `[addTagToAction] CRITICAL: Invalid parameters. userId: '${userIdInput}' -> '${userId}', analysisId: '${analysisIdInput}' -> '${analysisId}', tag: '${tag}' -> '${trimmedTag}'. Aborting.`;
     console.error(errorMsg);
     throw new Error(errorMsg);
   }
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = doc(db, analysisDocPath);
-  console.log(`[addTagToAction] Attempting to add tag '${tag}' to analysis '${analysisId}' for user '${userId}' at path '${analysisDocPath}'. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}`);
+  console.log(`[addTagToAction] Attempting to add tag '${trimmedTag}' to analysis '${analysisId}' for user '${userId}' at path '${analysisDocPath}'. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}`);
   try {
     const analysisSnap = await getDoc(analysisRef);
     if (!analysisSnap.exists()) {
@@ -276,9 +281,9 @@ export async function addTagToAction(userId: string, analysisId: string, tag: st
       throw new Error("Análise não encontrada.");
     }
     const currentTags = analysisSnap.data().tags || [];
-    if (!currentTags.includes(tag.trim())) {
-      await updateDoc(analysisRef, { tags: [...currentTags, tag.trim()] });
-      console.log(`[addTagToAction] Tag "${tag.trim()}" added to analysis ${analysisId} (path: ${analysisDocPath})`);
+    if (!currentTags.includes(trimmedTag)) {
+      await updateDoc(analysisRef, { tags: [...currentTags, trimmedTag] });
+      console.log(`[addTagToAction] Tag "${trimmedTag}" added to analysis ${analysisId} (path: ${analysisDocPath})`);
     }
   } catch (error) {
     const originalErrorMessage = error instanceof Error ? error.message : String(error);
@@ -287,15 +292,19 @@ export async function addTagToAction(userId: string, analysisId: string, tag: st
   }
 }
 
-export async function removeTagAction(userId: string, analysisId: string, tagToRemove: string): Promise<void> {
-  if (!userId || typeof userId !== 'string' || userId.trim() === "" || !analysisId || typeof analysisId !== 'string' || analysisId.trim() === "" || !tagToRemove || tagToRemove.trim() === "") {
-    const errorMsg = `[removeTagAction] CRITICAL: Invalid parameters. userId: '${userId}', analysisId: '${analysisId}', tagToRemove: '${tagToRemove}'. Aborting.`;
+export async function removeTagAction(userIdInput: string, analysisIdInput: string, tagToRemove: string): Promise<void> {
+  const userId = userIdInput ? userIdInput.trim() : '';
+  const analysisId = analysisIdInput ? analysisIdInput.trim() : '';
+  const trimmedTagToRemove = tagToRemove ? tagToRemove.trim() : '';
+
+  if (!userId || typeof userId !== 'string' || userId.trim() === "" || !analysisId || typeof analysisId !== 'string' || analysisId.trim() === "" || !trimmedTagToRemove) {
+    const errorMsg = `[removeTagAction] CRITICAL: Invalid parameters. userId: '${userIdInput}' -> '${userId}', analysisId: '${analysisIdInput}' -> '${analysisId}', tagToRemove: '${tagToRemove}' -> '${trimmedTagToRemove}'. Aborting.`;
     console.error(errorMsg);
     throw new Error(errorMsg);
   }
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = doc(db, analysisDocPath);
-  console.log(`[removeTagAction] Attempting to remove tag '${tagToRemove}' from analysis '${analysisId}' for user '${userId}' at path '${analysisDocPath}'. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}`);
+  console.log(`[removeTagAction] Attempting to remove tag '${trimmedTagToRemove}' from analysis '${analysisId}' for user '${userId}' at path '${analysisDocPath}'. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}`);
   try {
     const analysisSnap = await getDoc(analysisRef);
     if (!analysisSnap.exists()) {
@@ -304,8 +313,8 @@ export async function removeTagAction(userId: string, analysisId: string, tagToR
       throw new Error("Análise não encontrada.");
     }
     const currentTags = analysisSnap.data().tags || [];
-    await updateDoc(analysisRef, { tags: currentTags.filter((t: string) => t !== tagToRemove.trim()) });
-    console.log(`[removeTagAction] Tag "${tagToRemove.trim()}" removed from analysis ${analysisId} (path: ${analysisDocPath})`);
+    await updateDoc(analysisRef, { tags: currentTags.filter((t: string) => t !== trimmedTagToRemove) });
+    console.log(`[removeTagAction] Tag "${trimmedTagToRemove}" removed from analysis ${analysisId} (path: ${analysisDocPath})`);
   } catch (error) {
     const originalErrorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[removeTagAction] Error removing tag from analysis ${analysisId} (path: ${analysisDocPath}) for user ${userId}:`, originalErrorMessage);
@@ -313,10 +322,13 @@ export async function removeTagAction(userId: string, analysisId: string, tagToR
   }
 }
 
-export async function deleteAnalysisAction(userId: string, analysisId: string): Promise<void> {
+export async function deleteAnalysisAction(userIdInput: string, analysisIdInput: string): Promise<void> {
+  const userId = userIdInput ? userIdInput.trim() : '';
+  const analysisId = analysisIdInput ? analysisIdInput.trim() : '';
   console.log(`[deleteAnalysisAction] Soft deleting analysisId: ${analysisId} for userId: ${userId}`);
+
   if (!userId || typeof userId !== 'string' || userId.trim() === "" || !analysisId || typeof analysisId !== 'string' || analysisId.trim() === "") {
-    const errorMsg = `[deleteAnalysisAction] CRITICAL: userId ('${userId}') or analysisId ('${analysisId}') is invalid. Aborting.`;
+    const errorMsg = `[deleteAnalysisAction] CRITICAL: userId ('${userIdInput}' -> '${userId}') or analysisId ('${analysisIdInput}' -> '${analysisId}') is invalid. Aborting.`;
     console.error(errorMsg);
     throw new Error(errorMsg);
   }
@@ -338,6 +350,3 @@ export async function deleteAnalysisAction(userId: string, analysisId: string): 
     throw new Error(originalErrorMessage);
   }
 }
-
-
-    
