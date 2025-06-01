@@ -72,7 +72,7 @@ Para executar o projeto localmente, siga os passos abaixo:
 
     NEXT_PUBLIC_GEMINI_API_KEY="SUA_API_KEY_DO_GEMINI"
     ```
-    Certifique-se de que `NEXT_PUBLIC_FIREBASE_PROJECT_ID` corresponde exatamente ao ID do projeto Firebase para o qual você implantará as regras de segurança.
+    **MUITO IMPORTANTE:** Certifique-se de que `NEXT_PUBLIC_FIREBASE_PROJECT_ID` corresponde **EXATAMENTE** ao ID do projeto Firebase para o qual você implantará as regras de segurança. Uma incompatibilidade aqui é uma causa comum de erros de `PERMISSION_DENIED`. Verifique o ID do seu projeto no Firebase Console.
     Você também pode criar um arquivo `.env.development` para configurações específicas de desenvolvimento.
 
 4.  **Configure os Domínios Autorizados no Firebase Authentication:**
@@ -134,10 +134,13 @@ As regras de segurança para Firestore e Firebase Storage são cruciais para o f
 **Você DEVE implantar essas regras manualmente usando o Firebase CLI:**
 
 1.  **Certifique-se de estar no projeto Firebase correto:**
+    Verifique o ID do projeto no seu arquivo `.env` (`NEXT_PUBLIC_FIREBASE_PROJECT_ID`).
+    Em seguida, no terminal:
     ```bash
-    firebase use electric-magnitudes-analizer  # Substitua se seu Project ID for diferente
+    firebase use SEU_PROJECT_ID_CORRETO  # Substitua pelo ID do seu projeto
+    # Por exemplo: firebase use electric-magnitudes-analizer
     ```
-    Você pode verificar o projeto ativo com `firebase projects:list`.
+    Você pode verificar o projeto ativo com `firebase projects:list`. Se o projeto ativo no CLI não for o mesmo que o seu app está usando (definido em `.env`), as regras serão implantadas no lugar errado, resultando em erros de `PERMISSION_DENIED`.
 
 2.  **Implante as regras do Firestore:**
     ```bash
@@ -154,10 +157,10 @@ As regras de segurança para Firestore e Firebase Storage são cruciais para o f
     firebase deploy --only firestore,storage
     ```
 
-4.  **Verifique as regras no Firebase Console:** Após o deploy, vá ao Firebase Console, selecione seu projeto, e navegue para "Firestore Database" > "Regras" e para "Storage" > "Regras" para confirmar que as regras implantadas são as que estão nos seus arquivos locais. Se um erro de `PERMISSION_DENIED` persistir, a causa mais provável é que as regras não foram implantadas corretamente no projeto Firebase ativo que sua aplicação está usando.
+4.  **Verifique as regras no Firebase Console:** Após o deploy, vá ao Firebase Console, selecione seu projeto, e navegue para "Firestore Database" > "Regras" e para "Storage" > "Regras" para confirmar que as regras implantadas são as que estão nos seus arquivos locais. Se um erro de `PERMISSION_DENIED` persistir, a causa mais provável é que as regras não foram implantadas corretamente no projeto Firebase ativo que sua aplicação está usando (verifique `NEXT_PUBLIC_FIREBASE_PROJECT_ID` vs. `firebase use ...`).
 
 ## Licença
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
-```
+    
