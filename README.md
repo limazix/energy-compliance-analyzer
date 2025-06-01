@@ -1,3 +1,4 @@
+
 # Energy Compliance Analyzer
 
 Este é um projeto Next.js para analisar a conformidade de dados de qualidade de energia elétrica com base nas resoluções normativas da ANEEL (Agência Nacional de Energia Elétrica) do Brasil. A aplicação permite que usuários façam upload de arquivos CSV contendo dados de medição, identifica as resoluções ANEEL pertinentes e gera um relatório de conformidade, destacando possíveis violações e oferecendo recomendações.
@@ -124,4 +125,7 @@ To deploy this application to Firebase App Hosting:
     ```
 
 For more details, refer to the [Firebase App Hosting documentation](https://firebase.google.com/docs/app-hosting).
-```
+
+## Licença
+
+Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
