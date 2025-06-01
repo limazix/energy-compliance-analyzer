@@ -324,7 +324,7 @@ export default function HomePage() {
                         <span className="ml-3 flex-1 text-md">{step.name}</span>
                         {step.status === 'in_progress' && typeof step.progress === 'number' && (
                            <div className="w-32 ml-auto flex items-center">
-                             <Progress value={step.progress} className="h-2 mr-2" />
+                             <Progress value={step.progress} className="mr-2" />
                              <span className="text-xs text-muted-foreground">{Math.round(step.progress)}%</span>
                            </div>
                         )}
@@ -499,5 +499,7 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
 
     
