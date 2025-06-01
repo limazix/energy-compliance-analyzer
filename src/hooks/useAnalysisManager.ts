@@ -29,23 +29,25 @@ export function useAnalysisManager(user: User | null) {
   const [tagInput, setTagInput] = useState('');
 
   useEffect(() => {
-    if (user && currentAnalysis?.id && 
+    if (user && currentAnalysis?.id &&
         !currentAnalysis.id.startsWith('error-') && // Não ouvir IDs de erro temporários
-        currentAnalysis.status !== 'completed' && 
-        currentAnalysis.status !== 'error' && 
+        currentAnalysis.status !== 'completed' &&
+        currentAnalysis.status !== 'error' &&
         currentAnalysis.status !== 'deleted') {
-      
-      const unsub = onSnapshot(doc(db, 'users', user.uid, 'analyses', currentAnalysis.id), 
+
+      const unsub = onSnapshot(doc(db, 'users', user.uid, 'analyses', currentAnalysis.id),
         (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
-            const statusIsValid = data.status && ['uploading', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted'].includes(data.status);
+            // Validação robusta do status
+            const validStatuses = ['uploading', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted'];
+            const statusIsValid = data.status && validStatuses.includes(data.status);
 
             const updatedAnalysis: Analysis = {
               id: docSnap.id,
               userId: typeof data.userId === 'string' ? data.userId : user.uid,
               fileName: typeof data.fileName === 'string' ? data.fileName : 'Nome de arquivo desconhecido',
-              status: statusIsValid ? data.status : 'error',
+              status: statusIsValid ? data.status : 'error', // Define como erro se o status for inválido
               progress: typeof data.progress === 'number' ? data.progress : 0,
               powerQualityDataUrl: typeof data.powerQualityDataUrl === 'string' ? data.powerQualityDataUrl : undefined,
               identifiedRegulations: Array.isArray(data.identifiedRegulations) ? data.identifiedRegulations.map(String) : undefined,
@@ -58,16 +60,13 @@ export function useAnalysisManager(user: User | null) {
             };
             setCurrentAnalysis(updatedAnalysis);
           } else {
-            // Se o documento não existe e o ID em currentAnalysis é um ID real (não temporário de erro)
-            // E o status atual não é já um erro (para evitar loops)
             if (currentAnalysis && currentAnalysis.id && !currentAnalysis.id.startsWith('error-') && currentAnalysis.status !== 'error') {
               console.warn(`[onSnapshot] Document ${currentAnalysis.id} not found. Current status: ${currentAnalysis.status}. Setting to error.`);
               setCurrentAnalysis(prev => {
-                // Apenas atualize se o ID for o mesmo e o status anterior não era erro, para evitar loops.
                 if (prev && prev.id === currentAnalysis.id && prev.status !== 'error') {
                     return { ...prev, status: 'error', errorMessage: `Documento da análise (ID: ${currentAnalysis.id}) não foi encontrado no banco de dados.` };
                 }
-                return prev; // Retorna o estado anterior se as condições não forem atendidas.
+                return prev;
               });
             }
           }
@@ -100,13 +99,12 @@ export function useAnalysisManager(user: User | null) {
     }
   };
 
-  const handleUploadAndAnalyze = useCallback(async (onSuccess: () => void) => {
+  const handleUploadAndAnalyze = useCallback(async (onSuccessCallback: () => void) => {
     if (!fileToUpload || !user) return;
 
     setIsUploading(true);
     setUploadProgressInternal(0);
-    
-    let analysisDocId = '';
+    let analysisDocId = ''; // Mova a declaração para cá para que seja acessível no catch
 
     try {
       const newAnalysisCollectionRef = collection(db, 'users', user.uid, 'analyses');
@@ -126,7 +124,7 @@ export function useAnalysisManager(user: User | null) {
         fileName: fileToUpload.name,
         status: 'uploading',
         progress: 0,
-        createdAt: new Date().toISOString(), // Será atualizado pelo timestamp do servidor via onSnapshot
+        createdAt: new Date().toISOString(),
         tags: []
       };
       setCurrentAnalysis(initialAnalysisData);
@@ -137,11 +135,12 @@ export function useAnalysisManager(user: User | null) {
 
       uploadTask.on('state_changed',
         (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgressInternal(progress);
+          const currentUploadPercentage = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgressInternal(currentUploadPercentage);
           if (analysisDocId) {
+            // Atualiza apenas o progresso, mantendo o status 'uploading'
             updateDoc(doc(db, 'users', user.uid, 'analyses', analysisDocId), {
-               progress: Math.round(progress) 
+               progress: Math.round(currentUploadPercentage)
             }).catch(err => console.error("Error updating upload progress in Firestore:", err));
           }
         },
@@ -149,7 +148,7 @@ export function useAnalysisManager(user: User | null) {
           console.error(`Upload error for ${analysisDocId}:`, uploadError);
           toast({ title: 'Erro no Upload', description: uploadError.message, variant: 'destructive' });
           setIsUploading(false);
-          if (analysisDocId) {
+          if (analysisDocId) { // Garante que analysisDocId foi definido
             await updateDoc(doc(db, 'users', user.uid, 'analyses', analysisDocId), {
               status: 'error',
               errorMessage: `Upload failed: ${uploadError.message}`,
@@ -157,25 +156,29 @@ export function useAnalysisManager(user: User | null) {
             });
           }
         },
-        async () => {
+        async () => { // Completion handler
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            // O status é mudado para 'identifying_regulations' *após* o upload completo
+            // e o progresso geral é zerado para a próxima fase.
             await updateDoc(doc(db, 'users', user.uid, 'analyses', analysisDocId), {
               powerQualityDataUrl: downloadURL,
-              status: 'identifying_regulations',
-              progress: 0, 
+              status: 'identifying_regulations', // Transição para a próxima etapa
+              progress: 0, // Zera o progresso para a etapa de identificação
             });
             setIsUploading(false);
             setFileToUpload(null);
-            onSuccess(); 
-            
+            onSuccessCallback();
+
+            // Chama o processamento do backend *depois* de atualizar o status no Firestore
             await processAnalysisFile(analysisDocId, user.uid);
+
           } catch (processError) {
             console.error(`Error during post-upload processing or AI call for ${analysisDocId}:`, processError);
             const errorMsg = processError instanceof Error ? processError.message : 'Unknown error after upload.';
             toast({ title: 'Erro no Processamento', description: errorMsg, variant: 'destructive' });
-            setIsUploading(false);
-            if (analysisDocId) {
+            setIsUploading(false); // Garante que isUploading seja resetado
+            if (analysisDocId) { // Garante que analysisDocId foi definido
               await updateDoc(doc(db, 'users', user.uid, 'analyses', analysisDocId), {
                   status: 'error',
                   errorMessage: `Processing failed: ${errorMsg}`,
@@ -190,15 +193,16 @@ export function useAnalysisManager(user: User | null) {
       const errorMessage = initialError instanceof Error ? initialError.message : 'Unknown error during analysis setup';
       toast({ title: 'Erro Crítico ao Iniciar Análise', description: errorMessage, variant: 'destructive' });
       setIsUploading(false);
-      
+
+      // Define um estado de erro para currentAnalysis se a criação do doc falhar
       setCurrentAnalysis({
-          id: `error-${Date.now()}`, 
-          userId: user.uid, 
-          fileName: fileToUpload?.name || "Arquivo desconhecido", 
-          status: 'error', 
-          progress: 0, 
-          createdAt: new Date().toISOString(), 
-          tags: [], 
+          id: `error-${Date.now()}`,
+          userId: user.uid,
+          fileName: fileToUpload?.name || "Arquivo desconhecido",
+          status: 'error',
+          progress: 0,
+          createdAt: new Date().toISOString(),
+          tags: [],
           errorMessage: `Failed to create analysis record: ${errorMessage}`
       });
     }
@@ -222,23 +226,32 @@ export function useAnalysisManager(user: User | null) {
     try {
       await addTagToAction(user.uid, analysisId, tag.trim());
       setPastAnalyses(prev => prev.map(a => a.id === analysisId ? { ...a, tags: [...(a.tags || []), tag.trim()].filter((t, i, self) => self.indexOf(t) === i) } : a));
+      // Atualizar currentAnalysis também se for o caso
+      if (currentAnalysis && currentAnalysis.id === analysisId) {
+        setCurrentAnalysis(prev => prev ? { ...prev, tags: [...(prev.tags || []), tag.trim()].filter((t, i, self) => self.indexOf(t) === i)} : null);
+      }
       setTagInput('');
       toast({ title: 'Tag adicionada', description: `Tag "${tag.trim()}" adicionada.` });
     } catch (error) {
       toast({ title: 'Erro ao adicionar tag', description: (error as Error).message, variant: 'destructive' });
     }
-  }, [user, toast]);
+  }, [user, toast, currentAnalysis]);
 
   const handleRemoveTag = useCallback(async (analysisId: string, tagToRemove: string) => {
     if (!user || !analysisId) return;
     try {
       await removeTagAction(user.uid, analysisId, tagToRemove);
       setPastAnalyses(prev => prev.map(a => a.id === analysisId ? { ...a, tags: (a.tags || []).filter(t => t !== tagToRemove) } : a));
+      // Atualizar currentAnalysis também se for o caso
+      if (currentAnalysis && currentAnalysis.id === analysisId) {
+        setCurrentAnalysis(prev => prev ? { ...prev, tags: (prev.tags || []).filter(t => t !== tagToRemove)} : null);
+      }
       toast({ title: 'Tag removida', description: `Tag "${tagToRemove}" removida.` });
     } catch (error) {
       toast({ title: 'Erro ao remover tag', description: (error as Error).message, variant: 'destructive' });
     }
-  }, [user, toast]);
+  }, [user, toast, currentAnalysis]);
+
 
   const handleDeleteAnalysis = useCallback(async (analysisId: string, onDeleted?: () => void) => {
     if (!user || !analysisId) return;
@@ -276,39 +289,48 @@ export function useAnalysisManager(user: User | null) {
     if (!currentAnalysis) {
         return steps;
     }
-    
+
     const { status, progress, errorMessage, powerQualityDataUrl, identifiedRegulations, summary } = currentAnalysis;
-    const currentOverallProgress = status === 'uploading' ? _uploadProgress : progress;
 
     switch (status) {
       case 'uploading':
-        steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'in_progress', progress: Math.round(_uploadProgress) };
+        steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'in_progress', progress: _uploadProgress }; // Usa _uploadProgress local
         break;
       case 'identifying_regulations':
         steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'completed', progress: 100 };
-        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'in_progress', progress: currentOverallProgress };
+        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'in_progress', progress: progress }; // Usa progress geral do Firestore
         break;
       case 'assessing_compliance':
         steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'completed', progress: 100 };
         steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'completed', progress: 100 };
-        steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'in_progress', progress: currentOverallProgress };
+        steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'in_progress', progress: progress }; // Usa progress geral do Firestore
         break;
       case 'completed':
         steps = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'completed', progress: 100 }));
         break;
       case 'error':
-        let errorStepIndex = 3; // Default to last step if not determined otherwise
-        if (!powerQualityDataUrl) errorStepIndex = 0; 
-        else if (!identifiedRegulations) errorStepIndex = 1; 
-        else if (!summary ) errorStepIndex = 2; 
-        
+        let errorStepIndex = 3; // Default to last step (Gerando Resultados)
+        // A lógica de determinar o erro pode ser complexa, vamos simplificar:
+        // Se o erro ocorreu durante o upload, powerQualityDataUrl não existirá
+        // Se durante a identificação, identifiedRegulations não existirá, etc.
+        if (!powerQualityDataUrl && status === 'error' && errorMessage?.toLowerCase().includes('upload')) {
+            errorStepIndex = 0; // Erro no upload
+        } else if (!identifiedRegulations && status === 'error') {
+            errorStepIndex = 1; // Erro na identificação
+        } else if (!summary && status === 'error') { // Ou !complianceReport
+            errorStepIndex = 2; // Erro na análise/geração de relatório
+        }
+        // Se for um erro genérico, pode cair no último passo por padrão.
+
         steps = steps.map((step, index) => {
           if (index < errorStepIndex) return { ...step, status: 'completed', progress: 100 };
           if (index === errorStepIndex) return { ...step, status: 'error', details: errorMessage || 'Erro desconhecido' };
-          return { ...step, status: 'pending', progress: 0 };
+          return { ...step, status: 'pending', progress: 0 }; // Etapas subsequentes ficam pendentes
         });
         break;
       default:
+        // Se status for desconhecido, todas as etapas ficam pendentes ou como erro
+        steps = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'error', details: `Status desconhecido: ${status}`, progress: 0 }));
         break;
     }
     return steps;
@@ -334,5 +356,3 @@ export function useAnalysisManager(user: User | null) {
     displayedAnalysisSteps,
   };
 }
-
-    
