@@ -1,3 +1,4 @@
+
 // src/features/file-upload/actions/fileUploadActions.ts
 'use server';
 
@@ -24,17 +25,14 @@ export async function createInitialAnalysisRecordAction(
   }
 
   try {
-    // Objeto para Firestore: campos opcionais devem ser null se não tiverem valor inicial.
-    const analysisDataForFirestore: Omit<Analysis, 'id' | 'createdAt' | 'tags'> & { createdAt: Timestamp; tags: string[]; powerQualityDataUrl: null; powerQualityDataPreview: null; identifiedRegulations: null; summary: null; complianceReport: null; errorMessage: null; completedAt: null; uploadProgress: number; } = {
+    const analysisDataForFirestore: Omit<Analysis, 'id' | 'createdAt' | 'tags' | 'powerQualityDataUrl' | 'powerQualityDataPreview' | 'identifiedRegulations' | 'summary' | 'complianceReport' | 'errorMessage' | 'completedAt'> & { createdAt: Timestamp; tags: string[]; powerQualityDataUrl: null; powerQualityDataPreview: null; identifiedRegulations: null; summary: null; complianceReport: null; errorMessage: null; completedAt: null; uploadProgress: number; } = {
       userId,
       fileName,
       status: 'uploading',
-      progress: 0, // Progresso geral da análise
-      uploadProgress: 0, // Progresso específico do upload do arquivo
-      tags: [], // Tags são obrigatórias, mas podem começar vazias
-      createdAt: serverTimestamp() as Timestamp, // Firestore preencherá isso
-      
-      // Campos opcionais inicializados como null
+      progress: 0,
+      uploadProgress: 0,
+      tags: [],
+      createdAt: serverTimestamp() as Timestamp,
       powerQualityDataUrl: null,
       powerQualityDataPreview: null,
       identifiedRegulations: null,
@@ -73,8 +71,14 @@ export async function updateAnalysisUploadProgressAction(
     console.error(msg);
     return { success: false, error: msg };
   }
+  const analysisRef = doc(db, 'users', userId, 'analyses', analysisId);
   try {
-    const analysisRef = doc(db, 'users', userId, 'analyses', analysisId);
+    const docSnap = await getDoc(analysisRef);
+    if (!docSnap.exists()) {
+      const notFoundMsg = `[updateAnalysisUploadProgressAction] Document ${analysisId} not found for user ${userId}. Cannot update progress.`;
+      console.error(notFoundMsg);
+      return { success: false, error: "Documento da análise não encontrado para atualizar progresso." };
+    }
     await updateDoc(analysisRef, { uploadProgress: Math.round(uploadProgress), progress: Math.round(uploadProgress * 0.1) }); // Upload é ~10% do processo total
     return { success: true };
   } catch (error) {
@@ -96,8 +100,14 @@ export async function finalizeFileUploadRecordAction(
     console.error(msg);
     return { success: false, error: msg };
   }
+  const analysisRef = doc(db, 'users', userId, 'analyses', analysisId);
   try {
-    const analysisRef = doc(db, 'users', userId, 'analyses', analysisId);
+    const docSnap = await getDoc(analysisRef);
+    if (!docSnap.exists()) {
+      const notFoundMsg = `[finalizeFileUploadRecordAction] Document ${analysisId} not found for user ${userId}. Cannot finalize record.`;
+      console.error(notFoundMsg);
+      return { success: false, error: "Documento da análise não encontrado para finalizar registro." };
+    }
     await updateDoc(analysisRef, {
       powerQualityDataUrl: downloadURL,
       status: 'identifying_regulations', 
@@ -125,8 +135,16 @@ export async function markUploadAsFailedAction(
     console.error(msg);
     return { success: false, error: msg };
   }
+  const analysisRef = doc(db, 'users', userId, 'analyses', analysisId);
   try {
-    const analysisRef = doc(db, 'users', userId, 'analyses', analysisId);
+    const docSnap = await getDoc(analysisRef);
+    if (!docSnap.exists()) {
+      // If the document doesn't exist, there's nothing to mark as failed in this context.
+      // This might happen if creation itself failed and this is a cleanup attempt.
+      const notFoundMsg = `[markUploadAsFailedAction] Document ${analysisId} not found for user ${userId}. Cannot mark as failed. Error was: ${uploadErrorMessage}`;
+      console.warn(notFoundMsg); 
+      return { success: true, error: "Documento da análise não encontrado para marcar como falha (pode já ter falhado na criação)." }; // Still success from action's perspective
+    }
     await updateDoc(analysisRef, {
       status: 'error',
       errorMessage: `Falha no upload: ${uploadErrorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH - 20)}`,
