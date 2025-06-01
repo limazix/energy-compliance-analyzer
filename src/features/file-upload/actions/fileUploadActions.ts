@@ -12,22 +12,24 @@ export async function createInitialAnalysisRecordAction(
   fileName: string
 ): Promise<{ analysisId?: string; error?: string }> {
   const userId = userIdInput ? userIdInput.trim() : '';
-  console.log(`[Action_createInitialAnalysisRecord] Received trimmed userId: '${userId}', fileName: '${fileName}'`);
+  const trimmedFileName = fileName ? fileName.trim() : '';
 
-  if (!userId || typeof userId !== 'string' || userId.trim() === "") { // Double check after trim, though first check should catch it
+  console.log(`[Action_createInitialAnalysisRecord] Received trimmed userId: '${userId}', trimmed fileName: '${trimmedFileName}'`);
+
+  if (!userId) { // Simplified check, as "" is falsy
     const msg = `[Action_createInitialAnalysisRecord] CRITICAL: userId is invalid (null, empty, or whitespace after trim): '${userIdInput}' -> '${userId}'. Aborting.`;
     console.error(msg);
     return { error: msg };
   }
-  if (!fileName || fileName.trim() === "") {
+  if (!trimmedFileName) {
     const msg = "[Action_createInitialAnalysisRecord] Nome do arquivo é obrigatório e não pode ser vazio.";
     console.error(msg);
     return { error: msg };
   }
 
   const analysisDataForFirestore = {
-    userId, // Use trimmed userId
-    fileName,
+    userId, 
+    fileName: trimmedFileName,
     status: 'uploading',
     progress: 0,
     uploadProgress: 0,
@@ -35,11 +37,13 @@ export async function createInitialAnalysisRecordAction(
     createdAt: serverTimestamp() as Timestamp,
   };
   
-  const analysisCollectionPath = `users/${userId}/analyses`; // Use trimmed userId
-  console.log(`[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: '${analysisCollectionPath}'. Data for user '${userId}'. Project: '${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}'`);
+  const analysisCollectionPath = `users/${userId}/analyses`;
+  // Log the Project ID being used by the `db` instance from firebase.ts
+  const currentProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET_OR_EMPTY';
+  console.log(`[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: '${analysisCollectionPath}'. Data for user '${userId}'. Using Project ID: '${currentProjectId}'`);
 
   try {
-    const analysisCollectionRef = collection(db, 'users', userId, 'analyses'); // Use trimmed userId
+    const analysisCollectionRef = collection(db, 'users', userId, 'analyses'); 
     const docRef = await addDoc(analysisCollectionRef, analysisDataForFirestore);
     console.log(`[Action_createInitialAnalysisRecord] Document created with ID: ${docRef.id} for user ${userId} at path ${analysisCollectionPath}/${docRef.id}`);
     return { analysisId: docRef.id };
@@ -48,7 +52,7 @@ export async function createInitialAnalysisRecordAction(
     if (error instanceof FirestoreError) {
       errorMessage = `Falha ao criar registro inicial da análise: ${error.code} ${error.message}`;
       if (error.code === 'permission-denied' || error.code === 7) {
-        console.error(`[Action_createInitialAnalysisRecord] PERMISSION_DENIED ao tentar criar documento para userId: '${userId}' no caminho '${analysisCollectionPath}'. Verifique as regras do Firestore e se elas foram implantadas no projeto Firebase CORRETO (${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}). Erro original: ${error.message}`);
+        console.error(`[Action_createInitialAnalysisRecord] PERMISSION_DENIED ao tentar criar documento para userId: '${userId}' no caminho '${analysisCollectionPath}'. Verifique as regras do Firestore e se elas foram implantadas no projeto Firebase CORRETO ('${currentProjectId}'). Erro original: ${error.message}`);
       }
     } else if (error instanceof Error) {
       errorMessage = `Falha ao criar registro inicial da análise: ${error.message}`;
@@ -60,16 +64,18 @@ export async function createInitialAnalysisRecordAction(
 
 export async function updateAnalysisUploadProgressAction(
   userIdInput: string,
-  analysisId: string,
+  analysisIdInput: string,
   uploadProgress: number
 ): Promise<{ success: boolean; error?: string }> {
   const userId = userIdInput ? userIdInput.trim() : '';
-  if (!userId || typeof userId !== 'string' || userId.trim() === "" || !analysisId || typeof analysisId !== 'string' || analysisId.trim() === "") {
-    const msg = `[Action_updateAnalysisUploadProgress] CRITICAL: userId ('${userIdInput}' -> '${userId}') or analysisId ('${analysisId}') is invalid. Aborting.`;
+  const analysisId = analysisIdInput ? analysisIdInput.trim() : '';
+
+  if (!userId || !analysisId) {
+    const msg = `[Action_updateAnalysisUploadProgress] CRITICAL: userId ('${userIdInput}' -> '${userId}') or analysisId ('${analysisIdInput}' -> '${analysisId}') is invalid. Aborting.`;
     console.error(msg);
     return { success: false, error: msg };
   }
-  const analysisDocPath = `users/${userId}/analyses/${analysisId}`; // Use trimmed userId
+  const analysisDocPath = `users/${userId}/analyses/${analysisId}`; 
   const analysisRef = doc(db, analysisDocPath);
   
   try {
@@ -100,16 +106,18 @@ export async function updateAnalysisUploadProgressAction(
 
 export async function finalizeFileUploadRecordAction(
   userIdInput: string,
-  analysisId: string,
+  analysisIdInput: string,
   downloadURL: string
 ): Promise<{ success: boolean; error?: string }> {
   const userId = userIdInput ? userIdInput.trim() : '';
-  if (!userId || typeof userId !== 'string' || userId.trim() === "" || !analysisId || typeof analysisId !== 'string' || analysisId.trim() === "" || !downloadURL) {
-    const msg = `[Action_finalizeFileUploadRecord] CRITICAL: userId ('${userIdInput}' -> '${userId}'), analysisId ('${analysisId}'), or downloadURL is invalid. Aborting.`;
+  const analysisId = analysisIdInput ? analysisIdInput.trim() : '';
+
+  if (!userId || !analysisId || !downloadURL) {
+    const msg = `[Action_finalizeFileUploadRecord] CRITICAL: userId ('${userIdInput}' -> '${userId}'), analysisId ('${analysisIdInput}' -> '${analysisId}'), or downloadURL is invalid. Aborting.`;
     console.error(msg);
     return { success: false, error: msg };
   }
-  const analysisDocPath = `users/${userId}/analyses/${analysisId}`; // Use trimmed userId
+  const analysisDocPath = `users/${userId}/analyses/${analysisId}`; 
   const analysisRef = doc(db, analysisDocPath);
 
   try {
@@ -141,23 +149,26 @@ export async function finalizeFileUploadRecordAction(
 
 export async function markUploadAsFailedAction(
   userIdInput: string,
-  analysisId: string | null, 
+  analysisIdInput: string | null, 
   uploadErrorMessage: string
 ): Promise<{ success: boolean; error?: string }> {
   const userId = userIdInput ? userIdInput.trim() : '';
-  if (!userId || typeof userId !== 'string' || userId.trim() === "") {
+  const analysisId = analysisIdInput ? analysisIdInput.trim() : '';
+
+  if (!userId) {
     const msg = `[Action_markUploadAsFailed] CRITICAL: userId is invalid ('${userIdInput}' -> '${userId}'). Aborting.`;
     console.error(msg);
     return { success: false, error: msg };
   }
   
-  if (!analysisId || typeof analysisId !== 'string' || analysisId.trim() === "") {
-    const noIdMsg = `[Action_markUploadAsFailed] Analysis ID inválido ou não fornecido ('${analysisId}'). Provável falha na criação do registro. Erro original do upload: ${uploadErrorMessage}`;
+  if (!analysisId) {
+    const noIdMsg = `[Action_markUploadAsFailed] Analysis ID inválido ou não fornecido ('${analysisIdInput}' -> '${analysisId}'). Provável falha na criação do registro. Erro original do upload: ${uploadErrorMessage}`;
     console.warn(noIdMsg);
+    // Se não há analysisId, não há o que atualizar, mas não é um erro da action em si, apenas um log.
     return { success: true, error: "ID da análise inválido para marcar falha (criação pode ter falhado)." };
   }
   
-  const analysisDocPath = `users/${userId}/analyses/${analysisId}`; // Use trimmed userId
+  const analysisDocPath = `users/${userId}/analyses/${analysisId}`; 
   const analysisRef = doc(db, analysisDocPath);
   try {
     const docSnap = await getDoc(analysisRef);
@@ -185,3 +196,4 @@ export async function markUploadAsFailedAction(
     return { success: false, error: errorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH) };
   }
 }
+

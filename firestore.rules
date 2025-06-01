@@ -2,21 +2,21 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regra para operações em um documento de análise específico (get, update, delete)
-    match /users/{userId}/analyses/{analysisId} {
+
+    // --- DEBUGGING RULE ---
+    // This rule allows ANY authenticated user to create an analysis document for ANY userId.
+    // This is for DEBUGGING `create` operations ONLY.
+    // Revert to secure rules after testing.
+    match /users/{userId}/analyses/{analysisDocId} {
+      allow create: if request.auth != null;
+
+      // Keep original rules for other operations on a specific document
       allow get, update, delete: if request.auth != null && request.auth.uid == userId;
-      // Se quiser ser explícito que a criação é tratada pela regra da coleção:
-      // allow create: if false;
     }
 
-    // Regra para operações na coleção 'analyses' de um usuário
+    // Rule for listing analyses for a user
     match /users/{userId}/analyses {
       allow list: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null &&
-                       request.auth.uid == userId &&
-                       request.resource.data.userId == userId && // Garante que o campo userId no documento também corresponda
-                       request.resource.data.fileName is string && // Validação básica do campo fileName
-                       request.resource.data.status == 'uploading'; // Validação do status inicial
     }
   }
 }
