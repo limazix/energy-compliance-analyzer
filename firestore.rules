@@ -1,16 +1,19 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Restringe o acesso à coleção 'users'
-    match /users/{userId}/{document=**} {
-      // Permite leitura e escrita (incluindo criação, atualização, exclusão)
-      // somente se o usuário estiver autenticado (request.auth != null)
-      // E se o UID do usuário autenticado (request.auth.uid) for igual ao
-      // {userId} no caminho do documento.
-      // O {document=**} permite que esta regra se aplique a todos os documentos
-      // e subcoleções dentro do documento do usuário específico.
+    // Allow a user to read and write only to their own analysis documents.
+    // This means that for a path like /users/USER_ID_123/analyses/ANALYSIS_ID_ABC,
+    // the authenticated user's UID (request.auth.uid) must be equal to USER_ID_123.
+    match /users/{userId}/analyses/{analysisId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Example: If you had user profile documents directly under /users/{userId}
+    // match /users/{userId} {
+    //   allow read: if request.auth != null;
+    //   allow write: if request.auth != null && request.auth.uid == userId;
+    // }
   }
 }
