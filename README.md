@@ -198,14 +198,19 @@ Este projeto inclui um workflow de GitHub Actions (`.github/workflows/firebase-d
 Se você encontrar erros de `PERMISSION_DENIED` no Firestore ou Storage, siga este checklist rigorosamente:
 
 1.  **Conteúdo das Regras Locais:**
-    *   Verifique se os arquivos `firestore.rules` e `storage.rules` na raiz do seu projeto contêm as regras esperadas (as mais simples e seguras são as que permitem acesso com base no `request.auth.uid == userId`).
-    *   **Exemplo `firestore.rules` esperado:**
+    *   Verifique se os arquivos `firestore.rules` e `storage.rules` na raiz do seu projeto contêm as regras esperadas.
+    *   **Exemplo `firestore.rules` esperado (comenta-se mais explícito para debug, mas a forma `{path=**}` também deve funcionar se tudo estiver correto):**
         ```javascript
         rules_version = '2';
         service cloud.firestore {
           match /databases/{database}/documents {
-            match /users/{userId}/{path=**} { // Cobre subcoleções e documentos
-              allow read, write: if request.auth != null && request.auth.uid == userId;
+            // Regra para operações em um documento de análise específico
+            match /users/{userId}/analyses/{analysisId} {
+              allow get, update, delete: if request.auth != null && request.auth.uid == userId;
+            }
+            // Regra para operações na coleção 'analyses' de um usuário
+            match /users/{userId}/analyses {
+              allow list, create: if request.auth != null && request.auth.uid == userId;
             }
           }
         }
@@ -246,10 +251,10 @@ Se você encontrar erros de `PERMISSION_DENIED` no Firestore ou Storage, siga es
         *   Exemplo da action `createInitialAnalysisRecordAction` ao tentar criar um documento:
           `[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: 'users/USER_ID_DA_ACTION/analyses'. Data for user 'USER_ID_DA_ACTION'. Using Project ID: 'ID_DO_PROJETO_NO_SERVIDOR'`
           Confirme se o `ID_DO_PROJETO_NO_SERVIDOR` é `electric-magnitudes-analizer`.
-        *   Exemplo de erro no servidor:
-          `[Action_createInitialAnalysisRecord] PERMISSION_DENIED ao tentar criar documento para userId: 'USER_ID_DA_ACTION' ...`
+        *   Exemplo de erro no servidor para `getPastAnalysesAction`:
+          `[getPastAnalysesAction] PERMISSION_DENIED while querying path 'users/USER_ID_DA_ACTION/analyses' for userId 'USER_ID_DA_ACTION'. Check Firestore rules against active project 'ID_DO_PROJETO_NO_SERVIDOR'.`
     *   Verifique os logs do console do navegador (DevTools). O `AuthProvider` loga o `currentUser` (ex: `[AuthProvider] Auth state changed. currentUser: {"uid":"USER_ID_DO_CLIENTE", ...}`).
-    *   **Confirme se o `USER_ID_DA_ACTION` dos logs do servidor é o mesmo `USER_ID_DO_CLIENTE` que você vê no `currentUser` dos logs do navegador.** Se houver uma discrepância aqui, o `userId` sendo usado para construir o caminho no Firestore não corresponderá ao `request.auth.uid` nas regras.
+    *   **CONFIRME se o `USER_ID_DA_ACTION` dos logs do servidor (tanto para criar quanto para listar) é o mesmo `USER_ID_DO_CLIENTE` que você vê no `currentUser` dos logs do navegador.** Se houver uma discrepância aqui, o `userId` sendo usado para construir o caminho no Firestore não corresponderá ao `request.auth.uid` nas regras.
     *   Confirme se o `ID_DO_PROJETO_NO_SERVIDOR` logado corresponde ao `NEXT_PUBLIC_FIREBASE_PROJECT_ID` no seu `.env` e ao projeto `electric-magnitudes-analizer` que você está configurando.
 
 7.  **Estado de Autenticação do Usuário:**
@@ -263,3 +268,4 @@ Seguir este checklist rigorosamente geralmente resolve a maioria dos problemas d
 ## Licença
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
