@@ -16,7 +16,7 @@ export async function createInitialAnalysisRecordAction(
 
   console.log(`[Action_createInitialAnalysisRecord] Received trimmed userId: '${userId}', trimmed fileName: '${trimmedFileName}'`);
 
-  if (!userId) { // Simplified check, as "" is falsy
+  if (!userId) { 
     const msg = `[Action_createInitialAnalysisRecord] CRITICAL: userId is invalid (null, empty, or whitespace after trim): '${userIdInput}' -> '${userId}'. Aborting.`;
     console.error(msg);
     return { error: msg };
@@ -27,8 +27,11 @@ export async function createInitialAnalysisRecordAction(
     return { error: msg };
   }
 
+  // Garante que o userId usado no caminho é o mesmo que será armazenado no documento.
+  const consistentUserId = userId; 
+
   const analysisDataForFirestore = {
-    userId, 
+    userId: consistentUserId, // Usando o userId validado e trimado
     fileName: trimmedFileName,
     status: 'uploading',
     progress: 0,
@@ -37,27 +40,27 @@ export async function createInitialAnalysisRecordAction(
     createdAt: serverTimestamp() as Timestamp,
   };
   
-  const analysisCollectionPath = `users/${userId}/analyses`;
-  // Log the Project ID being used by the `db` instance from firebase.ts
+  const analysisCollectionPath = `users/${consistentUserId}/analyses`;
   const currentProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET_OR_EMPTY';
-  console.log(`[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: '${analysisCollectionPath}'. Data for user '${userId}'. Using Project ID: '${currentProjectId}'`);
+  console.log(`[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: '${analysisCollectionPath}'. Data for user '${consistentUserId}'. Using Project ID: '${currentProjectId}'`);
 
   try {
-    const analysisCollectionRef = collection(db, 'users', userId, 'analyses'); 
+    // Usando consistentUserId para construir a referência da coleção
+    const analysisCollectionRef = collection(db, 'users', consistentUserId, 'analyses'); 
     const docRef = await addDoc(analysisCollectionRef, analysisDataForFirestore);
-    console.log(`[Action_createInitialAnalysisRecord] Document created with ID: ${docRef.id} for user ${userId} at path ${analysisCollectionPath}/${docRef.id}`);
+    console.log(`[Action_createInitialAnalysisRecord] Document created with ID: ${docRef.id} for user ${consistentUserId} at path ${analysisCollectionPath}/${docRef.id}`);
     return { analysisId: docRef.id };
   } catch (error) {
     let errorMessage = 'Falha ao criar registro inicial da análise.';
     if (error instanceof FirestoreError) {
       errorMessage = `Falha ao criar registro inicial da análise: ${error.code} ${error.message}`;
       if (error.code === 'permission-denied' || error.code === 7) {
-        console.error(`[Action_createInitialAnalysisRecord] PERMISSION_DENIED ao tentar criar documento para userId: '${userId}' no caminho '${analysisCollectionPath}'. Verifique as regras do Firestore e se elas foram implantadas no projeto Firebase CORRETO ('${currentProjectId}'). Erro original: ${error.message}`);
+        console.error(`[Action_createInitialAnalysisRecord] PERMISSION_DENIED ao tentar criar documento para userId: '${consistentUserId}' no caminho '${analysisCollectionPath}'. Verifique as regras do Firestore e se elas foram implantadas no projeto Firebase CORRETO ('${currentProjectId}'). Erro original: ${error.message}`);
       }
     } else if (error instanceof Error) {
       errorMessage = `Falha ao criar registro inicial da análise: ${error.message}`;
     }
-    console.error(`[Action_createInitialAnalysisRecord] Catch block for userId '${userId}': ${errorMessage}`, error);
+    console.error(`[Action_createInitialAnalysisRecord] Catch block for userId '${consistentUserId}': ${errorMessage}`, error);
     return { error: errorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH) };
   }
 }
@@ -164,7 +167,6 @@ export async function markUploadAsFailedAction(
   if (!analysisId) {
     const noIdMsg = `[Action_markUploadAsFailed] Analysis ID inválido ou não fornecido ('${analysisIdInput}' -> '${analysisId}'). Provável falha na criação do registro. Erro original do upload: ${uploadErrorMessage}`;
     console.warn(noIdMsg);
-    // Se não há analysisId, não há o que atualizar, mas não é um erro da action em si, apenas um log.
     return { success: true, error: "ID da análise inválido para marcar falha (criação pode ter falhado)." };
   }
   
@@ -196,4 +198,3 @@ export async function markUploadAsFailedAction(
     return { success: false, error: errorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH) };
   }
 }
-

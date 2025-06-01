@@ -3,10 +3,8 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     // Permite que um usuário autenticado leia e escreva (upload, download, delete)
-    // qualquer arquivo dentro de seu próprio caminho de upload de usuário.
-    // Isso cobre o upload para /user_uploads/{userId}/{analysisId}/{fileName}
-    // e também permitiria a leitura desses arquivos se necessário.
-    match /user_uploads/{userId}/{path=**} {
+    // qualquer arquivo dentro do seu próprio caminho /user_uploads/{userId}/.
+    match /user_uploads/{userId}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }

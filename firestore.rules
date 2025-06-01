@@ -2,32 +2,10 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Rule for operations on a specific analysis document (get, update, delete)
-    // This rule remains standard: user can only affect their own documents.
-    match /users/{userId}/analyses/{analysisId} {
-      allow get, update, delete: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Rule for operations on the 'analyses' collection for a user
-    match /users/{pathUserId}/analyses { // Renamed {userId} to {pathUserId} for clarity in this context
-      // LIST: User can only list analyses if the path's userId matches their auth.uid
-      allow list: if request.auth != null && request.auth.uid == pathUserId;
-
-      // CREATE (DEBUGGING):
-      // Allow create if:
-      // 1. The user is authenticated (request.auth != null).
-      // 2. The 'userId' field *within the document being created* (request.resource.data.userId)
-      //    matches the authenticated user's UID (request.auth.uid).
-      // This rule temporarily IGNORES whether {pathUserId} matches request.auth.uid for the CREATE operation.
-      // It also validates that essential fields are present in the data being written.
-      allow create: if request.auth != null &&
-                       request.resource.data.userId == request.auth.uid &&
-                       request.resource.data.fileName is string &&
-                       request.resource.data.status == 'uploading' &&
-                       request.resource.data.tags is list && // Ensure tags is a list (even if empty)
-                       request.resource.data.progress is number &&
-                       request.resource.data.uploadProgress is number &&
-                       request.resource.data.createdAt != null; // Ensure createdAt will be set (by serverTimestamp)
+    // Permite que um usuário autenticado leia e escreva (incluindo criar, listar, obter, atualizar, excluir)
+    // qualquer documento ou subcoleção dentro do seu próprio caminho /users/{userId}/.
+    match /users/{userId}/{path=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
