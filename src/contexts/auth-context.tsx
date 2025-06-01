@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { User } from 'firebase/auth';
@@ -20,6 +21,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      console.log('[AuthProvider] Auth state changed. currentUser:', JSON.stringify(currentUser, null, 2));
+      if (currentUser && !currentUser.uid) {
+        console.error('[AuthProvider] CRITICAL: currentUser exists but uid is missing or empty!', currentUser);
+      }
       setUser(currentUser);
       setLoading(false);
     });

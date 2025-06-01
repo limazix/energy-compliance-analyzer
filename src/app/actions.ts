@@ -1,7 +1,7 @@
 
 'use server';
 
-import { Timestamp, addDoc, collection, doc, getDocs, orderBy, query, updateDoc, where, writeBatch, serverTimestamp, getDoc } from 'firebase/firestore';
+import { Timestamp, addDoc, collection, doc, getDocs, orderBy, query, updateDoc, where, writeBatch, serverTimestamp, getDoc, FirestoreError } from 'firebase/firestore';
 import { getDownloadURL, ref as storageRef } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { identifyAEEEResolutions } from '@/ai/flows/identify-aneel-resolutions';
@@ -53,20 +53,42 @@ async function getFileContentFromStorage(filePath: string): Promise<string> {
 
 export async function processAnalysisFile(analysisId: string, userId: string): Promise<void> {
   console.log(`[processAnalysisFile] Starting for analysisId: ${analysisId}, userId: ${userId}`);
+  
+  if (!userId || userId.trim() === "") {
+    const criticalMsg = `[processAnalysisFile] CRITICAL: userId is null, empty, or whitespace ('${userId}') for analysisId: ${analysisId}. Aborting.`;
+    console.error(criticalMsg);
+    // Attempt to update Firestore, but this might be problematic if analysisId doesn't exist or userId was needed for path
+    try {
+        // Try to update if a valid analysisId was somehow created with a bad userId path component
+        // This path might be incorrect if userId was part of the path to this doc and was bad initially.
+        // Assuming a generic 'analyses_errors' collection or a specific doc if it exists.
+        // For simplicity, we'll just log and rely on client to show initial error if doc creation failed.
+        // If the doc *was* created but userId is bad *now*, we might try updating it.
+        const tempAnalysisRef = doc(db, 'users', 'UNKNOWN_USER_ID_ERROR', 'analyses', analysisId); // Fallback path idea
+        // A better approach would be to ensure this function is never called with an invalid userId.
+        // The client-side `useAnalysisManager` should prevent this.
+        // If a document *does* exist at `users/${userId}/analyses/${analysisId}` despite bad `userId`,
+        // then the Firestore rules would prevent this update if the `userId` parameter doesn't match auth.
+        // This situation is complex; primary validation should be client-side before calling this.
+    } catch (e) {
+        console.error(`[processAnalysisFile] Error trying to handle invalid userId scenario for ${analysisId}:`, e);
+    }
+    // throw new Error(criticalMsg); // Optionally throw to indicate failure to the caller
+    return; // Stop processing
+  }
+
   const analysisRef = doc(db, 'users', userId, 'analyses', analysisId);
-  const MAX_ERROR_MESSAGE_LENGTH = 1500; // Firestore's limit for indexed strings, good general limit
+  const MAX_ERROR_MESSAGE_LENGTH = 1500; 
 
   let analysisSnap;
   try {
     analysisSnap = await getDoc(analysisRef);
     if (!analysisSnap.exists()) {
-      console.error(`[processAnalysisFile] Analysis document ${analysisId} not found at the beginning.`);
-      // If doc doesn't exist, can't update its status to error. Client should handle this.
+      console.error(`[processAnalysisFile] Analysis document ${analysisId} not found at path users/${userId}/analyses/${analysisId}. Aborting.`);
       return; 
     }
   } catch (error) {
-    console.error(`[processAnalysisFile] Failed to get analysis document ${analysisId}:`, error);
-    // Cannot update Firestore if we can't even get the doc ref or it doesn't exist.
+    console.error(`[processAnalysisFile] Failed to get analysis document ${analysisId} (path users/${userId}/analyses/${analysisId}):`, error);
     return;
   }
 
@@ -74,16 +96,15 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
   const filePath = analysisData.powerQualityDataUrl;
 
   if (!filePath) {
-    console.error(`[processAnalysisFile] File path not found for analysisId: ${analysisId}.`);
-    await updateDoc(analysisRef, { status: 'error', errorMessage: 'File path not found in analysis record.', progress: 0 });
+    console.error(`[processAnalysisFile] File path (powerQualityDataUrl) not found for analysisId: ${analysisId}.`);
+    await updateDoc(analysisRef, { status: 'error', errorMessage: 'URL do arquivo de dados não encontrada no registro da análise.', progress: 0 });
     return;
   }
   
   try {
     console.log(`[processAnalysisFile] File path: ${filePath}. Current status: ${analysisData.status}. Updating to 'identifying_regulations'.`);
-    // Ensure we only update if not already in a terminal state from a previous run for this step.
-    if (analysisData.status === 'uploading' || !analysisData.status) { // Or some initial state
-       await updateDoc(analysisRef, { status: 'identifying_regulations', progress: 10 }); // Small progress for starting this phase
+    if (analysisData.status === 'uploading' || analysisData.status === 'identifying_regulations' || !analysisData.status) { 
+       await updateDoc(analysisRef, { status: 'identifying_regulations', progress: 10 });
     }
     
     let powerQualityData;
@@ -93,7 +114,7 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
     } catch (fileError) {
       console.error(`[processAnalysisFile] Error getting file content for ${analysisId}:`, fileError);
       const errMsg = fileError instanceof Error ? fileError.message : String(fileError);
-      await updateDoc(analysisRef, { status: 'error', errorMessage: `Failed to read file: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 0 });
+      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha ao ler arquivo: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 0 });
       return;
     }
     
@@ -104,7 +125,7 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
     } catch (aiError) {
       console.error(`[processAnalysisFile] Error from identifyAEEEResolutions for ${analysisId}:`, aiError);
       const errMsg = aiError instanceof Error ? aiError.message : String(aiError);
-      await updateDoc(analysisRef, { status: 'error', errorMessage: `AI resolution identification failed: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 25 });
+      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na identificação de resoluções pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 25 });
       return;
     }
 
@@ -128,7 +149,7 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
     } catch (aiError) {
       console.error(`[processAnalysisFile] Error from analyzeComplianceReport for ${analysisId}:`, aiError);
       const errMsg = aiError instanceof Error ? aiError.message : String(aiError);
-      await updateDoc(analysisRef, { status: 'error', errorMessage: `AI compliance analysis failed: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 50 });
+      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na análise de conformidade pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 50 });
       return;
     }
 
@@ -141,15 +162,15 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
       progress: 100,
       completedAt: serverTimestamp(),
     });
-    console.log(`[processAnalysisFile] Analysis ${analysisId} completed successfully.`);
+    console.log(`[processAnalysisFile] Analysis ${analysisId} completed successfully for user ${userId}.`);
 
-  } catch (error) { // Catch-all for the main processing block
-    console.error(`[processAnalysisFile] Overall error processing analysis ${analysisId}:`, error);
-    let detailedErrorMessage = 'Unknown error during processing.';
+  } catch (error) { 
+    console.error(`[processAnalysisFile] Overall error processing analysis ${analysisId} for user ${userId}:`, error);
+    let detailedErrorMessage = 'Erro desconhecido durante o processamento.';
     if (error instanceof Error) {
         detailedErrorMessage = `Error: ${error.message}`;
         if (error.stack) {
-            detailedErrorMessage += `\nStack: ${error.stack}`;
+            detailedErrorMessage += ` Stack: ${error.stack.substring(0, 500)}`; // Limit stack length
         }
     } else {
         detailedErrorMessage = String(error);
@@ -157,14 +178,13 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
     const finalErrorMessage = detailedErrorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH);
 
     try {
-      // Re-fetch snapshot to ensure it still exists before updating with error
-      const currentSnap = await getDoc(analysisRef);
+      const currentSnap = await getDoc(analysisRef); // Re-fetch, ensure it exists
       if (currentSnap.exists()) {
         console.log(`[processAnalysisFile] Attempting to update Firestore with error status for analysis ${analysisId}. Error: ${finalErrorMessage.substring(0, 200)}...`);
         await updateDoc(analysisRef, { status: 'error', errorMessage: finalErrorMessage, progress: 0 });
         console.log(`[processAnalysisFile] Firestore updated with error status for analysis ${analysisId}.`);
       } else {
-         console.error(`[processAnalysisFile] CRITICAL: Analysis document ${analysisId} not found when trying to update with overall error status.`);
+         console.error(`[processAnalysisFile] CRITICAL: Analysis document ${analysisId} (path users/${userId}/analyses/${analysisId}) not found when trying to update with overall error status.`);
       }
     } catch (firestoreError) {
       console.error(`[processAnalysisFile] CRITICAL: Failed to update Firestore with overall error status for analysis ${analysisId} (Original error: ${finalErrorMessage.substring(0,200)}...):`, firestoreError);
@@ -175,9 +195,9 @@ export async function processAnalysisFile(analysisId: string, userId: string): P
 
 export async function getPastAnalysesAction(userId: string): Promise<Analysis[]> {
   console.log(`[getPastAnalysesAction] Fetching for userId: ${userId}`);
-  if (!userId) {
-    console.error("[getPastAnalysesAction] User ID is required.");
-    throw new Error("User ID is required.");
+  if (!userId || userId.trim() === "") {
+    console.error("[getPastAnalysesAction] User ID is required and cannot be empty.");
+    throw new Error("User ID é obrigatório e não pode ser vazio.");
   }
   const analysesCol = collection(db, 'users', userId, 'analyses');
   const q = query(analysesCol, orderBy('createdAt', 'desc'));
@@ -196,22 +216,22 @@ export async function getPastAnalysesAction(userId: string): Promise<Analysis[]>
     });
   } catch (error) {
     console.error(`[getPastAnalysesAction] Error fetching analyses for userId ${userId}:`, error);
-    throw error; // Re-throw to be handled by the caller
+    throw error; 
   }
 }
 
 export async function addTagToAction(userId: string, analysisId: string, tag: string): Promise<void> {
   console.log(`[addTagToAction] userId: ${userId}, analysisId: ${analysisId}, tag: ${tag}`);
-  if (!userId || !analysisId || !tag) {
-    console.error("[addTagToAction] User ID, Analysis ID, and Tag are required.");
-    throw new Error("User ID, Analysis ID, and Tag are required.");
+  if (!userId || userId.trim() === "" || !analysisId || !tag) {
+    console.error("[addTagToAction] User ID, Analysis ID, and Tag are required and cannot be empty.");
+    throw new Error("User ID, Analysis ID e Tag são obrigatórios e não podem ser vazios.");
   }
   const analysisRef = doc(db, 'users', userId, 'analyses', analysisId);
   try {
     const analysisSnap = await getDoc(analysisRef);
     if (!analysisSnap.exists()) {
-      console.error(`[addTagToAction] Analysis not found: ${analysisId}`);
-      throw new Error("Analysis not found.");
+      console.error(`[addTagToAction] Analysis not found: ${analysisId} for user ${userId}`);
+      throw new Error("Análise não encontrada.");
     }
     const currentTags = analysisSnap.data().tags || [];
     if (!currentTags.includes(tag)) {
@@ -221,47 +241,45 @@ export async function addTagToAction(userId: string, analysisId: string, tag: st
       console.log(`[addTagToAction] Tag "${tag}" already exists on analysis ${analysisId}`);
     }
   } catch (error) {
-    console.error(`[addTagToAction] Error adding tag to analysis ${analysisId}:`, error);
+    console.error(`[addTagToAction] Error adding tag to analysis ${analysisId} for user ${userId}:`, error);
     throw error;
   }
 }
 
 export async function removeTagAction(userId: string, analysisId: string, tagToRemove: string): Promise<void> {
   console.log(`[removeTagAction] userId: ${userId}, analysisId: ${analysisId}, tagToRemove: ${tagToRemove}`);
-  if (!userId || !analysisId || !tagToRemove) {
-    console.error("[removeTagAction] User ID, Analysis ID, and Tag are required.");
-    throw new Error("User ID, Analysis ID, and Tag are required.");
+  if (!userId || userId.trim() === "" || !analysisId || !tagToRemove) {
+    console.error("[removeTagAction] User ID, Analysis ID, and Tag are required and cannot be empty.");
+    throw new Error("User ID, Analysis ID e Tag são obrigatórios e não podem ser vazios.");
   }
   const analysisRef = doc(db, 'users', userId, 'analyses', analysisId);
   try {
     const analysisSnap = await getDoc(analysisRef);
     if (!analysisSnap.exists()) {
-      console.error(`[removeTagAction] Analysis not found: ${analysisId}`);
-      throw new Error("Analysis not found.");
+      console.error(`[removeTagAction] Analysis not found: ${analysisId} for user ${userId}`);
+      throw new Error("Análise não encontrada.");
     }
     const currentTags = analysisSnap.data().tags || [];
-    await updateDoc(analysisRef, { tags: currentTags.filter((tag: string) => tag !== tagToRemove) });
+    await updateDoc(analysisRef, { tags: currentTags.filter((t: string) => t !== tagToRemove) });
     console.log(`[removeTagAction] Tag "${tagToRemove}" removed from analysis ${analysisId}`);
   } catch (error) {
-    console.error(`[removeTagAction] Error removing tag from analysis ${analysisId}:`, error);
+    console.error(`[removeTagAction] Error removing tag from analysis ${analysisId} for user ${userId}:`, error);
     throw error;
   }
 }
 
 export async function deleteAnalysisAction(userId: string, analysisId: string): Promise<void> {
   console.log(`[deleteAnalysisAction] Soft deleting analysisId: ${analysisId} for userId: ${userId}`);
-  if (!userId || !analysisId) {
-    console.error("[deleteAnalysisAction] User ID and Analysis ID are required.");
-    throw new Error("User ID and Analysis ID are required.");
+  if (!userId || userId.trim() === "" || !analysisId) {
+    console.error("[deleteAnalysisAction] User ID and Analysis ID are required and cannot be empty.");
+    throw new Error("User ID e Analysis ID são obrigatórios e não podem ser vazios.");
   }
   const analysisRef = doc(db, 'users', userId, 'analyses', analysisId);
   try {
-    // Note: Deleting files from Firebase Storage should also be handled here if a hard delete of data is required.
-    // For simplicity, this action only marks the Firestore document.
-    await updateDoc(analysisRef, { status: 'deleted', summary: null, complianceReport: null, identifiedRegulations: null, errorMessage: 'Analysis deleted by user.' });
-    console.log(`[deleteAnalysisAction] Analysis ${analysisId} marked as deleted.`);
+    await updateDoc(analysisRef, { status: 'deleted', summary: null, complianceReport: null, identifiedRegulations: null, errorMessage: 'Análise excluída pelo usuário.' });
+    console.log(`[deleteAnalysisAction] Analysis ${analysisId} marked as deleted for user ${userId}.`);
   } catch (error) {
-    console.error(`[deleteAnalysisAction] Error soft deleting analysis ${analysisId}:`, error);
+    console.error(`[deleteAnalysisAction] Error soft deleting analysis ${analysisId} for user ${userId}:`, error);
     throw error;
   }
 }
