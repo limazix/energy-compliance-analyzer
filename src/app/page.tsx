@@ -180,18 +180,17 @@ export default function HomePage() {
   };
 
   const handleTabChange = (tabValue: HeaderTabValue) => {
-    if (tabValue === 'dashboard') {
-      navigateToDashboard();
-    } else if (tabValue === 'past_analyses') {
+    if (tabValue === 'past_analyses') {
       navigateToPastAnalyses();
     }
+    // No other tabs to handle for now
   };
 
-  const getActiveTab = (): HeaderTabValue => {
+  const getActiveTab = (): HeaderTabValue | undefined => {
     if (viewState === 'past_analyses') {
       return 'past_analyses';
     }
-    return 'dashboard'; // Default for 'dashboard', 'new_analysis', 'analysis_view'
+    return undefined; // No tab active for dashboard, new_analysis, or analysis_view
   };
 
 
@@ -205,14 +204,17 @@ export default function HomePage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-secondary/50">
-      <AppHeader activeTab={getActiveTab()} onTabChange={handleTabChange} />
+      <AppHeader 
+        activeTab={getActiveTab()} 
+        onTabChange={handleTabChange} 
+        onNavigateToDashboard={navigateToDashboard} 
+      />
       <main className="flex-1 container mx-auto py-8 px-4">
         {viewState === 'dashboard' && (
           <DashboardView
             userName={user?.displayName}
             onStartNewAnalysis={navigateToNewAnalysis}
-            // Botão onViewPastAnalyses removido daqui
-            isLoadingPastAnalyses={isLoadingPastAnalyses} // Mantido se o dashboard precisar mostrar um loader enquanto as tabs carregam
+            isLoadingPastAnalyses={isLoadingPastAnalyses}
           />
         )}
 
@@ -238,7 +240,6 @@ export default function HomePage() {
             onAddTag={(tag) => handleAddTag(currentAnalysis.id, tag)}
             onRemoveTag={(tag) => handleRemoveTag(currentAnalysis.id, tag)}
             onStartNewAnalysis={navigateToNewAnalysis}
-            // Botão onViewPastAnalyses removido daqui
           />
         )}
 
@@ -248,7 +249,7 @@ export default function HomePage() {
             isLoading={isLoadingPastAnalyses}
             onViewDetails={viewAnalysisDetails}
             onDeleteAnalysis={(id) => handleDeleteAnalysis(id, afterDeleteAnalysis)}
-            onBackToDashboard={navigateToDashboard} // Mantido para navegação interna da view
+            onBackToDashboard={navigateToDashboard}
           />
         )}
       </main>
