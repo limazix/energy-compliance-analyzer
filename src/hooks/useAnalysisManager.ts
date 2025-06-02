@@ -7,7 +7,7 @@ import { doc, onSnapshot, Timestamp, FirestoreError } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import type { Analysis, AnalysisStep } from '@/types/analysis';
-import { processAnalysisFile, getPastAnalysesAction, addTagToAction, removeTagAction, deleteAnalysisAction, getAnalysisReportAction } from '@/app/actions';
+import { processAnalysisFile, getPastAnalysesAction, addTagToAction, removeTagAction, deleteAnalysisAction, getAnalysisReportAction, cancelAnalysisAction } from '@/app/actions';
 import type { AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report';
 
 const BASE_ANALYSIS_STEPS: Omit<AnalysisStep, 'status' | 'progress' | 'details'>[] = [
@@ -111,13 +111,16 @@ export function useAnalysisManager(user: User | null) {
               const data = docSnap.data();
               console.log(`[useAnalysisManager_onSnapshot] Snapshot for ${currentAnalysis.id}: Status: ${data.status}, Progress: ${data.progress}, ErrMsg: ${data.errorMessage}`);
               
-              const validStatuses: Analysis['status'][] = ['uploading', 'summarizing_data', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted'];
+              const validStatuses: Analysis['status'][] = ['uploading', 'summarizing_data', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted', 'cancelling', 'cancelled'];
               const statusIsValid = data.status && validStatuses.includes(data.status as Analysis['status']);
 
               const updatedAnalysis: Analysis = {
                 id: docSnap.id,
                 userId: typeof data.userId === 'string' ? data.userId : user.uid,
                 fileName: typeof data.fileName === 'string' ? data.fileName : currentAnalysis?.fileName || 'Nome de arquivo desconhecido',
+                title: typeof data.title === 'string' ? data.title : currentAnalysis?.title,
+                description: typeof data.description === 'string' ? data.description : currentAnalysis?.description,
+                languageCode: typeof data.languageCode === 'string' ? data.languageCode : currentAnalysis?.languageCode,
                 status: statusIsValid ? (data.status as Analysis['status']) : 'error',
                 progress: typeof data.progress === 'number' ? data.progress : 0,
                 uploadProgress: typeof data.uploadProgress === 'number' ? data.uploadProgress : undefined,
@@ -140,9 +143,9 @@ export function useAnalysisManager(user: User | null) {
               setCurrentAnalysis(updatedAnalysis);
             } else {
               console.warn(`[useAnalysisManager_onSnapshot] Document ${currentAnalysis?.id} not found. Current local status: ${currentAnalysis?.status}.`);
-              if (currentAnalysis && currentAnalysis.id && !currentAnalysis.id.startsWith('error-') && currentAnalysis.status !== 'deleted' && currentAnalysis.status !== 'error') {
+              if (currentAnalysis && currentAnalysis.id && !currentAnalysis.id.startsWith('error-') && currentAnalysis.status !== 'deleted' && currentAnalysis.status !== 'error' && currentAnalysis.status !== 'cancelled') {
                 setCurrentAnalysis(prev => {
-                  if (prev && prev.id === currentAnalysis.id && prev.status !== 'error' && prev.status !== 'deleted') {
+                  if (prev && prev.id === currentAnalysis.id && prev.status !== 'error' && prev.status !== 'deleted' && prev.status !== 'cancelled') {
                       return { ...prev, status: 'error', errorMessage: `Documento da análise (ID: ${currentAnalysis.id}) não foi encontrado ou foi removido inesperadamente.` };
                   }
                   return prev;
@@ -154,7 +157,7 @@ export function useAnalysisManager(user: User | null) {
             console.error(`[useAnalysisManager_onSnapshot] Firestore onSnapshot error for ${currentAnalysis?.id}: Code: ${error.code}, Message: ${error.message}`, error);
             toast({ title: 'Erro ao Sincronizar Análise', description: `Não foi possível obter atualizações: ${error.message}`, variant: 'destructive' });
             setCurrentAnalysis(prev => {
-              if (prev && currentAnalysis?.id && prev.id === currentAnalysis.id && !prev.id.startsWith('error-') && prev.status !== 'error') {
+              if (prev && currentAnalysis?.id && prev.id === currentAnalysis.id && !prev.id.startsWith('error-') && prev.status !== 'error' && prev.status !== 'cancelled') {
                 return { ...prev, status: 'error', errorMessage: `Erro ao sincronizar com Firestore: ${error.message}` };
               }
               return prev;
@@ -192,33 +195,44 @@ export function useAnalysisManager(user: User | null) {
     }
     
     try {
-      const result = await processAnalysisFile(analysisId, userIdFromCaller);
-      console.log(`[useAnalysisManager_startAiProcessing] Server action processAnalysisFile returned for ID: ${analysisId}. Success: ${result.success}`);
-
-      if (!result.success) {
-        const errorMsg = result.error || 'Erro desconhecido no processamento da análise.';
-        console.error(`[useAnalysisManager_startAiProcessing] Error returned from processAnalysisFile for ${analysisId}:`, errorMsg);
-        setCurrentAnalysis(prev => {
-            if (prev && prev.id === analysisId && prev.status !== 'error') {
-                return { ...prev, status: 'error', errorMessage: `Falha ao processar análise: ${errorMsg}`};
-            }
-            return prev;
-        });
-        toast({ title: 'Erro no Processamento', description: `Falha ao processar análise: ${errorMsg}`, variant: 'destructive'});
-      }
-      // If successful, onSnapshot will handle updating currentAnalysis state.
-    } catch (networkOrUnexpectedError) {
-        // This catch block is for truly unexpected errors, like network failures
-        // or if the Server Action itself crashes before returning a structured response.
+      // This is a fire-and-forget call from the client's perspective.
+      // The server action runs, and the client relies on onSnapshot for updates.
+      processAnalysisFile(analysisId, userIdFromCaller).then(result => {
+        // Log the final result of the server action if needed, but UI updates primarily via onSnapshot
+        console.log(`[useAnalysisManager_startAiProcessing] Server action processAnalysisFile completed for ID: ${analysisId}. Success: ${result.success}, Error: ${result.error}`);
+        if (!result.success) {
+            // onSnapshot should eventually reflect this error state from Firestore
+            // Optionally, update local state immediately if Firestore update is slow or fails for the error
+             setCurrentAnalysis(prev => {
+                if (prev && prev.id === analysisId && prev.status !== 'error' && prev.status !== 'cancelled') {
+                    return { ...prev, status: 'error', errorMessage: `Falha ao processar análise: ${result.error}`};
+                }
+                return prev;
+            });
+        }
+      }).catch(networkOrUnexpectedError => {
+        // This catch is if the call to processAnalysisFile itself fails (e.g., network issue, Next.js internal error before action runs)
         const errorMsg = networkOrUnexpectedError instanceof Error ? networkOrUnexpectedError.message : String(networkOrUnexpectedError);
-        console.error(`[useAnalysisManager_startAiProcessing] Network or unexpected error calling processAnalysisFile for ${analysisId}:`, networkOrUnexpectedError);
+        console.error(`[useAnalysisManager_startAiProcessing] Error calling processAnalysisFile for ${analysisId}:`, networkOrUnexpectedError);
         setCurrentAnalysis(prev => {
-            if (prev && prev.id === analysisId && prev.status !== 'error') {
-                return { ...prev, status: 'error', errorMessage: `Erro de comunicação ou inesperado: ${errorMsg}`};
+            if (prev && prev.id === analysisId && prev.status !== 'error' && prev.status !== 'cancelled') {
+                return { ...prev, status: 'error', errorMessage: `Erro de comunicação: ${errorMsg}`};
             }
             return prev;
         });
-        toast({ title: 'Erro de Comunicação', description: `Não foi possível se comunicar com o servidor: ${errorMsg}`, variant: 'destructive'});
+        toast({ title: 'Erro de Comunicação', description: `Não foi possível iniciar o processamento: ${errorMsg}`, variant: 'destructive'});
+      });
+    } catch (e) {
+        // Should not happen if processAnalysisFile().then().catch() is used, but as a safeguard
+        const errorMsg = e instanceof Error ? e.message : String(e);
+        console.error(`[useAnalysisManager_startAiProcessing] Unexpected synchronous error for ${analysisId}:`, e);
+        setCurrentAnalysis(prev => {
+            if (prev && prev.id === analysisId && prev.status !== 'error' && prev.status !== 'cancelled') {
+                return { ...prev, status: 'error', errorMessage: `Erro inesperado: ${errorMsg}`};
+            }
+            return prev;
+        });
+        toast({ title: 'Erro Inesperado', description: `Ocorreu um erro inesperado: ${errorMsg}`, variant: 'destructive'});
     }
   }, [toast]);
 
@@ -307,6 +321,26 @@ export function useAnalysisManager(user: User | null) {
     }
   }, [user, toast, currentAnalysis?.id]);
 
+  const handleCancelAnalysis = useCallback(async (analysisId: string) => {
+    if (!user || !user.uid || !analysisId) {
+      toast({ title: 'Erro', description: 'Não foi possível solicitar o cancelamento: dados inválidos.', variant: 'destructive' });
+      return;
+    }
+    console.log(`[useAnalysisManager_handleCancel] Requesting cancellation for analysis ID: ${analysisId}`);
+    try {
+      const result = await cancelAnalysisAction(user.uid, analysisId);
+      if (result.success) {
+        toast({ title: 'Cancelamento Solicitado', description: 'A análise será interrompida em breve.' });
+        // onSnapshot will update currentAnalysis to 'cancelling' then 'cancelled'
+      } else {
+        toast({ title: 'Erro ao Cancelar', description: result.error || 'Não foi possível solicitar o cancelamento.', variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error(`[useAnalysisManager_handleCancel] Error cancelling analysis ${analysisId}:`, error);
+      toast({ title: 'Erro ao Cancelar', description: String(error instanceof Error ? error.message : error), variant: 'destructive' });
+    }
+  }, [user, toast]);
+
   const downloadReportAsTxt = useCallback((analysisData: Analysis | null) => {
     if (!analysisData) {
         toast({ title: "Download não disponível", description: "Nenhuma análise selecionada.", variant: "destructive" });
@@ -320,7 +354,7 @@ export function useAnalysisManager(user: User | null) {
     const blob = new Blob([reportText], { type: 'text/plain;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${analysisData.fileName.replace(/\.[^/.]+$/, "")}_relatorio_conformidade_estruturado.txt`;
+    link.download = `${(analysisData.title || analysisData.fileName).replace(/\.[^/.]+$/, "")}_relatorio_conformidade.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -343,63 +377,100 @@ export function useAnalysisManager(user: User | null) {
 
     const { status, progress, errorMessage, powerQualityDataUrl, powerQualityDataSummary, identifiedRegulations, structuredReport, uploadProgress } = currentAnalysis;
     const overallProgress = typeof progress === 'number' ? Math.min(100, Math.max(0, progress)) : 0;
+    
+    const markPreviousStepsCompleted = (currentIndex: number) => {
+        for (let i = 0; i < currentIndex; i++) {
+            steps[i] = { ...steps[i], status: 'completed', progress: 100 };
+        }
+    };
+    const markFollowingStepsPending = (currentIndex: number) => {
+        for (let i = currentIndex + 1; i < steps.length; i++) {
+            steps[i] = { ...steps[i], status: 'pending', progress: 0 };
+        }
+    };
+    
+    const markAllStepsCancelled = (details?: string) => {
+      steps.forEach((step, i) => {
+        if (steps[i].status === 'completed') return; // Don't change already completed steps
+        steps[i] = { ...steps[i], status: 'cancelled', details: i === 0 ? details : undefined, progress: steps[i].progress ?? 0 };
+      });
+    }
 
-    // Step 0: Upload and Preparation
-    if (powerQualityDataUrl || ['summarizing_data', 'identifying_regulations', 'assessing_compliance', 'completed'].includes(status)) {
-      steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'completed', progress: 100 };
-    } else if (status === 'uploading') {
-        steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'in_progress', progress: Math.max(0, Math.min(100, uploadProgress ?? 0)) };
-    } else if (status === 'error' && (!powerQualityDataUrl && !powerQualityDataSummary && !identifiedRegulations && !structuredReport)) {
-        steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, uploadProgress ?? 0)) };
+    if (status === 'cancelled') {
+      markAllStepsCancelled(errorMessage || 'Análise cancelada.');
+      return steps;
     }
-    
-    // Step 1: Summarizing Data
-    if (status === 'summarizing_data') {
-        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'in_progress', progress: Math.max(0, Math.min(100, overallProgress)) }; 
-    } else if (['identifying_regulations', 'assessing_compliance', 'completed'].includes(status)) {
-        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'completed', progress: 100 };
-    } else if (status === 'error' && powerQualityDataUrl && (!powerQualityDataSummary && !identifiedRegulations && !structuredReport)) {
-        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, overallProgress)) };
+    if (status === 'cancelling') {
+      steps.forEach((step, i) => {
+         if (steps[i].status === 'completed') return;
+         steps[i] = { ...steps[i], status: 'pending', details: 'Cancelamento em andamento...', progress: steps[i].progress ?? 0 };
+      });
+       // Try to show the current in-progress step as 'cancelling' if possible
+      if (steps[0].status !== 'completed' && (currentAnalysis.status === 'uploading' || (powerQualityDataUrl && currentAnalysis.status === 'summarizing_data')) ) steps[0].details = 'Cancelando...';
+      else if (steps[1].status !== 'completed' && currentAnalysis.status === 'summarizing_data') steps[1].details = 'Cancelando...';
+      else if (steps[2].status !== 'completed' && currentAnalysis.status === 'identifying_regulations') steps[2].details = 'Cancelando...';
+      else if (steps[3].status !== 'completed' && currentAnalysis.status === 'assessing_compliance') steps[3].details = 'Cancelando...'; // This covers step 4 too
+      else if (steps[4].status !== 'completed' && currentAnalysis.status === 'assessing_compliance') steps[4].details = 'Cancelando...';
+      return steps;
     }
 
-    // Step 2: Identifying Regulations
-    if (status === 'identifying_regulations') {
-        steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'in_progress', progress: Math.max(0, Math.min(100, overallProgress)) };
-    } else if (['assessing_compliance', 'completed'].includes(status)) {
-        steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'completed', progress: 100 };
-    } else if (status === 'error' && powerQualityDataSummary && (!identifiedRegulations && !structuredReport)) {
-        steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, overallProgress)) };
-    }
-    
-    // Step 3: Assessing Compliance & Step 4: Gerando Relatório Estruturado
-    if (status === 'assessing_compliance') { 
-        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 }; 
-        steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'in_progress', progress: Math.max(0, Math.min(100, overallProgress)) }; 
-    } else if (status === 'completed') {
-        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 };
-        steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'completed', progress: 100 };
-    } else if (status === 'error' && identifiedRegulations && !structuredReport) { 
-        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 }; 
-        steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, overallProgress)) };
-    } else if (status === 'error' && structuredReport) { 
-        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 };
-        steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, overallProgress)) };
-    }
-    
-    if (status === 'error' && !steps.find(s => s.status === 'error')) {
-        let errorAssigned = false;
-        for (let i = steps.length - 1; i >= 0; i--) {
-            if (steps[i].status === 'in_progress' || (steps[i].status === 'pending' && (steps[i-1]?.status === 'completed' || i === 0 ))) {
-                const stepProgressBeforeError = (typeof steps[i].progress === 'number' && (steps[i].progress ?? 0) < 100) ? steps[i].progress : overallProgress;
-                steps[i] = { ...steps[i], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, stepProgressBeforeError ?? 0)) };
-                errorAssigned = true;
-                break;
+
+    switch (status) {
+        case 'uploading':
+            steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'in_progress', progress: Math.max(0, Math.min(100, uploadProgress ?? 0)) };
+            markFollowingStepsPending(0);
+            break;
+        case 'summarizing_data':
+            markPreviousStepsCompleted(1);
+            steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'in_progress', progress: Math.max(0, Math.min(100, overallProgress -10)) }; // Progress relative to this phase
+            markFollowingStepsPending(1);
+            break;
+        case 'identifying_regulations':
+            markPreviousStepsCompleted(2);
+            steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'in_progress', progress: Math.max(0, Math.min(100, overallProgress - 40)) };
+            markFollowingStepsPending(2);
+            break;
+        case 'assessing_compliance': // This status covers two UI steps
+            markPreviousStepsCompleted(3); // Summarizing and Identifying Regs are done
+            steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 }; // Compliance analysis is done
+            steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'in_progress', progress: Math.max(0, Math.min(100, overallProgress - 70)) }; // Report generation in progress
+            markFollowingStepsPending(4);
+            break;
+        case 'completed':
+            steps = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'completed', progress: 100 }));
+            break;
+        case 'error':
+            // Find which step failed based on progress or available data
+            if (!powerQualityDataUrl && overallProgress < 10) { // Error during upload or pre-summary
+                steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, uploadProgress ?? 0))};
+                markFollowingStepsPending(0);
+            } else if (!powerQualityDataSummary && overallProgress < 40) { // Error during summarization
+                markPreviousStepsCompleted(1);
+                steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, overallProgress -10)) };
+                markFollowingStepsPending(1);
+            } else if (!identifiedRegulations && overallProgress < 70) { // Error during regulation identification
+                markPreviousStepsCompleted(2);
+                steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, overallProgress - 40)) };
+                markFollowingStepsPending(2);
+            } else if (!structuredReport && overallProgress < 100) { // Error during compliance assessment or report generation
+                markPreviousStepsCompleted(3);
+                 steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 }; // Assume compliance assessment part was okay if report gen failed
+                steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, overallProgress - 70)) };
+                markFollowingStepsPending(4);
+            } else { // Generic error, mark all as error or last known step
+                let errorAssigned = false;
+                for (let i = steps.length - 1; i >= 0; i--) {
+                     if (steps[i].status === 'in_progress' || (steps[i].status === 'pending' && (steps[i-1]?.status === 'completed' || i === 0 ))) {
+                        steps[i] = { ...steps[i], status: 'error', details: errorMessage, progress: steps[i].progress ?? 0};
+                        errorAssigned = true;
+                        break;
+                    }
+                }
+                 if (!errorAssigned && steps.length > 0) steps[steps.length -1] = { ...steps[steps.length-1], status: 'error', details: errorMessage, progress: steps[steps.length-1].progress ?? 0};
             }
-        }
-        if (!errorAssigned && steps.length > 0) {
-            const lastStepProgress = Math.max(0, Math.min(100, overallProgress ?? 0));
-            steps[steps.length -1] = { ...steps[steps.length-1], status: 'error', details: errorMessage, progress: lastStepProgress};
-        }
+            break;
+        default: // Default to pending for all if status is unknown
+             steps = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'pending', progress: 0, details: 'Status desconhecido' }));
     }
     return steps;
   }, [currentAnalysis]);
@@ -417,6 +488,7 @@ export function useAnalysisManager(user: User | null) {
     handleAddTag,
     handleRemoveTag,
     handleDeleteAnalysis,
+    handleCancelAnalysis,
     downloadReportAsTxt,
     displayedAnalysisSteps,
   };

@@ -12,8 +12,8 @@ import type { Analysis, AnalysisReportData } from '@/types/analysis';
 
 const CHUNK_SIZE = 100000;
 const OVERLAP_SIZE = 10000;
-const MAX_ERROR_MESSAGE_LENGTH = 1500; // Max length for Firestore error messages
-const CLIENT_ERROR_MESSAGE_MAX_LENGTH = 250; // Max length for error messages returned to client
+const MAX_ERROR_MESSAGE_LENGTH = 1500; 
+const CLIENT_ERROR_MESSAGE_MAX_LENGTH = 250; 
 
 async function getFileContentFromStorage(filePath: string): Promise<string> {
   console.log(`[getFileContentFromStorage] Attempting to download: ${filePath}`);
@@ -62,7 +62,6 @@ export async function processAnalysisFile(
   analysisIdInput: string,
   userIdInput: string
 ): Promise<{ success: boolean; analysisId: string; error?: string }> {
-  // Use optional chaining and nullish coalescing for safer trimming
   const userId = userIdInput?.trim() ?? '';
   const analysisId = analysisIdInput?.trim() ?? '';
 
@@ -86,7 +85,23 @@ export async function processAnalysisFile(
   const SUMMARIZATION_COMPLETION_PROGRESS = 40;
   const SUMMARIZATION_PROGRESS_SPAN = SUMMARIZATION_COMPLETION_PROGRESS - UPLOAD_COMPLETION_PROGRESS;
 
+  // Helper function to check for cancellation
+  const checkCancellation = async (): Promise<boolean> => {
+    const currentSnap = await getDoc(analysisRef);
+    if (currentSnap.exists() && (currentSnap.data().status === 'cancelling' || currentSnap.data().status === 'cancelled')) {
+      console.log(`[processAnalysisFile_checkCancellation] Cancellation detected for ${analysisId}. Current status: ${currentSnap.data().status}.`);
+      if (currentSnap.data().status === 'cancelling') {
+        await updateDoc(analysisRef, { status: 'cancelled', errorMessage: 'Análise cancelada pelo usuário.', progress: currentSnap.data().progress || 0 });
+      }
+      return true;
+    }
+    return false;
+  };
+
+
   try {
+    if (await checkCancellation()) return { success: false, analysisId, error: 'Análise cancelada pelo usuário.' };
+
     let analysisSnap = await getDoc(analysisRef);
     if (!analysisSnap.exists()) {
       const notFoundMsg = `Analysis document ${analysisId} not found at path ${analysisDocPath}. Aborting.`;
@@ -112,6 +127,8 @@ export async function processAnalysisFile(
     } else if (analysisData.status !== 'error' && analysisData.status !== 'completed' && (analysisData.progress != null && analysisData.progress < UPLOAD_COMPLETION_PROGRESS)) {
         await updateDoc(analysisRef, { progress: Math.max(analysisData.progress || 0, UPLOAD_COMPLETION_PROGRESS) });
     }
+
+    if (await checkCancellation()) return { success: false, analysisId, error: 'Análise cancelada durante a preparação.' };
 
     let powerQualityDataCsv;
     try {
@@ -146,6 +163,7 @@ export async function processAnalysisFile(
     const progressIncrementPerChunk = chunks.length > 0 ? SUMMARIZATION_PROGRESS_SPAN / chunks.length : SUMMARIZATION_PROGRESS_SPAN;
 
     for (let i = 0; i < chunks.length; i++) {
+      if (await checkCancellation()) return { success: false, analysisId, error: 'Análise cancelada durante a sumarização.' };
       const chunk = chunks[i];
       console.log(`[processAnalysisFile] Summarizing ${analysisId}, chunk ${i + 1}/${chunks.length}. Size: ${chunk.length} chars.`);
       try {
@@ -171,6 +189,8 @@ export async function processAnalysisFile(
       }
     }
     
+    if (await checkCancellation()) return { success: false, analysisId, error: 'Análise cancelada após sumarização.' };
+
     const powerQualityDataSummary = aggregatedSummary.trim();
     console.log(`[processAnalysisFile] All chunks summarized for ${analysisId}. Aggregated length: ${powerQualityDataSummary.length}.`);
     await updateDoc(analysisRef, {
@@ -178,6 +198,8 @@ export async function processAnalysisFile(
       powerQualityDataSummary,
       progress: SUMMARIZATION_COMPLETION_PROGRESS
     });
+
+    if (await checkCancellation()) return { success: false, analysisId, error: 'Análise cancelada antes de identificar regulações.' };
 
     console.log(`[processAnalysisFile] Identifying regulations for ${analysisId}.`);
     let resolutionsOutput: IdentifyAEEEResolutionsOutput;
@@ -192,6 +214,8 @@ export async function processAnalysisFile(
       return { success: false, analysisId, error: clientErrMsg };
     }
 
+    if (await checkCancellation()) return { success: false, analysisId, error: 'Análise cancelada após identificar regulações.' };
+
     const identifiedRegulations = resolutionsOutput.relevantResolutions;
     const identifiedRegulationsString = identifiedRegulations.join(', ');
     const IDENTIFY_REG_COMPLETION_PROGRESS = 70;
@@ -201,6 +225,8 @@ export async function processAnalysisFile(
       identifiedRegulations, 
       progress: IDENTIFY_REG_COMPLETION_PROGRESS
     });
+
+    if (await checkCancellation()) return { success: false, analysisId, error: 'Análise cancelada antes da análise de conformidade.' };
 
     console.log(`[processAnalysisFile] Analyzing compliance for ${analysisId}.`);
     let structuredReportOutput: AnalyzeComplianceReportOutput;
@@ -220,6 +246,8 @@ export async function processAnalysisFile(
       return { success: false, analysisId, error: clientErrMsg };
     }
 
+    if (await checkCancellation()) return { success: false, analysisId, error: 'Análise cancelada após análise de conformidade.' };
+
     console.log(`[processAnalysisFile] Structured report for ${analysisId} generated. Converting to MDX.`);
     let mdxReportStoragePath = '';
     try {
@@ -234,13 +262,14 @@ export async function processAnalysisFile(
       console.warn(`[processAnalysisFile] Failed to generate/upload MDX for ${analysisId}: ${errMsg}.`);
     }
 
+    if (await checkCancellation()) return { success: false, analysisId, error: 'Análise cancelada antes de finalizar.' };
+
     console.log(`[processAnalysisFile] Updating Firestore for ${analysisId} to 'completed'.`);
     await updateDoc(analysisRef, {
       status: 'completed',
       structuredReport: structuredReportOutput,
       mdxReportStoragePath: mdxReportStoragePath || null,
       summary: structuredReportOutput.introduction.overallResultsSummary,
-      // complianceReport can be derived or removed if structuredReport is primary
       progress: 100,
       completedAt: serverTimestamp(),
     });
@@ -259,14 +288,17 @@ export async function processAnalysisFile(
     const finalErrorMessageForFirestore = detailedErrorMessageForFirestore.substring(0, MAX_ERROR_MESSAGE_LENGTH);
 
     let firestoreUpdateFailed = false;
-    if (!isCriticalError) {
+    if (!isCriticalError) { // Only try to update Firestore if it's not a critical startup error
         try {
-          const currentSnap = await getDoc(analysisRef);
-          if (currentSnap.exists()) {
-            const existingData = currentSnap.data() as Analysis;
+          // Check if already cancelled to avoid overwriting 'cancelled' status with 'error'
+          const currentSnapForError = await getDoc(analysisRef);
+          if (currentSnapForError.exists() && currentSnapForError.data().status !== 'cancelled' && currentSnapForError.data().status !== 'cancelling') {
+            const existingData = currentSnapForError.data() as Analysis;
             const errorProgress = existingData.progress != null && existingData.progress > 0 && existingData.progress < 100 && existingData.status !== 'uploading' ? existingData.progress : UPLOAD_COMPLETION_PROGRESS;
             await updateDoc(analysisRef, { status: 'error', errorMessage: finalErrorMessageForFirestore, progress: errorProgress });
             console.log(`[processAnalysisFile] Firestore updated with error for ${analysisId}.`);
+          } else if (currentSnapForError.exists()) {
+             console.log(`[processAnalysisFile] Error occurred for ${analysisId}, but status is already ${currentSnapForError.data().status}. Not overwriting with general error.`);
           } else {
              console.error(`[processAnalysisFile] CRITICAL: Doc ${analysisId} not found when trying to update with overall error.`);
           }
@@ -281,7 +313,7 @@ export async function processAnalysisFile(
     if (firestoreUpdateFailed) {
       clientSafeErrorMessage = `Erro crítico no servidor (ID: ${analysisId}). Verifique logs.`;
     } else if (isCriticalError) {
-        clientSafeErrorMessage = originalErrorMessage; // These are already client-safe and specific
+        clientSafeErrorMessage = originalErrorMessage; 
     }
     
     console.error("[processAnalysisFile] Final error returned to client: " + clientSafeErrorMessage);
@@ -332,7 +364,7 @@ export async function getPastAnalysesAction(userIdInput: string): Promise<Analys
         powerQualityDataSummary: data.powerQualityDataSummary as string | undefined,
         isDataChunked: data.isDataChunked as boolean | undefined,
         identifiedRegulations: data.identifiedRegulations as string[] | undefined,
-        summary: data.summary as string | undefined, // Kept for potential backward compatibility
+        summary: data.summary as string | undefined, 
         structuredReport: data.structuredReport as AnalyzeComplianceReportOutput | undefined,
         mdxReportStoragePath: data.mdxReportStoragePath as string | undefined,
         errorMessage: data.errorMessage as string | undefined,
@@ -347,7 +379,6 @@ export async function getPastAnalysesAction(userIdInput: string): Promise<Analys
         analysisResult.errorMessage = analysisResult.errorMessage || `Status inválido (${data.status}) recebido do Firestore.`;
       }
 
-
       return analysisResult as Analysis;
     });
   } catch (error) {
@@ -360,7 +391,7 @@ export async function getPastAnalysesAction(userIdInput: string): Promise<Analys
   }
 }
 function statusIsValid(status: any): status is Analysis['status'] {
-    const validStatuses: Analysis['status'][] = ['uploading', 'summarizing_data', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted'];
+    const validStatuses: Analysis['status'][] = ['uploading', 'summarizing_data', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted', 'cancelling', 'cancelled'];
     return typeof status === 'string' && validStatuses.includes(status as Analysis['status']);
 }
 
@@ -434,7 +465,7 @@ export async function deleteAnalysisAction(userIdInput: string, analysisIdInput:
 
     await updateDoc(analysisRef, {
         status: 'deleted',
-        summary: null, // Clear data
+        summary: null, 
         structuredReport: null,
         mdxReportStoragePath: null, 
         powerQualityDataUrl: null, 
@@ -495,6 +526,9 @@ export async function getAnalysisReportAction(
     if (analysisData.status === 'deleted') {
         return { ...baseReturn, fileName: analysisData.fileName, error: "Esta análise foi excluída." };
     }
+    if (analysisData.status === 'cancelled' || analysisData.status === 'cancelling') {
+        return { ...baseReturn, fileName: analysisData.fileName, error: "Esta análise foi cancelada." };
+    }
     if (!analysisData.mdxReportStoragePath) {
       return { ...baseReturn, fileName: analysisData.fileName, error: "Relatório MDX não encontrado para esta análise." };
     }
@@ -506,5 +540,51 @@ export async function getAnalysisReportAction(
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[getAnalysisReportAction] Error for ${analysisDocPath}:`, errorMessage);
     return { ...baseReturn, error: `Erro ao carregar o relatório: ${errorMessage.substring(0, CLIENT_ERROR_MESSAGE_MAX_LENGTH)}` };
+  }
+}
+
+
+export async function cancelAnalysisAction(
+  userIdInput: string,
+  analysisIdInput: string
+): Promise<{ success: boolean; error?: string }> {
+  const userId = userIdInput?.trim() ?? '';
+  const analysisId = analysisIdInput?.trim() ?? '';
+
+  if (!userId || !analysisId) {
+    const msg = `[cancelAnalysisAction] CRITICAL: userId ('${userIdInput}' -> '${userId}') or analysisId ('${analysisIdInput}' -> '${analysisId}') is invalid. Aborting.`;
+    console.error(msg);
+    return { success: false, error: msg };
+  }
+
+  const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
+  const analysisRef = doc(db, analysisDocPath);
+  console.log(`[cancelAnalysisAction] Requesting cancellation for ${analysisDocPath}. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
+
+  try {
+    const docSnap = await getDoc(analysisRef);
+    if (!docSnap.exists()) {
+      const notFoundMsg = `Análise ${analysisId} não encontrada para cancelamento.`;
+      console.warn(`[cancelAnalysisAction] ${notFoundMsg} Path: ${analysisDocPath}`);
+      return { success: false, error: notFoundMsg };
+    }
+
+    const currentStatus = docSnap.data().status;
+    if (currentStatus === 'completed' || currentStatus === 'error' || currentStatus === 'cancelled' || currentStatus === 'deleted') {
+      const msg = `Análise ${analysisId} já está em um estado final (${currentStatus}) e não pode ser cancelada.`;
+      console.warn(`[cancelAnalysisAction] ${msg}`);
+      return { success: false, error: msg };
+    }
+
+    await updateDoc(analysisRef, {
+      status: 'cancelling',
+      errorMessage: 'Cancelamento solicitado pelo usuário...', 
+    });
+    console.log(`[cancelAnalysisAction] Analysis ${analysisId} status set to 'cancelling'.`);
+    return { success: true };
+  } catch (error) {
+    const originalErrorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[cancelAnalysisAction] Error for ${analysisDocPath}:`, originalErrorMessage);
+    return { success: false, error: `Falha ao solicitar cancelamento: ${originalErrorMessage.substring(0, CLIENT_ERROR_MESSAGE_MAX_LENGTH)}` };
   }
 }

@@ -3,7 +3,7 @@
 
 import type { Analysis, AnalysisStep } from '@/types/analysis';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, Trash2, FileText as FileTextIcon, Info } from 'lucide-react'; // Added Info icon
+import { AlertTriangle, Trash2, FileText as FileTextIcon, Info, XCircle } from 'lucide-react'; 
 import { AnalysisProgressDisplay } from './AnalysisProgressDisplay';
 import { AnalysisResultsDisplay } from './AnalysisResultsDisplay';
 import { TagEditor } from './TagEditor';
@@ -24,12 +24,13 @@ import {
 type AnalysisViewProps = {
   analysis: Analysis;
   analysisSteps: AnalysisStep[];
-  onDownloadReport: (analysisData: Analysis | null) => void; // Changed to accept Analysis | null
+  onDownloadReport: (analysisData: Analysis | null) => void; 
   tagInput: string;
   onTagInputChange: (value: string) => void;
   onAddTag: (analysisId: string, tag: string) => void;
   onRemoveTag: (analysisId: string, tag: string) => void;
   onDeleteAnalysis: (analysisId: string) => void;
+  onCancelAnalysis: (analysisId: string) => void; // New prop
 };
 
 export function AnalysisView({
@@ -41,10 +42,12 @@ export function AnalysisView({
   onAddTag,
   onRemoveTag,
   onDeleteAnalysis,
+  onCancelAnalysis, // New prop
 }: AnalysisViewProps) {
   const isCompleted = analysis.status === 'completed';
   const isError = analysis.status === 'error';
-  const isInProgress = !isCompleted && !isError;
+  const isCancelled = analysis.status === 'cancelled' || analysis.status === 'cancelling';
+  const isInProgress = !isCompleted && !isError && !isCancelled;
 
   return (
     <div className="space-y-6">
@@ -63,16 +66,46 @@ export function AnalysisView({
             Nome do arquivo original: {analysis.fileName}
           </CardDescription>
         </CardHeader>
-        {/* Content can be added here if needed, or remove CardContent if header is enough */}
       </Card>
 
-
       {isInProgress && (
-        <AnalysisProgressDisplay analysisSteps={analysisSteps} />
+        <>
+          <AnalysisProgressDisplay analysisSteps={analysisSteps} />
+          <div className="mt-4">
+            <Button variant="outline" size="sm" onClick={() => onCancelAnalysis(analysis.id)}>
+              <XCircle className="mr-2 h-4 w-4" />
+              Cancelar Análise
+            </Button>
+             <p className="text-xs text-muted-foreground mt-1">
+              Solicitar o cancelamento da análise. O processo será interrompido o mais breve possível.
+            </p>
+          </div>
+        </>
       )}
 
       {isCompleted && (
         <AnalysisResultsDisplay analysis={analysis} onDownloadReport={() => onDownloadReport(analysis)} />
+      )}
+      
+      {isCancelled && (
+         <div className="p-4 bg-yellow-500/10 rounded-md border border-yellow-500">
+          <h3 className="text-xl font-semibold mb-2 text-yellow-600 flex items-center">
+            <Info className="mr-2" />Análise Cancelada
+          </h3>
+          <p className="text-yellow-700">
+            {analysis.status === 'cancelling' ? 'O cancelamento desta análise está em andamento...' : 'Esta análise foi cancelada pelo usuário.'}
+          </p>
+          {analysis.errorMessage && analysis.status === 'cancelled' && (
+            <p className="text-sm mt-1"><strong>Motivo:</strong> {analysis.errorMessage}</p>
+          )}
+           {analysisSteps.find(s => s.status === 'cancelled') && (
+            <ul className="space-y-3 mt-4">
+              {analysisSteps.map((step, index) => (
+                <AnalysisStepItem key={index} step={step} />
+              ))}
+            </ul>
+          )}
+        </div>
       )}
 
       {isError && (
@@ -104,7 +137,7 @@ export function AnalysisView({
       <div className="mt-8 pt-6 border-t">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm">
+            <Button variant="destructive" size="sm" disabled={isInProgress || analysis.status === 'cancelling'}>
               <Trash2 className="mr-2 h-4 w-4" />
               Excluir Análise
             </Button>

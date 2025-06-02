@@ -17,8 +17,9 @@ import {
 export interface FileUploadManagerResult {
   analysisId: string | null;
   fileName: string | null;
-  title?: string | null; // Added title
-  description?: string | null; // Added description
+  title?: string | null; 
+  description?: string | null; 
+  languageCode?: string | null;
   error?: string | null;
 }
 
@@ -48,14 +49,14 @@ export function useFileUploadManager() {
   }, [toast]);
 
   const uploadFileAndCreateRecord = useCallback(
-    async (user: User | null, title?: string, description?: string): Promise<FileUploadManagerResult> => {
+    async (user: User | null, title?: string, description?: string, languageCode?: string): Promise<FileUploadManagerResult> => {
       if (!user || !user.uid || typeof user.uid !== 'string' || user.uid.trim() === '') {
         const msg = 'Usuário não autenticado ou UID inválido para iniciar upload.';
         console.error(`[useFileUploadManager_upload] CRITICAL: ${msg}. User object:`, JSON.stringify(user));
         toast({ title: 'Erro de Autenticação', description: msg, variant: 'destructive' });
         setUploadError(msg);
-        setIsUploading(false); // Ensure uploading state is reset
-        return { analysisId: null, fileName: fileToUpload?.name || null, title, description, error: msg };
+        setIsUploading(false); 
+        return { analysisId: null, fileName: fileToUpload?.name || null, title, description, languageCode, error: msg };
       }
       if (!fileToUpload) {
         const msg = 'Nenhum arquivo selecionado para upload.';
@@ -63,7 +64,7 @@ export function useFileUploadManager() {
         toast({ title: 'Nenhum Arquivo', description: msg, variant: 'destructive' });
         setUploadError(msg);
         setIsUploading(false);
-        return { analysisId: null, fileName: null, title, description, error: msg };
+        return { analysisId: null, fileName: null, title, description, languageCode, error: msg };
       }
       if (!fileToUpload.name || fileToUpload.name.trim() === "") {
         const msg = 'Nome de arquivo inválido.';
@@ -71,18 +72,19 @@ export function useFileUploadManager() {
         toast({ title: 'Nome Inválido', description: msg, variant: 'destructive' });
         setUploadError(msg);
         setIsUploading(false);
-        return { analysisId: null, fileName: null, title, description, error: msg };
+        return { analysisId: null, fileName: null, title, description, languageCode, error: msg };
       }
 
       setIsUploading(true);
       setUploadProgress(0);
       setUploadError(null);
-      const currentUserId = user.uid; // Ensured to be a valid string by the check above
+      const currentUserId = user.uid; 
       const currentFileName = fileToUpload.name;
+      const currentLanguageCode = languageCode || navigator.language || 'pt-BR';
 
-      console.log(`[useFileUploadManager_upload] Attempting to create initial record for: ${currentFileName}, User: ${currentUserId}, Title: ${title}`);
+      console.log(`[useFileUploadManager_upload] Attempting to create initial record for: ${currentFileName}, User: ${currentUserId}, Title: ${title}, Lang: ${currentLanguageCode}`);
       const { analysisId: newAnalysisId, error: createRecordError } =
-        await createInitialAnalysisRecordAction(currentUserId, currentFileName, title, description);
+        await createInitialAnalysisRecordAction(currentUserId, currentFileName, title, description, currentLanguageCode);
 
       if (createRecordError || !newAnalysisId) {
         const detailedError = `[useFileUploadManager_upload] Failed to create initial Firestore record: ${createRecordError || 'newAnalysisId is null/undefined'}. FileName: ${currentFileName}`;
@@ -90,7 +92,7 @@ export function useFileUploadManager() {
         toast({ title: 'Erro ao Iniciar Análise', description: createRecordError || 'Não foi possível criar o registro da análise no Firestore.', variant: 'destructive' });
         setIsUploading(false);
         setUploadError(createRecordError || 'Falha na criação do registro no Firestore.');
-        return { analysisId: null, fileName: currentFileName, title, description, error: createRecordError || 'Falha na criação do registro no Firestore.' };
+        return { analysisId: null, fileName: currentFileName, title, description, languageCode: currentLanguageCode, error: createRecordError || 'Falha na criação do registro no Firestore.' };
       }
 
       console.log(`[useFileUploadManager_upload] Initial Firestore record created. Analysis ID: ${newAnalysisId}. Starting Storage upload for: ${currentFileName}`);
@@ -123,11 +125,11 @@ export function useFileUploadManager() {
               if (newAnalysisId) {
                 await markUploadAsFailedAction(currentUserId, newAnalysisId, errorMessage);
               }
-              resolve({ analysisId: newAnalysisId, fileName: currentFileName, title, description, error: errorMessage });
+              resolve({ analysisId: newAnalysisId, fileName: currentFileName, title, description, languageCode: currentLanguageCode, error: errorMessage });
             } catch (markFailError) {
               const finalErrorMsg = `Erro no upload e também ao marcar falha: ${markFailError instanceof Error ? markFailError.message : String(markFailError)}`;
               console.error(`[useFileUploadManager_upload] Error marking upload as failed for ${newAnalysisId} after Storage error:`, markFailError);
-              resolve({ analysisId: newAnalysisId, fileName: currentFileName, title, description, error: finalErrorMsg });
+              resolve({ analysisId: newAnalysisId, fileName: currentFileName, title, description, languageCode: currentLanguageCode, error: finalErrorMsg });
             }
           },
           async () => { // On Success
@@ -148,14 +150,14 @@ export function useFileUploadManager() {
                 setIsUploading(false);
                 setUploadError(errorMessage);
                 await markUploadAsFailedAction(currentUserId, newAnalysisId, errorMessage);
-                resolve({ analysisId: newAnalysisId, fileName: currentFileName, title, description, error: errorMessage });
+                resolve({ analysisId: newAnalysisId, fileName: currentFileName, title, description, languageCode: currentLanguageCode, error: errorMessage });
                 return;
               }
               
               toast({ title: 'Upload Concluído', description: `Arquivo "${currentFileName}" enviado. O processamento será iniciado.` });
               setIsUploading(false);
               setFileToUpload(null); 
-              resolve({ analysisId: newAnalysisId, fileName: currentFileName, title, description, error: null });
+              resolve({ analysisId: newAnalysisId, fileName: currentFileName, title, description, languageCode: currentLanguageCode, error: null });
             } catch (completionError) {
               const errorMsg = completionError instanceof Error ? completionError.message : String(completionError);
               const finalErrorMessage = `Erro crítico na conclusão do upload: ${errorMsg}`;
@@ -170,7 +172,7 @@ export function useFileUploadManager() {
                   console.error(`[useFileUploadManager_upload] Error marking upload as failed after completion error for ${newAnalysisId}:`, markError);
                 }
               }
-              resolve({ analysisId: newAnalysisId, fileName: currentFileName, title, description, error: finalErrorMessage });
+              resolve({ analysisId: newAnalysisId, fileName: currentFileName, title, description, languageCode: currentLanguageCode, error: finalErrorMessage });
             }
           }
         );

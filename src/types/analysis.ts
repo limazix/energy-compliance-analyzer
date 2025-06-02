@@ -4,7 +4,7 @@ import type { AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-complianc
 
 export interface AnalysisStep {
   name: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'error';
+  status: 'pending' | 'in_progress' | 'completed' | 'error' | 'cancelled'; // Added 'cancelled'
   details?: string;
   progress?: number;
 }
@@ -15,7 +15,8 @@ export interface Analysis {
   fileName: string;
   title?: string; // User-defined title for the analysis
   description?: string; // User-defined description for the analysis
-  status: 'uploading' | 'summarizing_data' | 'identifying_regulations' | 'assessing_compliance' | 'completed' | 'error' | 'deleted';
+  languageCode?: string; // BCP-47 language code
+  status: 'uploading' | 'summarizing_data' | 'identifying_regulations' | 'assessing_compliance' | 'completed' | 'error' | 'deleted' | 'cancelling' | 'cancelled'; // Added new statuses
   progress: number; // Progresso geral da análise (0-100)
   uploadProgress?: number; // Progresso específico do upload do arquivo (0-100)
   powerQualityDataUrl?: string;
@@ -44,4 +45,3 @@ export interface AnalysisReportData {
   analysisId: string | null;
   error?: string | null;
 }
-

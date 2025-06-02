@@ -31,6 +31,8 @@ const getStatusBadgeVariant = (status: Analysis['status']) => {
   switch (status) {
     case 'completed': return 'default'; 
     case 'error': return 'destructive';
+    case 'cancelled': return 'outline';
+    case 'cancelling': return 'outline';
     default: return 'secondary';
   }
 };
@@ -44,6 +46,8 @@ const getStatusLabel = (status: Analysis['status']) => {
     case 'completed': return 'Concluída';
     case 'error': return 'Erro';
     case 'deleted': return 'Excluída';
+    case 'cancelling': return 'Cancelando...';
+    case 'cancelled': return 'Cancelada';
     default: return status;
   }
 };
@@ -77,6 +81,7 @@ export default function HomePage() {
     handleAddTag,
     handleRemoveTag,
     handleDeleteAnalysis,
+    handleCancelAnalysis, // Added from hook
     downloadReportAsTxt,
     displayedAnalysisSteps,
   } = useAnalysisManager(user);
@@ -104,6 +109,7 @@ export default function HomePage() {
             fileName: data.fileName,
             title: data.title,
             description: data.description,
+            languageCode: data.languageCode,
             status: data.status, 
             progress: data.progress,
             uploadProgress: data.uploadProgress,
@@ -132,6 +138,7 @@ export default function HomePage() {
            setCurrentAnalysis({
             id: `error-fetch-${Date.now()}`, userId: user.uid, fileName: result.fileName || "Desconhecido",
             title: result.title || result.fileName || "Desconhecido", description: result.description || "",
+            languageCode: navigator.language || 'pt-BR',
             status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
             errorMessage: 'Falha ao buscar o documento da análise recém-criado após upload.'
            });
@@ -143,6 +150,7 @@ export default function HomePage() {
          setCurrentAnalysis({
             id: `error-fetch-catch-${Date.now()}`, userId: user.uid, fileName: result.fileName || "Desconhecido",
             title: result.title || result.fileName || "Desconhecido", description: result.description || "",
+            languageCode: navigator.language || 'pt-BR',
             status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
             errorMessage: 'Erro ao buscar detalhes da análise após upload.'
            });
@@ -158,6 +166,7 @@ export default function HomePage() {
             fileName: result.fileName || "Desconhecido",
             title: result.title || result.fileName || "Desconhecido",
             description: result.description || "",
+            languageCode: navigator.language || 'pt-BR',
             status: 'error',
             progress: 0,
             uploadProgress: uploadProgress,
@@ -177,8 +186,8 @@ export default function HomePage() {
       router.replace('/login');
       return;
     }
-    // Pass title and description to uploadFileAndCreateRecord
-    const result = await uploadFileAndCreateRecord(user, title, description);
+    const languageCode = navigator.language || 'pt-BR';
+    const result = await uploadFileAndCreateRecord(user, title, description, languageCode);
     await handleUploadResult(result);
   }, [user, uploadFileAndCreateRecord, handleUploadResult, router]);
   
@@ -280,7 +289,7 @@ export default function HomePage() {
                             </span>
                             <Badge 
                               variant={getStatusBadgeVariant(analysisItem.status)}
-                              className={analysisItem.status === 'completed' ? 'bg-green-600 text-white' : ''}
+                              className={`${analysisItem.status === 'completed' ? 'bg-green-600 text-white' : ''} ${analysisItem.status === 'cancelled' ? 'bg-yellow-500 text-white' : ''} ${analysisItem.status === 'cancelling' ? 'bg-yellow-400 text-yellow-900' : ''}`}
                             >
                               {getStatusLabel(analysisItem.status)}
                             </Badge>
@@ -298,6 +307,7 @@ export default function HomePage() {
                             onAddTag={(tag) => handleAddTag(currentAnalysis.id, tag)}
                             onRemoveTag={(tag) => handleRemoveTag(currentAnalysis.id, tag)}
                             onDeleteAnalysis={() => handleDeleteAnalysis(currentAnalysis.id, afterDeleteAnalysis)}
+                            onCancelAnalysis={() => handleCancelAnalysis(currentAnalysis.id)}
                           />
                         ) : expandedAnalysisId === analysisItem.id && analysisItem.status === 'error' && analysisItem.id.startsWith('error-') ? (
                            <div className="p-4 bg-destructive/10 rounded-md border border-destructive">
