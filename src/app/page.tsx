@@ -81,7 +81,7 @@ export default function HomePage() {
     handleAddTag,
     handleRemoveTag,
     handleDeleteAnalysis,
-    handleCancelAnalysis, // Added from hook
+    handleCancelAnalysis,
     downloadReportAsTxt,
     displayedAnalysisSteps,
   } = useAnalysisManager(user);
@@ -138,7 +138,7 @@ export default function HomePage() {
            setCurrentAnalysis({
             id: `error-fetch-${Date.now()}`, userId: user.uid, fileName: result.fileName || "Desconhecido",
             title: result.title || result.fileName || "Desconhecido", description: result.description || "",
-            languageCode: navigator.language || 'pt-BR',
+            languageCode: result.languageCode || navigator.language || 'pt-BR',
             status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
             errorMessage: 'Falha ao buscar o documento da análise recém-criado após upload.'
            });
@@ -150,7 +150,7 @@ export default function HomePage() {
          setCurrentAnalysis({
             id: `error-fetch-catch-${Date.now()}`, userId: user.uid, fileName: result.fileName || "Desconhecido",
             title: result.title || result.fileName || "Desconhecido", description: result.description || "",
-            languageCode: navigator.language || 'pt-BR',
+            languageCode: result.languageCode || navigator.language || 'pt-BR',
             status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
             errorMessage: 'Erro ao buscar detalhes da análise após upload.'
            });
@@ -166,7 +166,7 @@ export default function HomePage() {
             fileName: result.fileName || "Desconhecido",
             title: result.title || result.fileName || "Desconhecido",
             description: result.description || "",
-            languageCode: navigator.language || 'pt-BR',
+            languageCode: result.languageCode || navigator.language || 'pt-BR',
             status: 'error',
             progress: 0,
             uploadProgress: uploadProgress,

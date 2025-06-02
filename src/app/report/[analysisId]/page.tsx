@@ -1,9 +1,9 @@
 
 'use client'; 
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, use } from 'react'; // Added use
 import { MDXRemote, type MDXRemoteProps } from 'next-mdx-remote/rsc'; 
-import { getAnalysisReportAction } from '@/app/actions';
+import { getAnalysisReportAction } from '@/features/report-viewing/actions/reportViewingActions';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, MessageSquarePlus, Send, AlertTriangle, Loader2 } from 'lucide-react';
@@ -49,8 +49,8 @@ export default function ReportPage() {
           if (data.error) {
             setReportData({
               mdxContent: null,
-              fileName: null,
-              analysisId: analysisId,
+              fileName: data.fileName, // Keep fileName even on error for context
+              analysisId: data.analysisId || analysisId,
               isLoading: false,
               error: data.error,
             });
@@ -107,6 +107,7 @@ export default function ReportPage() {
             <h1 className="text-2xl font-bold text-destructive flex items-center justify-center">
               <AlertTriangle className="mr-2 h-7 w-7"/> Falha ao Carregar Relatório
             </h1>
+             {reportData.fileName && <p className="text-sm text-muted-foreground mt-1">Arquivo: {reportData.fileName}</p>}
             <p className="text-destructive-foreground mt-2">{reportData.error}</p>
             <Button asChild className="mt-6">
               <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar para a Página Inicial</Link>
@@ -128,6 +129,7 @@ export default function ReportPage() {
           <div className="text-center py-10">
             <h1 className="text-2xl font-bold text-destructive">Relatório Não Encontrado</h1>
             <p className="text-muted-foreground mt-2">O conteúdo do relatório para a análise com ID: {reportData.analysisId || 'desconhecido'} não pôde ser carregado ou não existe.</p>
+             {reportData.fileName && <p className="text-sm text-muted-foreground mt-1">Arquivo: {reportData.fileName}</p>}
             <Button asChild className="mt-6">
               <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar para a Página Inicial</Link>
             </Button>
