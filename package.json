@@ -14,8 +14,9 @@
     "typecheck": "tsc --noEmit",
     "emulators:start": "firebase emulators:start --import=./firebase-emulator-data --export-on-exit",
     "emulators:dev": "firebase emulators:exec --import=./firebase-emulator-data 'npm run dev'",
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "test:jest": "jest",
+    "test": "firebase emulators:exec --import=./firebase-emulator-data --export-on-exit 'npm run test:jest'",
+    "test:watch": "firebase emulators:exec --import=./firebase-emulator-data --export-on-exit 'npm run test:jest -- --watch'"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",
