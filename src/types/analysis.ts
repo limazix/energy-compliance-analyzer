@@ -16,7 +16,7 @@ export interface Analysis {
   uploadProgress?: number; // Progresso específico do upload do arquivo (0-100)
   powerQualityDataUrl?: string;
   powerQualityDataSummary?: string; // Sumário gerado pela IA
-  powerQualityDataPreview?: string; // Removido pois o sumário é mais relevante
+  isDataTruncated?: boolean; // Indica se os dados originais foram truncados antes da sumarização
   identifiedRegulations?: string[];
   summary?: string; // Sumário da conformidade final
   complianceReport?: string;

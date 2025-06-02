@@ -16,7 +16,7 @@ export async function createInitialAnalysisRecordAction(
 
   console.log(`[Action_createInitialAnalysisRecord] Received trimmed userId: '${userId}', trimmed fileName: '${trimmedFileName}'`);
 
-  if (!userId) { 
+  if (!userId) {
     const msg = `[Action_createInitialAnalysisRecord] CRITICAL: userId is invalid (null, empty, or whitespace after trim): '${userIdInput}' -> '${userId}'. Aborting.`;
     console.error(msg);
     return { error: msg };
@@ -27,24 +27,25 @@ export async function createInitialAnalysisRecordAction(
     return { error: msg };
   }
 
-  const consistentUserId = userId; 
+  const consistentUserId = userId;
 
   const analysisDataForFirestore = {
-    userId: consistentUserId, 
+    userId: consistentUserId,
     fileName: trimmedFileName,
-    status: 'uploading', // Initial status, will transition to 'summarizing_data' or 'identifying_regulations'
+    status: 'uploading', // Initial status, will transition to 'summarizing_data'
     progress: 0, // Overall analysis progress
     uploadProgress: 0, // Specific file upload progress
+    isDataTruncated: false, // Initialize as false
     tags: [],
     createdAt: serverTimestamp() as Timestamp,
   };
-  
+
   const analysisCollectionPath = `users/${consistentUserId}/analyses`;
   const currentProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET_OR_EMPTY';
   console.log(`[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: '${analysisCollectionPath}'. Data for user '${consistentUserId}'. Using Project ID: '${currentProjectId}'`);
 
   try {
-    const analysisCollectionRef = collection(db, 'users', consistentUserId, 'analyses'); 
+    const analysisCollectionRef = collection(db, 'users', consistentUserId, 'analyses');
     const docRef = await addDoc(analysisCollectionRef, analysisDataForFirestore);
     console.log(`[Action_createInitialAnalysisRecord] Document created with ID: ${docRef.id} for user ${consistentUserId} at path ${analysisCollectionPath}/${docRef.id}`);
     return { analysisId: docRef.id };
@@ -76,9 +77,9 @@ export async function updateAnalysisUploadProgressAction(
     console.error(msg);
     return { success: false, error: msg };
   }
-  const analysisDocPath = `users/${userId}/analyses/${analysisId}`; 
+  const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = doc(db, analysisDocPath);
-  
+
   try {
     const docSnap = await getDoc(analysisRef);
     if (!docSnap.exists()) {
@@ -86,12 +87,12 @@ export async function updateAnalysisUploadProgressAction(
       console.warn(notFoundMsg);
       return { success: false, error: "Documento da análise não encontrado para atualizar progresso." };
     }
-    
+
     // Overall progress during upload phase (max 10% of total analysis)
-    const overallProgressBasedOnUpload = Math.min(10, Math.round(uploadProgress * 0.1)); 
-    await updateDoc(analysisRef, { 
-        uploadProgress: Math.round(uploadProgress), 
-        progress: overallProgressBasedOnUpload 
+    const overallProgressBasedOnUpload = Math.min(10, Math.round(uploadProgress * 0.1));
+    await updateDoc(analysisRef, {
+        uploadProgress: Math.round(uploadProgress),
+        progress: overallProgressBasedOnUpload
     });
     return { success: true };
   } catch (error) {
@@ -119,7 +120,7 @@ export async function finalizeFileUploadRecordAction(
     console.error(msg);
     return { success: false, error: msg };
   }
-  const analysisDocPath = `users/${userId}/analyses/${analysisId}`; 
+  const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = doc(db, analysisDocPath);
 
   try {
@@ -132,9 +133,10 @@ export async function finalizeFileUploadRecordAction(
     // Transition to 'summarizing_data' as the first AI step after upload
     await updateDoc(analysisRef, {
       powerQualityDataUrl: downloadURL,
-      status: 'summarizing_data', 
+      status: 'summarizing_data',
       progress: 10, // Mark upload phase as complete (10% of total)
       uploadProgress: 100,
+      isDataTruncated: false, // Ensure it's set, though createInitial should do it.
     });
     console.log(`[Action_finalizeFileUploadRecord] Document ${analysisId} (path: ${analysisDocPath}) updated with download URL and status 'summarizing_data'.`);
     return { success: true };
@@ -152,7 +154,7 @@ export async function finalizeFileUploadRecordAction(
 
 export async function markUploadAsFailedAction(
   userIdInput: string,
-  analysisIdInput: string | null, 
+  analysisIdInput: string | null,
   uploadErrorMessage: string
 ): Promise<{ success: boolean; error?: string }> {
   const userId = userIdInput ? userIdInput.trim() : '';
@@ -163,20 +165,20 @@ export async function markUploadAsFailedAction(
     console.error(msg);
     return { success: false, error: msg };
   }
-  
+
   if (!analysisId) {
     const noIdMsg = `[Action_markUploadAsFailed] Analysis ID inválido ou não fornecido ('${analysisIdInput}' -> '${analysisId}'). Provável falha na criação do registro. Erro original do upload: ${uploadErrorMessage}`;
     console.warn(noIdMsg);
     return { success: true, error: "ID da análise inválido para marcar falha (criação pode ter falhado)." };
   }
-  
-  const analysisDocPath = `users/${userId}/analyses/${analysisId}`; 
+
+  const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = doc(db, analysisDocPath);
   try {
     const docSnap = await getDoc(analysisRef);
     if (!docSnap.exists()) {
       const notFoundMsg = `[Action_markUploadAsFailed] Document ${analysisId} (path: ${analysisDocPath}) not found for user ${userId}. Cannot mark as failed. Error was: ${uploadErrorMessage}`;
-      console.warn(notFoundMsg); 
+      console.warn(notFoundMsg);
       return { success: true, error: "Documento da análise não encontrado para marcar como falha." };
     }
     await updateDoc(analysisRef, {

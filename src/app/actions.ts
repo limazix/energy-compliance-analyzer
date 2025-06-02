@@ -9,6 +9,9 @@ import { identifyAEEEResolutions } from '@/ai/flows/identify-aneel-resolutions';
 import { analyzeComplianceReport } from '@/ai/flows/analyze-compliance-report';
 import type { Analysis } from '@/types/analysis';
 
+const CSV_TRUNCATION_LIMIT_CHARS = 100000; // Approx 25k tokens
+const MAX_ERROR_MESSAGE_LENGTH = 1500;
+
 // Helper function to read file content from Firebase Storage
 async function getFileContentFromStorage(filePath: string): Promise<string> {
   console.log(`[getFileContentFromStorage] Attempting to download: ${filePath}`);
@@ -72,7 +75,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
 
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = doc(db, analysisDocPath);
-  const MAX_ERROR_MESSAGE_LENGTH = 1500;
+
 
   try {
     let analysisSnap = await getDoc(analysisRef);
@@ -91,19 +94,21 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       await updateDoc(analysisRef, { status: 'error', errorMessage: 'URL do arquivo de dados não encontrada no registro da análise.', progress: 0 });
       throw new Error(noFilePathMsg);
     }
-    
-    // Initial status is 'identifying_regulations' set by finalizeFileUploadRecordAction
-    // So first actual AI processing step here is summarization
-    console.log(`[processAnalysisFile] File path: ${filePath}. Current status: ${analysisData.status}. Updating to 'summarizing_data'.`);
-     if (analysisData.status === 'identifying_regulations' || analysisData.status === 'uploading' || analysisData.status === 'summarizing_data' || !analysisData.status ) {
-       await updateDoc(analysisRef, { status: 'summarizing_data', progress: 20 }); // Progress for starting summarization
+
+    // Ensure status is 'summarizing_data' before fetching content
+    if (analysisData.status === 'uploading' || !analysisData.status) {
+        console.log(`[processAnalysisFile] File path: ${filePath}. Current status: ${analysisData.status}. Updating to 'summarizing_data'.`);
+        await updateDoc(analysisRef, { status: 'summarizing_data', progress: 15 }); // Progress for starting content fetch + summarization
+    } else if (analysisData.status !== 'summarizing_data' && analysisData.status !== 'error' && analysisData.status !== 'completed') {
+        // If it's some other valid processing status, ensure progress is at least at summarization start
+        await updateDoc(analysisRef, { progress: Math.max(analysisData.progress, 15) });
     }
 
 
     let powerQualityDataCsv;
     try {
       powerQualityDataCsv = await getFileContentFromStorage(filePath);
-      console.log(`[processAnalysisFile] File content read for analysis ${analysisId}.`);
+      console.log(`[processAnalysisFile] File content read for analysis ${analysisId}. Original size: ${powerQualityDataCsv.length} chars.`);
     } catch (fileError) {
       const errMsg = fileError instanceof Error ? fileError.message : String(fileError);
       console.error(`[processAnalysisFile] Error getting file content for ${analysisId} (path: ${analysisDocPath}):`, errMsg);
@@ -111,7 +116,19 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       throw new Error(errMsg);
     }
 
-    console.log(`[processAnalysisFile] Calling summarizePowerQualityData for analysis ${analysisId}.`);
+    let isDataTruncated = false;
+    if (powerQualityDataCsv.length > CSV_TRUNCATION_LIMIT_CHARS) {
+      const originalSize = powerQualityDataCsv.length;
+      powerQualityDataCsv = powerQualityDataCsv.substring(0, CSV_TRUNCATION_LIMIT_CHARS);
+      isDataTruncated = true;
+      console.log(`[processAnalysisFile] CSV data for analysis ${analysisId} was truncated. Original size: ${originalSize} chars, Truncated size: ${powerQualityDataCsv.length} chars.`);
+      await updateDoc(analysisRef, { isDataTruncated: true });
+    } else {
+      await updateDoc(analysisRef, { isDataTruncated: false });
+    }
+
+
+    console.log(`[processAnalysisFile] Calling summarizePowerQualityData for analysis ${analysisId}. Data size: ${powerQualityDataCsv.length} chars.`);
     let summaryOutput;
     try {
       summaryOutput = await summarizePowerQualityData({ powerQualityDataCsv });
@@ -125,8 +142,8 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     console.log(`[processAnalysisFile] Data summary generated for ${analysisId}. Updating status to 'identifying_regulations'.`);
     await updateDoc(analysisRef, {
       status: 'identifying_regulations',
-      powerQualityDataSummary, // Store the summary
-      progress: 40 // Progress after summarization
+      powerQualityDataSummary,
+      progress: 40
     });
 
 
@@ -148,7 +165,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     await updateDoc(analysisRef, {
       status: 'assessing_compliance',
       identifiedRegulations,
-      progress: 70 // Progress after identifying regulations
+      progress: 70
     });
 
     console.log(`[processAnalysisFile] Calling analyzeComplianceReport for analysis ${analysisId} using summary.`);
@@ -179,7 +196,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
   } catch (error) {
     const originalErrorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[processAnalysisFile] Overall error processing analysis ${analysisId} for user ${userId} (path: ${analysisDocPath}):`, originalErrorMessage, error);
-    
+
     let detailedErrorMessageForFirestore = 'Erro desconhecido durante o processamento.';
     if (error instanceof Error) {
         detailedErrorMessageForFirestore = `Error: ${error.message}`;
@@ -190,18 +207,11 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
         detailedErrorMessageForFirestore = String(error);
     }
     const finalErrorMessageForFirestore = detailedErrorMessageForFirestore.substring(0, MAX_ERROR_MESSAGE_LENGTH);
-    
+
     let firestoreUpdateFailed = false;
     try {
       const currentSnap = await getDoc(analysisRef);
       if (currentSnap.exists()) {
-        // Determine a reasonable progress value for an error state.
-        // If the error happened very early (e.g., reading file), progress might be 0 or low.
-        // If it happened during summarization, it's around 20. If during regulation ID, around 40, etc.
-        // For a generic catch-all, setting a low progress or 0 might be safest if the exact step isn't clear.
-        // However, the individual catch blocks above set more specific progress on error.
-        // This overall catch block should ideally only hit if something unexpected happens *outside* those.
-        // Let's assume if it gets here, it's a more general failure.
         const existingData = currentSnap.data() as Analysis;
         const errorProgress = existingData.progress > 0 && existingData.progress < 100 ? existingData.progress : 0;
         await updateDoc(analysisRef, { status: 'error', errorMessage: finalErrorMessageForFirestore, progress: errorProgress });
@@ -214,7 +224,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       console.error(`[processAnalysisFile] CRITICAL: Failed to update Firestore with overall error status for analysis ${analysisId} (path: ${analysisDocPath}) (Original error: ${finalErrorMessageForFirestore.substring(0,200)}...):`, fsErrorMsg);
       firestoreUpdateFailed = true;
     }
-    
+
     let clientSafeErrorMessage = `Erro no processamento da análise (ID: ${analysisId}). Consulte os logs do servidor para detalhes.`;
     if (firestoreUpdateFailed) {
       clientSafeErrorMessage = `Erro crítico no processamento da análise (ID: ${analysisId}). Falha ao registrar o erro detalhado. Consulte os logs do servidor.`;
@@ -236,13 +246,13 @@ export async function getPastAnalysesAction(userIdInput: string): Promise<Analys
   const analysesCollectionPath = `users/${userId}/analyses`;
   const analysesCol = collection(db, analysesCollectionPath);
   const q = query(analysesCol, orderBy('createdAt', 'desc'));
-  
+
   console.log(`[getPastAnalysesAction] Attempting to query Firestore collection at path: '${analysesCollectionPath}' for userId: '${userId}' (Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'})`);
 
   try {
     const snapshot = await getDocs(q);
     console.log(`[getPastAnalysesAction] Found ${snapshot.docs.length} analyses for userId: ${userId} at path ${analysesCollectionPath}`);
-    
+
     const mapTimestampToISO = (timestampFieldValue: any): string | undefined => {
       if (timestampFieldValue && typeof timestampFieldValue.toDate === 'function') {
         return (timestampFieldValue as Timestamp).toDate().toISOString();
@@ -257,29 +267,30 @@ export async function getPastAnalysesAction(userIdInput: string): Promise<Analys
 
     return snapshot.docs.map(docSnap => {
       const data = docSnap.data();
-      
+
       const analysisResult: Partial<Analysis> = {
         id: docSnap.id,
-        userId: data.userId as string, 
+        userId: data.userId as string,
         fileName: data.fileName as string,
         status: data.status as Analysis['status'],
         progress: data.progress as number,
         uploadProgress: data.uploadProgress as number | undefined,
         powerQualityDataUrl: data.powerQualityDataUrl as string | undefined,
         powerQualityDataSummary: data.powerQualityDataSummary as string | undefined,
+        isDataTruncated: data.isDataTruncated as boolean | undefined,
         identifiedRegulations: data.identifiedRegulations as string[] | undefined,
         summary: data.summary as string | undefined,
         complianceReport: data.complianceReport as string | undefined,
         errorMessage: data.errorMessage as string | undefined,
         tags: (data.tags || []) as string[],
       };
-      
+
       const createdAt = mapTimestampToISO(data.createdAt);
       if (createdAt) {
         analysisResult.createdAt = createdAt;
       } else {
         console.warn(`[getPastAnalysesAction] Analysis ${docSnap.id} for user ${userId} has missing or invalid 'createdAt'. Using epoch as fallback.`);
-        analysisResult.createdAt = new Date(0).toISOString(); 
+        analysisResult.createdAt = new Date(0).toISOString();
       }
 
       const completedAt = mapTimestampToISO(data.completedAt);
