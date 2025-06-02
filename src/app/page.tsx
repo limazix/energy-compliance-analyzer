@@ -3,28 +3,57 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Inbox, AlertTriangle } from 'lucide-react';
 
-import { AppHeader, type HeaderTabValue } from '@/components/app-header';
+import { AppHeader } from '@/components/app-header';
 import { useAuth } from '@/contexts/auth-context';
 import { useFileUploadManager, type FileUploadManagerResult } from '@/features/file-upload/hooks/useFileUploadManager';
 import { useAnalysisManager } from '@/hooks/useAnalysisManager';
 
-import { DashboardView } from '@/components/features/dashboard/DashboardView';
 import { NewAnalysisForm } from '@/components/features/analysis/NewAnalysisForm';
 import { AnalysisView } from '@/components/features/analysis/AnalysisView';
-import { PastAnalysesView } from '@/components/features/past-analyses/PastAnalysesView';
 import type { Analysis } from '@/types/analysis';
 import { getDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Badge } from '@/components/ui/badge';
 
 
-type ViewState = 'dashboard' | 'new_analysis' | 'analysis_view' | 'past_analyses';
+const getStatusBadgeVariant = (status: Analysis['status']) => {
+  switch (status) {
+    case 'completed': return 'default'; 
+    case 'error': return 'destructive';
+    default: return 'secondary';
+  }
+};
+
+const getStatusLabel = (status: Analysis['status']) => {
+  switch (status) {
+    case 'uploading': return 'Enviando';
+    case 'identifying_regulations': return 'Identificando Resoluções';
+    case 'assessing_compliance': return 'Analisando Conformidade';
+    case 'completed': return 'Concluída';
+    case 'error': return 'Erro';
+    case 'deleted': return 'Excluída';
+    default: return status;
+  }
+};
+
 
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [viewState, setViewState] = useState<ViewState>('dashboard');
+  
+  const [showNewAnalysisForm, setShowNewAnalysisForm] = useState(false);
+  const [expandedAnalysisId, setExpandedAnalysisId] = useState<string | null>(null);
 
   const {
     fileToUpload,
@@ -36,7 +65,7 @@ export default function HomePage() {
   } = useFileUploadManager();
 
   const {
-    currentAnalysis,
+    currentAnalysis, // Este será a análise expandida ou a recém-criada/processada
     setCurrentAnalysis,
     pastAnalyses,
     isLoadingPastAnalyses,
@@ -55,8 +84,11 @@ export default function HomePage() {
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace('/login');
+    } else if (user) {
+      fetchPastAnalyses();
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, fetchPastAnalyses]);
+
 
   const handleUploadResult = useCallback(async (result: FileUploadManagerResult) => {
     if (result.analysisId && !result.error && user && user.uid) {
@@ -81,8 +113,10 @@ export default function HomePage() {
             createdAt: data.createdAt.toDate().toISOString(),
             completedAt: data.completedAt ? data.completedAt.toDate().toISOString() : undefined,
           };
-          setCurrentAnalysis(fetchedAnalysis);
-          setViewState('analysis_view');
+          setCurrentAnalysis(fetchedAnalysis); // Para o onSnapshot e displayedAnalysisSteps
+          setExpandedAnalysisId(fetchedAnalysis.id); // Expande o novo item
+          setShowNewAnalysisForm(false); // Esconde o formulário
+          await fetchPastAnalyses(); // Atualiza a lista de análises
           if (fetchedAnalysis.status === 'identifying_regulations') {
              await startAiProcessing(result.analysisId, user.uid);
           }
@@ -93,7 +127,8 @@ export default function HomePage() {
             status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
             errorMessage: 'Falha ao buscar o documento da análise recém-criado após upload.'
            });
-           setViewState('analysis_view');
+           setShowNewAnalysisForm(false); 
+           setExpandedAnalysisId(`error-fetch-${Date.now()}`);
         }
       } catch (fetchError) {
         console.error(`[HomePage_handleUploadResult] Error fetching document ${result.analysisId}:`, fetchError);
@@ -102,24 +137,14 @@ export default function HomePage() {
             status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
             errorMessage: 'Erro ao buscar detalhes da análise após upload.'
            });
-        setViewState('analysis_view');
+        setShowNewAnalysisForm(false);
+        setExpandedAnalysisId(`error-fetch-catch-${Date.now()}`);
       }
     } else if (result.error) {
-      if (result.analysisId && user && user.uid) {
+      const errorAnalysisId = result.analysisId || `error-upload-${Date.now()}`;
+      if (user && user.uid) {
          setCurrentAnalysis({
-            id: result.analysisId,
-            userId: user.uid,
-            fileName: result.fileName || "Desconhecido",
-            status: 'error',
-            progress: 0,
-            uploadProgress: uploadProgress,
-            errorMessage: result.error,
-            tags: [],
-            createdAt: new Date().toISOString(),
-        });
-      } else if (user && user.uid) {
-         setCurrentAnalysis({
-            id: `error-upload-${Date.now()}`,
+            id: errorAnalysisId,
             userId: user.uid,
             fileName: result.fileName || "Desconhecido",
             status: 'error',
@@ -130,9 +155,10 @@ export default function HomePage() {
             createdAt: new Date().toISOString(),
         });
       }
-      setViewState('analysis_view');
+      setShowNewAnalysisForm(false); // Mesmo em erro, esconde o formulário
+      setExpandedAnalysisId(errorAnalysisId); // Expande o item de erro
     }
-  }, [user, setCurrentAnalysis, startAiProcessing, uploadProgress]);
+  }, [user, setCurrentAnalysis, startAiProcessing, uploadProgress, fetchPastAnalyses]);
 
 
   const handleStartUploadAndAnalyze = useCallback(async () => {
@@ -145,60 +171,39 @@ export default function HomePage() {
   }, [user, uploadFileAndCreateRecord, handleUploadResult, router]);
   
 
-  useEffect(() => {
-    if (currentAnalysis && viewState !== 'analysis_view') {
-       if (currentAnalysis.status !== 'uploading' || currentAnalysis.powerQualityDataUrl) {
-        setViewState('analysis_view');
-       }
+  const handleToggleNewAnalysisForm = () => {
+    setShowNewAnalysisForm(prev => !prev);
+    if (!showNewAnalysisForm) {
+      setExpandedAnalysisId(null); // Fecha qualquer acordeão aberto ao abrir o formulário
+      setCurrentAnalysis(null);
     }
-  }, [currentAnalysis, viewState]);
-
-
-  const navigateToDashboard = () => {
-    setCurrentAnalysis(null);
-    setViewState('dashboard');
-  }
-  const navigateToNewAnalysis = () => {
-    setCurrentAnalysis(null);
-    setViewState('new_analysis');
   };
-  
-  const navigateToPastAnalyses = useCallback(() => {
-    setCurrentAnalysis(null); // Clear current analysis before fetching/navigating
-    fetchPastAnalyses().then(() => {
-      setViewState('past_analyses');
-    });
-  }, [fetchPastAnalyses, setCurrentAnalysis]);
 
-  const viewAnalysisDetails = (analysis: Analysis) => {
-    setCurrentAnalysis(analysis);
-    // viewState will be updated by the useEffect monitoring currentAnalysis or explicitly if needed
-    setViewState('analysis_view');
+  const handleNavigateToDashboard = () => {
+    setShowNewAnalysisForm(false);
+    setExpandedAnalysisId(null);
+    setCurrentAnalysis(null);
+    fetchPastAnalyses();
+  }
+
+  const handleAccordionChange = (value: string | undefined) => {
+    const newExpandedId = value || null;
+    setExpandedAnalysisId(newExpandedId);
+    if (newExpandedId) {
+      const analysisToExpand = pastAnalyses.find(a => a.id === newExpandedId);
+      if (analysisToExpand) {
+        setCurrentAnalysis(analysisToExpand); // Para onSnapshot e displayedAnalysisSteps
+      }
+    } else {
+      setCurrentAnalysis(null);
+    }
+    if (showNewAnalysisForm) setShowNewAnalysisForm(false); // Fecha o form se um acordeão for aberto/fechado
   };
   
   const afterDeleteAnalysis = () => {
-    // If currentAnalysis was deleted and now it's null
-    if (viewState === 'analysis_view' && !currentAnalysis) {
-        navigateToPastAnalyses(); // Go back to list view after deleting the current one
-    } else {
-        fetchPastAnalyses(); // Or just refresh the list if a different one was deleted
-    }
-  };
-
-  const handleTabChange = (tabValue: HeaderTabValue) => {
-    setCurrentAnalysis(null); // Always clear current analysis when changing main tabs
-    if (tabValue === 'past_analyses') {
-      navigateToPastAnalyses();
-    }
-    // No other tabs to handle for now directly changing viewState,
-    // navigation to dashboard is handled by AppHeader's onNavigateToDashboard prop
-  };
-
-  const getActiveTab = (): HeaderTabValue | undefined => {
-    if (viewState === 'past_analyses' && !currentAnalysis) { // Only active if viewing the list
-      return 'past_analyses';
-    }
-    return undefined;
+    fetchPastAnalyses(); // Atualiza a lista
+    setExpandedAnalysisId(null); // Fecha o acordeão se o item excluído estava aberto
+    setCurrentAnalysis(null);
   };
 
 
@@ -213,20 +218,11 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col bg-secondary/50">
       <AppHeader 
-        activeTab={getActiveTab()} 
-        onTabChange={handleTabChange} 
-        onNavigateToDashboard={navigateToDashboard} 
+        onStartNewAnalysis={handleToggleNewAnalysisForm}
+        onNavigateToDashboard={handleNavigateToDashboard}
       />
       <main className="flex-1 container mx-auto py-8 px-4">
-        {viewState === 'dashboard' && (
-          <DashboardView
-            userName={user?.displayName}
-            onStartNewAnalysis={navigateToNewAnalysis}
-            isLoadingPastAnalyses={isLoadingPastAnalyses}
-          />
-        )}
-
-        {viewState === 'new_analysis' && (
+        {showNewAnalysisForm ? (
           <NewAnalysisForm
             fileToUpload={fileToUpload}
             isUploading={isUploading}
@@ -234,32 +230,83 @@ export default function HomePage() {
             uploadError={uploadError}
             onFileChange={handleFileSelection}
             onUploadAndAnalyze={handleStartUploadAndAnalyze}
-            onCancel={navigateToDashboard}
+            onCancel={() => setShowNewAnalysisForm(false)}
           />
-        )}
-
-        {viewState === 'analysis_view' && currentAnalysis && (
-          <AnalysisView
-            analysis={currentAnalysis}
-            analysisSteps={displayedAnalysisSteps}
-            onDownloadReport={downloadReportAsTxt}
-            tagInput={tagInput}
-            onTagInputChange={setTagInput}
-            onAddTag={(tag) => handleAddTag(currentAnalysis.id, tag)}
-            onRemoveTag={(tag) => handleRemoveTag(currentAnalysis.id, tag)}
-            onNavigateToDashboard={navigateToDashboard}
-            onNavigateToPastAnalyses={navigateToPastAnalyses}
-          />
-        )}
-
-        {viewState === 'past_analyses' && !currentAnalysis && ( // Ensure currentAnalysis is null to show list
-          <PastAnalysesView
-            analyses={pastAnalyses}
-            isLoading={isLoadingPastAnalyses}
-            onViewDetails={viewAnalysisDetails}
-            onDeleteAnalysis={(id) => handleDeleteAnalysis(id, afterDeleteAnalysis)}
-            onBackToDashboard={navigateToDashboard}
-          />
+        ) : (
+          <Card className="shadow-xl">
+            <CardHeader>
+              <CardTitle className="text-2xl font-headline text-primary">Suas Análises Anteriores</CardTitle>
+              <CardDescription>Veja o histórico de suas análises ou inicie uma nova no botão acima.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingPastAnalyses && <div className="flex justify-center py-8"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>}
+              {!isLoadingPastAnalyses && pastAnalyses.length === 0 && (
+                <div className="text-center py-10 text-muted-foreground">
+                  <Inbox className="mx-auto h-12 w-12 mb-4" />
+                  <p className="text-lg">Nenhuma análise anterior encontrada.</p>
+                  <p>Clique em "Nova Análise" para começar.</p>
+                </div>
+              )}
+              {!isLoadingPastAnalyses && pastAnalyses.length > 0 && (
+                <Accordion 
+                  type="single" 
+                  collapsible 
+                  value={expandedAnalysisId || undefined} // Accordion value can be string | undefined
+                  onValueChange={handleAccordionChange}
+                  className="w-full"
+                >
+                  {pastAnalyses.map((analysisItem) => (
+                    <AccordionItem value={analysisItem.id} key={analysisItem.id} className="border-b">
+                      <AccordionTrigger className="py-4 px-2 hover:bg-muted/50 w-full text-left">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full">
+                          <span className="font-medium text-base text-foreground truncate max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl">
+                            {analysisItem.fileName}
+                          </span>
+                          <div className="flex flex-col md:flex-row md:items-center text-sm text-muted-foreground mt-1 md:mt-0 md:ml-4 space-y-1 md:space-y-0 md:space-x-3">
+                            <span>
+                              {analysisItem.createdAt ? format(new Date(analysisItem.createdAt as string), "dd/MM/yy HH:mm", { locale: ptBR }) : 'Data N/A'}
+                            </span>
+                            <Badge 
+                              variant={getStatusBadgeVariant(analysisItem.status)}
+                              className={analysisItem.status === 'completed' ? 'bg-green-600 text-white' : ''}
+                            >
+                              {getStatusLabel(analysisItem.status)}
+                            </Badge>
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="p-4 bg-background">
+                        {/* Renderiza AnalysisView somente se este item estiver expandido E for o currentAnalysis */}
+                        {expandedAnalysisId === analysisItem.id && currentAnalysis && currentAnalysis.id === analysisItem.id ? (
+                          <AnalysisView
+                            analysis={currentAnalysis} // Passa a análise correta (que está no estado `currentAnalysis` do hook)
+                            analysisSteps={displayedAnalysisSteps}
+                            onDownloadReport={downloadReportAsTxt}
+                            tagInput={tagInput}
+                            onTagInputChange={setTagInput}
+                            onAddTag={(tag) => handleAddTag(currentAnalysis.id, tag)}
+                            onRemoveTag={(tag) => handleRemoveTag(currentAnalysis.id, tag)}
+                            // onNavigateToDashboard e onNavigateToPastAnalyses não são mais necessários aqui
+                          />
+                        ) : expandedAnalysisId === analysisItem.id && analysisItem.status === 'error' && analysisItem.id.startsWith('error-') ? (
+                          // Caso especial para itens de erro criados localmente antes de ter um currentAnalysis do hook
+                           <div className="p-4 bg-destructive/10 rounded-md border border-destructive">
+                            <h3 className="text-xl font-semibold mb-2 text-destructive flex items-center">
+                              <AlertTriangle className="mr-2" />Ocorreu um Erro
+                            </h3>
+                            <p className="text-destructive-foreground">Não foi possível carregar ou processar esta análise.</p>
+                            <p className="text-sm mt-1"><strong>Detalhes:</strong> {analysisItem.errorMessage || 'Erro desconhecido.'}</p>
+                          </div>
+                        ) : expandedAnalysisId === analysisItem.id ? (
+                          <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /> Carregando detalhes...</div>
+                        ) : null}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              )}
+            </CardContent>
+          </Card>
         )}
       </main>
       <footer className="py-6 text-center text-sm text-muted-foreground border-t">

@@ -2,20 +2,20 @@
 'use client';
 
 import Link from 'next/link';
+import { PlusCircle } from 'lucide-react';
 import { Logo } from '@/components/icons/logo';
 import { AuthButton } from '@/components/auth-button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 
-// Definindo os possíveis valores para as abas de forma explícita
-export type HeaderTabValue = 'past_analyses';
+// HeaderTabValue não é mais necessário
+// export type HeaderTabValue = 'past_analyses';
 
 type AppHeaderProps = {
-  activeTab: HeaderTabValue | undefined; // Allow undefined for no active tab
-  onTabChange: (value: HeaderTabValue) => void;
-  onNavigateToDashboard: () => void;
+  onStartNewAnalysis: () => void; // Para mostrar o formulário de nova análise
+  onNavigateToDashboard: () => void; // Para resetar a visualização ao clicar no logo
 };
 
-export function AppHeader({ activeTab, onTabChange, onNavigateToDashboard }: AppHeaderProps) {
+export function AppHeader({ onStartNewAnalysis, onNavigateToDashboard }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
@@ -24,20 +24,14 @@ export function AppHeader({ activeTab, onTabChange, onNavigateToDashboard }: App
         </Link>
 
         <nav className="flex flex-1 items-center">
-          <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as HeaderTabValue)} className="h-full">
-            <TabsList className="h-full rounded-none border-0 bg-transparent p-0">
-              {/* "Dashboard" tab removed */}
-              <TabsTrigger 
-                value="past_analyses" 
-                className="h-full rounded-none border-b-2 border-transparent px-4 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none hover:bg-muted/50"
-              >
-                Análises Anteriores
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          {/* Tabs removidas */}
         </nav>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center space-x-4">
+          <Button onClick={onStartNewAnalysis} variant="outline" size="sm">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Nova Análise
+          </Button>
           <AuthButton />
         </div>
       </div>
