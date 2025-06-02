@@ -27,6 +27,7 @@ export interface Analysis {
   
   // Novo campo para o relatório estruturado
   structuredReport?: AnalyzeComplianceReportOutput;
+  mdxReportStoragePath?: string; // Path para o arquivo MDX no Firebase Storage
 
   errorMessage?: string;
   tags: string[];

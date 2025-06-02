@@ -1,11 +1,28 @@
-rules_version = '2';
 
+rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Permite que um usuário autenticado leia e escreva (upload, download, delete)
-    // qualquer arquivo dentro do seu próprio caminho /user_uploads/{userId}/.
-    match /user_uploads/{userId}/{allPaths=**} {
+    // Arquivos de dados de upload originais
+    match /user_uploads/{userId}/{analysisId}/{fileName} {
+      // Permitir que o proprietário (userId) leia e escreva (upload) seus próprios arquivos.
+      // A deleção pode ser gerenciada por uma Cloud Function ou pela Server Action se ela tiver as permissões adequadas.
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Arquivos de relatório MDX gerados
+    match /user_reports/{userId}/{analysisId}/report.mdx {
+      // Permitir que o proprietário (userId) escreva (upload pela Server Action) seu relatório.
+      allow write: if request.auth != null && request.auth.uid == userId;
+      // Permitir que o proprietário (userId) leia seu relatório.
+      // Se uma Firebase Function for usada para servir o relatório,
+      // a Function precisará ter permissão para ler todos os relatórios (ou ser executada como o usuário).
+      // Se a página do cliente busca diretamente (como no protótipo atual), o usuário precisa de 'read'.
+      allow read: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Regra mais genérica para outras possíveis pastas de usuário, se necessário
+    // match /users/{userId}/{allPaths=**} {
+    //   allow read, write: if request.auth != null && request.auth.uid == userId;
+    // }
   }
 }

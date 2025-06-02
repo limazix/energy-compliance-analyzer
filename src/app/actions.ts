@@ -2,11 +2,12 @@
 'use server';
 
 import { Timestamp, doc, getDocs, orderBy, query, updateDoc, writeBatch, serverTimestamp, getDoc, FirestoreError, collection } from 'firebase/firestore';
-import { getDownloadURL, ref as storageRef } from 'firebase/storage';
+import { getDownloadURL, ref as storageRef, uploadString, deleteObject } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { summarizePowerQualityData } from '@/ai/flows/summarize-power-quality-data';
 import { identifyAEEEResolutions } from '@/ai/flows/identify-aneel-resolutions';
-import { analyzeComplianceReport, AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report'; // Importar o tipo
+import { analyzeComplianceReport, AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report';
+import { convertStructuredReportToMdx } from '@/lib/reportUtils';
 import type { Analysis } from '@/types/analysis';
 
 const CHUNK_SIZE = 100000; 
@@ -90,7 +91,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
 
     const analysisData = analysisSnap.data() as Analysis;
     const filePath = analysisData.powerQualityDataUrl;
-    const originalFileName = analysisData.fileName; // Get the original file name
+    const originalFileName = analysisData.fileName; 
 
     if (!filePath) {
       const noFilePathMsg = `[processAnalysisFile] File path (powerQualityDataUrl) not found for analysisId: ${analysisId} (path: ${analysisDocPath}).`;
@@ -123,8 +124,10 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       console.log(`[processAnalysisFile] CSV data for analysis ${analysisId} is large (${powerQualityDataCsv.length} chars), chunking will occur.`);
       isDataChunked = true;
       for (let i = 0; i < powerQualityDataCsv.length; i += (CHUNK_SIZE - OVERLAP_SIZE)) {
-        const chunk = powerQualityDataCsv.substring(i, Math.min(i + CHUNK_SIZE, powerQualityDataCsv.length));
+        const chunkEnd = Math.min(i + CHUNK_SIZE, powerQualityDataCsv.length);
+        const chunk = powerQualityDataCsv.substring(i, chunkEnd);
         chunks.push(chunk);
+        if (chunkEnd === powerQualityDataCsv.length) break; // Evitar chunk vazio ou muito pequeno no final
       }
       console.log(`[processAnalysisFile] Created ${chunks.length} chunks for analysis ${analysisId}.`);
     } else {
@@ -142,8 +145,13 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       const chunk = chunks[i];
       console.log(`[processAnalysisFile] Calling summarizePowerQualityData for analysis ${analysisId}, chunk ${i + 1}/${chunks.length}. Chunk size: ${chunk.length} chars.`);
       try {
-        const summaryOutput = await summarizePowerQualityData({ powerQualityDataCsv: chunk });
-        aggregatedSummary += (summaryOutput.dataSummary || "") + "\n\n"; 
+        if (chunk.trim() === "") {
+            console.warn(`[processAnalysisFile] Chunk ${i + 1} for analysis ${analysisId} is empty or whitespace-only. Skipping summarization for this chunk.`);
+            aggregatedSummary += ""; // Add nothing or a placeholder if needed
+        } else {
+            const summaryOutput = await summarizePowerQualityData({ powerQualityDataCsv: chunk });
+            aggregatedSummary += (summaryOutput.dataSummary || "") + "\n\n"; 
+        }
         currentOverallProgress += progressIncrementPerChunk;
         await updateDoc(analysisRef, {
           progress: Math.min(SUMMARIZATION_COMPLETION_PROGRESS, Math.round(currentOverallProgress)), 
@@ -195,7 +203,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       structuredReportOutput = await analyzeComplianceReport({
         powerQualityDataSummary,
         identifiedRegulations: identifiedRegulationsString,
-        fileName: originalFileName // Pass the original file name
+        fileName: originalFileName 
       });
     } catch (aiError) {
       const errMsg = aiError instanceof Error ? aiError.message : String(aiError);
@@ -204,14 +212,29 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       throw new Error(errMsg);
     }
 
-    console.log(`[processAnalysisFile] Structured compliance report generated for ${analysisId}. Updating status to 'completed'.`);
+    console.log(`[processAnalysisFile] Structured compliance report generated for ${analysisId}. Converting to MDX and uploading to Storage.`);
+    
+    let mdxReportStoragePath = '';
+    try {
+      const mdxContent = convertStructuredReportToMdx(structuredReportOutput, originalFileName);
+      const mdxFilePath = `user_reports/${userId}/${analysisId}/report.mdx`;
+      const mdxFileRef = storageRef(storage, mdxFilePath);
+      await uploadString(mdxFileRef, mdxContent, 'raw', { contentType: 'text/markdown' });
+      mdxReportStoragePath = mdxFilePath; // Store the GCS path, not download URL
+      console.log(`[processAnalysisFile] MDX report uploaded to Storage at ${mdxReportStoragePath} for analysis ${analysisId}.`);
+    } catch(mdxError) {
+      const errMsg = mdxError instanceof Error ? mdxError.message : String(mdxError);
+      console.warn(`[processAnalysisFile] Failed to generate or upload MDX report for ${analysisId}: ${errMsg}. Proceeding without MDX path.`);
+      // Non-fatal, proceed to update Firestore with structuredReport, but mdxReportStoragePath will be empty/null
+    }
 
+    console.log(`[processAnalysisFile] Updating Firestore document for ${analysisId} with status 'completed'.`);
     await updateDoc(analysisRef, {
       status: 'completed',
-      structuredReport: structuredReportOutput, // Save the new structured report
-      // Optionally, populate old fields for smoother transition or if parts of UI still use them
+      structuredReport: structuredReportOutput,
+      mdxReportStoragePath: mdxReportStoragePath || null, // Save path or null if upload failed
       summary: structuredReportOutput.introduction.overallResultsSummary, 
-      complianceReport: structuredReportOutput.analysisSections.map(s => `## ${s.title}\n${s.content}`).join('\n\n'), // Basic text representation
+      complianceReport: structuredReportOutput.analysisSections.map(s => `## ${s.title}\n${s.content}`).join('\n\n'),
       progress: 100,
       completedAt: serverTimestamp(),
     });
@@ -221,7 +244,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     const originalErrorMessage = error instanceof Error ? error.message : String(error);
     const isCriticalError = originalErrorMessage.startsWith("[processAnalysisFile] CRITICAL:");
     
-    if (!isCriticalError) { // Don't log again if it was already logged as critical before throwing
+    if (!isCriticalError) {
         console.error(`[processAnalysisFile] Overall error processing analysis ${analysisId} for user ${userId} (path: ${analysisDocPath}):`, originalErrorMessage, error);
     }
 
@@ -234,7 +257,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     const finalErrorMessageForFirestore = detailedErrorMessageForFirestore.substring(0, MAX_ERROR_MESSAGE_LENGTH);
 
     let firestoreUpdateFailed = false;
-    if (!isCriticalError) { // Avoid trying to update Firestore if the error was a critical pre-check failure
+    if (!isCriticalError) { 
         try {
           const currentSnap = await getDoc(analysisRef);
           if (currentSnap.exists()) {
@@ -256,7 +279,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     if (firestoreUpdateFailed) {
       clientSafeErrorMessage = `Erro crítico no processamento da análise (ID: ${analysisId}). Falha ao registrar o erro detalhado. Consulte os logs do servidor.`;
     } else if (isCriticalError) {
-        clientSafeErrorMessage = originalErrorMessage; // Propagate the critical message as is
+        clientSafeErrorMessage = originalErrorMessage;
     }
     throw new Error(clientSafeErrorMessage);
   }
@@ -308,11 +331,10 @@ export async function getPastAnalysesAction(userIdInput: string): Promise<Analys
         powerQualityDataSummary: data.powerQualityDataSummary as string | undefined,
         isDataChunked: data.isDataChunked as boolean | undefined,
         identifiedRegulations: data.identifiedRegulations as string[] | undefined,
-        // Campos antigos
         summary: data.summary as string | undefined,
         complianceReport: data.complianceReport as string | undefined,
-        // Novo campo
         structuredReport: data.structuredReport as AnalyzeComplianceReportOutput | undefined,
+        mdxReportStoragePath: data.mdxReportStoragePath as string | undefined,
         errorMessage: data.errorMessage as string | undefined,
         tags: (data.tags || []) as string[],
       };
@@ -424,16 +446,42 @@ export async function deleteAnalysisAction(userIdInput: string, analysisIdInput:
         console.error(errorMsg);
         throw new Error("Análise não encontrada para exclusão.");
     }
+
+    // Soft delete: mark as deleted and clear sensitive/large data
     await updateDoc(analysisRef, { 
         status: 'deleted', 
         summary: null, 
         complianceReport: null, 
-        structuredReport: null, // Clear the structured report too
+        structuredReport: null,
+        mdxReportStoragePath: null, // Clear MDX path as well
+        powerQualityDataUrl: null, // Optionally clear original data URL
         identifiedRegulations: null, 
         powerQualityDataSummary: null, 
         errorMessage: 'Análise excluída pelo usuário.' 
     });
     console.log(`[deleteAnalysisAction] Analysis ${analysisId} (path: ${analysisDocPath}) marked as deleted for user ${userId}.`);
+
+    // Optionally, delete the associated files from Storage
+    const dataToDelete = analysisSnap.data();
+    if (dataToDelete.powerQualityDataUrl) {
+        try {
+            const originalFileRef = storageRef(storage, dataToDelete.powerQualityDataUrl); // Assuming this is a full path
+            await deleteObject(originalFileRef);
+            console.log(`[deleteAnalysisAction] Original data file ${dataToDelete.powerQualityDataUrl} deleted from Storage.`);
+        } catch (storageError) {
+            console.warn(`[deleteAnalysisAction] Failed to delete original data file ${dataToDelete.powerQualityDataUrl} from Storage:`, storageError);
+        }
+    }
+    if (dataToDelete.mdxReportStoragePath) {
+        try {
+            const mdxFileRef = storageRef(storage, dataToDelete.mdxReportStoragePath);
+            await deleteObject(mdxFileRef);
+            console.log(`[deleteAnalysisAction] MDX report file ${dataToDelete.mdxReportStoragePath} deleted from Storage.`);
+        } catch (storageError) {
+            console.warn(`[deleteAnalysisAction] Failed to delete MDX report file ${dataToDelete.mdxReportStoragePath} from Storage:`, storageError);
+        }
+    }
+
   } catch (error) {
     const originalErrorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[deleteAnalysisAction] Error soft deleting analysis ${analysisId} (path: ${analysisDocPath}) for user ${userId}:`, originalErrorMessage);
