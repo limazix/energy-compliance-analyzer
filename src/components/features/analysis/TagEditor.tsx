@@ -42,7 +42,7 @@ export function TagEditor({
           className="max-w-xs"
           onKeyDown={(e) => e.key === 'Enter' && onAddTag(analysisId, tagInput)}
         />
-        <Button onClick={() => onAddTag(analysisId, tagInput)} variant="secondary" size="sm">Adicionar</Button>
+        <Button onClick={() => onAddTag(analysisId, tagInput)} variant="outline" size="sm">Adicionar</Button>
       </div>
     </div>
   );

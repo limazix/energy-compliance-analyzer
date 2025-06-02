@@ -20,9 +20,8 @@ body {
     --primary: 145 60% 35%; /* Darker logo green */
     --primary-foreground: 145 30% 95%; /* Very light green/white for text on primary */
 
-    /* Adjusted for TagEditor visibility */
-    --secondary: 120 40% 40%; /* Medium-dark green for button background (was 120 40% 88%) */
-    --secondary-foreground: 120 20% 90%; /* Light text for new darker secondary (was 145 50% 30%) */
+    --secondary: 120 40% 88%; /* Light green-gray for secondary elements */
+    --secondary-foreground: 145 50% 30%; /* Darker green for text on secondary */
 
     --muted: 120 30% 92%; /* Very light green-gray for muted text/elements */
     --muted-foreground: 145 20% 50%; /* Medium desaturated green for muted text */
@@ -34,8 +33,7 @@ body {
     --destructive-foreground: 0 0% 100%; /* White text for destructive */
 
     --border: 145 20% 80%; /* Light green-gray border */
-    /* Adjusted for TagEditor visibility */
-    --input: 220 15% 96%; /* Very light, slightly cool gray for input background (was 0 0% 100%) */
+    --input: 0 0% 100%; /* White input background for light theme */
     --ring: 145 60% 45%; /* Primary green for focus rings, slightly lighter for visibility */
     
     --chart-1: 145 55% 45%; /* Shades of green and complementary colors */
@@ -69,9 +67,8 @@ body {
     --primary: 120 50% 55%; /* Lighter logo green becomes primary in dark mode */
     --primary-foreground: 145 60% 15%; /* Dark green text for primary */
 
-    /* Adjusted for TagEditor visibility */
-    --secondary: 145 30% 40%; /* Lighter, more prominent green for button background (was 145 30% 25%) */
-    --secondary-foreground: 120 30% 90%; /* Light text, likely still okay (was 120 30% 85%) */
+    --secondary: 145 30% 25%; /* Muted dark green for secondary */
+    --secondary-foreground: 120 30% 85%; /* Lighter text for secondary */
 
     --muted: 145 25% 20%;
     --muted-foreground: 120 25% 65%;
@@ -83,8 +80,7 @@ body {
     --destructive-foreground: 0 0% 95%;
 
     --border: 145 20% 25%;
-    /* Adjusted for TagEditor visibility */
-    --input: 145 20% 28%; /* Moderately lighter dark green for input background (was 145 20% 22%) */
+    --input: 145 20% 22%; /* Darker input background for dark theme */
     --ring: 120 50% 65%;
     
     --chart-1: 145 60% 50%;
