@@ -54,14 +54,14 @@ export function PastAnalysisCard({ analysis, onViewDetails, onDeleteAnalysis }: 
           <p className="text-sm text-muted-foreground">
             Criada em: {analysis.createdAt ? format(new Date(analysis.createdAt as string), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'Data indisponível'}
           </p>
-          <p className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground">
             Status: <Badge 
               variant={getStatusBadgeVariant(analysis.status)} 
               className={analysis.status === 'completed' ? 'bg-green-500 text-white' : ''}
             >
               {getStatusLabel(analysis.status)}
             </Badge>
-          </p>
+          </div>
           {analysis.tags && analysis.tags.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
               {analysis.tags.map(tag => <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>)}
