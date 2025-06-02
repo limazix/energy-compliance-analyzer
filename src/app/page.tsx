@@ -239,7 +239,8 @@ export default function HomePage() {
             onTagInputChange={setTagInput}
             onAddTag={(tag) => handleAddTag(currentAnalysis.id, tag)}
             onRemoveTag={(tag) => handleRemoveTag(currentAnalysis.id, tag)}
-            onStartNewAnalysis={navigateToNewAnalysis}
+            onNavigateToDashboard={navigateToDashboard}
+            onNavigateToPastAnalyses={navigateToPastAnalyses}
           />
         )}
 

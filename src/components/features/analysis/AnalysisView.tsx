@@ -3,8 +3,8 @@
 
 import type { Analysis, AnalysisStep } from '@/types/analysis';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { PlusCircle, History, AlertTriangle } from 'lucide-react';
+// import { Button } from '@/components/ui/button'; // Button não é mais usado diretamente aqui se o botão de nova análise for removido
+import { AlertTriangle } from 'lucide-react'; // PlusCircle e History não são mais necessários aqui
 import { AnalysisProgressDisplay } from './AnalysisProgressDisplay';
 import { AnalysisResultsDisplay } from './AnalysisResultsDisplay';
 import { TagEditor } from './TagEditor';
@@ -18,8 +18,8 @@ type AnalysisViewProps = {
   onTagInputChange: (value: string) => void;
   onAddTag: (analysisId: string, tag: string) => void;
   onRemoveTag: (analysisId: string, tag: string) => void;
-  onStartNewAnalysis: () => void;
-  // onViewPastAnalyses foi removido
+  onNavigateToDashboard: () => void;
+  onNavigateToPastAnalyses: () => void;
 };
 
 export function AnalysisView({
@@ -30,7 +30,8 @@ export function AnalysisView({
   onTagInputChange,
   onAddTag,
   onRemoveTag,
-  onStartNewAnalysis,
+  onNavigateToDashboard,
+  onNavigateToPastAnalyses,
 }: AnalysisViewProps) {
   const isCompleted = analysis.status === 'completed';
   const isError = analysis.status === 'error';
@@ -46,6 +47,32 @@ export function AnalysisView({
         <CardDescription>Arquivo: {analysis.fileName}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="mb-6 flex items-center space-x-2 text-sm">
+          <span
+            onClick={onNavigateToDashboard}
+            className="text-muted-foreground hover:text-primary cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && onNavigateToDashboard()}
+          >
+            Dashboard
+          </span>
+          <span className="text-muted-foreground">/</span>
+          <span
+            onClick={onNavigateToPastAnalyses}
+            className="text-muted-foreground hover:text-primary cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && onNavigateToPastAnalyses()}
+          >
+            Análises Anteriores
+          </span>
+          <span className="text-muted-foreground">/</span>
+          <span className="font-semibold text-foreground truncate max-w-[150px] xs:max-w-[200px] sm:max-w-xs md:max-w-sm lg:max-w-md">
+            {analysis.fileName}
+          </span>
+        </div>
+
         {isInProgress && (
           <AnalysisProgressDisplay analysisSteps={analysisSteps} />
         )}
@@ -80,12 +107,7 @@ export function AnalysisView({
           onRemoveTag={onRemoveTag}
         />
 
-        <div className="flex flex-wrap gap-4 mt-8">
-          <Button onClick={onStartNewAnalysis} size="lg">
-            <PlusCircle className="mr-2 h-5 w-5" /> Iniciar Nova Análise
-          </Button>
-          {/* Botão "Ver Análises Anteriores" foi removido daqui */}
-        </div>
+        {/* Botão "Iniciar Nova Análise" e "Ver Análises Anteriores" removidos daqui */}
       </CardContent>
     </Card>
   );
