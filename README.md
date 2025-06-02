@@ -44,9 +44,12 @@ O Energy Compliance Analyzer simplifica a verificação de conformidade para o s
     NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="SEU_MEASUREMENT_ID_DO_FIREBASE" # Opcional
     NEXT_PUBLIC_FIREBASE_DATABASE_URL="SUA_DATABASE_URL_DO_FIREBASE" # Opcional
 
+    # Esta chave será usada tanto pelo client-side (via next.config.js) quanto pelo server-side (Genkit)
     NEXT_PUBLIC_GEMINI_API_KEY="SUA_API_KEY_DO_GEMINI"
     ```
-    **Importante:** `NEXT_PUBLIC_FIREBASE_PROJECT_ID` deve ser `electric-magnitudes-analizer`.
+    **Importante:**
+    * `NEXT_PUBLIC_FIREBASE_PROJECT_ID` deve ser `electric-magnitudes-analizer`.
+    * `NEXT_PUBLIC_GEMINI_API_KEY` é usada pelo Genkit no servidor e também disponibilizada para o cliente se necessário. Certifique-se de que está configurada no seu ambiente de deploy (Firebase App Hosting) para as funções de servidor.
 
 4.  **Domínios Autorizados no Firebase Authentication:**
     No Firebase Console (`electric-magnitudes-analizer` > Authentication > Settings > Authorized domains), adicione `localhost` e outros domínios de desenvolvimento (ex: `*.cloudworkstations.dev`).
@@ -60,7 +63,7 @@ O Energy Compliance Analyzer simplifica a verificação de conformidade para o s
     Acesse em `http://localhost:9002` (ou a porta indicada).
 
 2.  **(Opcional) Inicie o servidor de desenvolvimento Genkit:**
-    Para depurar fluxos Genkit:
+    Para depurar fluxos Genkit (se `src/ai/dev.ts` for usado):
     ```bash
     npm run genkit:dev
     # ou para watch mode
@@ -86,7 +89,8 @@ O projeto está configurado para conectar-se aos Firebase Emulators (Auth, Fires
     ```
     Acesse sua aplicação (`http://localhost:9002`). `src/lib/firebase.ts` conectará aos emuladores.
 
-3.  **(Alternativa) Emuladores e dev server juntos:**
+3.  **(Alternativa) Emuladores e dev server juntos com `firebase emulators:exec`:**
+    O script `npm run emulators:dev` já está configurado para isso.
     ```bash
     npm run emulators:dev
     ```
@@ -101,3 +105,4 @@ Para informações sobre deploy manual, configuração de CI/CD com GitHub Actio
 ## Licença
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
