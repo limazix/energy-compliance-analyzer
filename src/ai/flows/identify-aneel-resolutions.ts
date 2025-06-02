@@ -1,7 +1,8 @@
+
 // src/ai/flows/identify-aneel-resolutions.ts
 'use server';
 /**
- * @fileOverview Identifies relevant ANEEL Normative Resolutions based on uploaded power quality data.
+ * @fileOverview Identifies relevant ANEEL Normative Resolutions based on a summary of power quality data.
  *
  * - identifyAEEEResolutions - A function that identifies the relevant ANEEL Normative Resolutions.
  * - IdentifyAEEEResolutionsInput - The input type for the identifyAEEEResolutions function.
@@ -12,9 +13,9 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const IdentifyAEEEResolutionsInputSchema = z.object({
-  powerQualityData: z
+  powerQualityDataSummary: z
     .string()
-    .describe('The power quality data uploaded by the user in CSV format.'),
+    .describe('A summary of the power quality data, highlighting key metrics and anomalies.'),
 });
 export type IdentifyAEEEResolutionsInput = z.infer<
   typeof IdentifyAEEEResolutionsInputSchema
@@ -40,11 +41,11 @@ const prompt = ai.definePrompt({
   input: {schema: IdentifyAEEEResolutionsInputSchema},
   output: {schema: IdentifyAEEEResolutionsOutputSchema},
   prompt: `You are an expert in Brazilian electrical regulations, specifically ANEEL Normative Resolutions.
-  Based on the provided power quality data, identify the relevant ANEEL Normative Resolutions that apply.
-  Return a list of the relevant resolutions. 
+  Based on the provided summary of power quality data, identify the relevant ANEEL Normative Resolutions that apply.
+  Return a list of the relevant resolutions.
 
-  Power Quality Data:
-  {{powerQualityData}}`,
+  Power Quality Data Summary:
+  {{powerQualityDataSummary}}`,
 });
 
 const identifyAEEEResolutionsFlow = ai.defineFlow(
@@ -55,6 +56,9 @@ const identifyAEEEResolutionsFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+      throw new Error('AI failed to identify ANEEL resolutions.');
+    }
+    return output;
   }
 );

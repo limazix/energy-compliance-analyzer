@@ -38,6 +38,7 @@ const getStatusBadgeVariant = (status: Analysis['status']) => {
 const getStatusLabel = (status: Analysis['status']) => {
   switch (status) {
     case 'uploading': return 'Enviando';
+    case 'summarizing_data': return 'Sumarizando Dados';
     case 'identifying_regulations': return 'Identificando Resoluções';
     case 'assessing_compliance': return 'Analisando Conformidade';
     case 'completed': return 'Concluída';
@@ -65,7 +66,7 @@ export default function HomePage() {
   } = useFileUploadManager();
 
   const {
-    currentAnalysis, // Este será a análise expandida ou a recém-criada/processada
+    currentAnalysis, 
     setCurrentAnalysis,
     pastAnalyses,
     isLoadingPastAnalyses,
@@ -101,10 +102,11 @@ export default function HomePage() {
             id: docSnap.id,
             userId: data.userId,
             fileName: data.fileName,
-            status: data.status,
+            status: data.status, // This will be 'identifying_regulations' or 'summarizing_data' after finalizeFileUpload
             progress: data.progress,
             uploadProgress: data.uploadProgress,
             powerQualityDataUrl: data.powerQualityDataUrl,
+            powerQualityDataSummary: data.powerQualityDataSummary,
             identifiedRegulations: data.identifiedRegulations,
             summary: data.summary,
             complianceReport: data.complianceReport,
@@ -113,11 +115,12 @@ export default function HomePage() {
             createdAt: data.createdAt.toDate().toISOString(),
             completedAt: data.completedAt ? data.completedAt.toDate().toISOString() : undefined,
           };
-          setCurrentAnalysis(fetchedAnalysis); // Para o onSnapshot e displayedAnalysisSteps
-          setExpandedAnalysisId(fetchedAnalysis.id); // Expande o novo item
-          setShowNewAnalysisForm(false); // Esconde o formulário
-          await fetchPastAnalyses(); // Atualiza a lista de análises
-          if (fetchedAnalysis.status === 'identifying_regulations') {
+          setCurrentAnalysis(fetchedAnalysis); 
+          setExpandedAnalysisId(fetchedAnalysis.id); 
+          setShowNewAnalysisForm(false); 
+          await fetchPastAnalyses(); 
+          // The processAnalysisFile action will be triggered if status is 'summarizing_data' (or 'identifying_regulations' if summarization is skipped)
+          if (fetchedAnalysis.status === 'summarizing_data' || fetchedAnalysis.status === 'identifying_regulations') {
              await startAiProcessing(result.analysisId, user.uid);
           }
         } else {
@@ -155,8 +158,8 @@ export default function HomePage() {
             createdAt: new Date().toISOString(),
         });
       }
-      setShowNewAnalysisForm(false); // Mesmo em erro, esconde o formulário
-      setExpandedAnalysisId(errorAnalysisId); // Expande o item de erro
+      setShowNewAnalysisForm(false); 
+      setExpandedAnalysisId(errorAnalysisId); 
     }
   }, [user, setCurrentAnalysis, startAiProcessing, uploadProgress, fetchPastAnalyses]);
 
@@ -174,7 +177,7 @@ export default function HomePage() {
   const handleToggleNewAnalysisForm = () => {
     setShowNewAnalysisForm(prev => !prev);
     if (!showNewAnalysisForm) {
-      setExpandedAnalysisId(null); // Fecha qualquer acordeão aberto ao abrir o formulário
+      setExpandedAnalysisId(null); 
       setCurrentAnalysis(null);
     }
   };
@@ -192,17 +195,17 @@ export default function HomePage() {
     if (newExpandedId) {
       const analysisToExpand = pastAnalyses.find(a => a.id === newExpandedId);
       if (analysisToExpand) {
-        setCurrentAnalysis(analysisToExpand); // Para onSnapshot e displayedAnalysisSteps
+        setCurrentAnalysis(analysisToExpand); 
       }
     } else {
       setCurrentAnalysis(null);
     }
-    if (showNewAnalysisForm) setShowNewAnalysisForm(false); // Fecha o form se um acordeão for aberto/fechado
+    if (showNewAnalysisForm) setShowNewAnalysisForm(false); 
   };
   
   const afterDeleteAnalysis = () => {
-    fetchPastAnalyses(); // Atualiza a lista
-    setExpandedAnalysisId(null); // Fecha o acordeão se o item excluído estava aberto
+    fetchPastAnalyses(); 
+    setExpandedAnalysisId(null); 
     setCurrentAnalysis(null);
   };
 
@@ -251,7 +254,7 @@ export default function HomePage() {
                 <Accordion 
                   type="single" 
                   collapsible 
-                  value={expandedAnalysisId || undefined} // Accordion value can be string | undefined
+                  value={expandedAnalysisId || undefined} 
                   onValueChange={handleAccordionChange}
                   className="w-full"
                 >
@@ -276,20 +279,17 @@ export default function HomePage() {
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="p-4 bg-background">
-                        {/* Renderiza AnalysisView somente se este item estiver expandido E for o currentAnalysis */}
                         {expandedAnalysisId === analysisItem.id && currentAnalysis && currentAnalysis.id === analysisItem.id ? (
                           <AnalysisView
-                            analysis={currentAnalysis} // Passa a análise correta (que está no estado `currentAnalysis` do hook)
+                            analysis={currentAnalysis} 
                             analysisSteps={displayedAnalysisSteps}
                             onDownloadReport={downloadReportAsTxt}
                             tagInput={tagInput}
                             onTagInputChange={setTagInput}
                             onAddTag={(tag) => handleAddTag(currentAnalysis.id, tag)}
                             onRemoveTag={(tag) => handleRemoveTag(currentAnalysis.id, tag)}
-                            // onNavigateToDashboard e onNavigateToPastAnalyses não são mais necessários aqui
                           />
                         ) : expandedAnalysisId === analysisItem.id && analysisItem.status === 'error' && analysisItem.id.startsWith('error-') ? (
-                          // Caso especial para itens de erro criados localmente antes de ter um currentAnalysis do hook
                            <div className="p-4 bg-destructive/10 rounded-md border border-destructive">
                             <h3 className="text-xl font-semibold mb-2 text-destructive flex items-center">
                               <AlertTriangle className="mr-2" />Ocorreu um Erro

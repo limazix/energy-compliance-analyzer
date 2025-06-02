@@ -27,15 +27,14 @@ export async function createInitialAnalysisRecordAction(
     return { error: msg };
   }
 
-  // Garante que o userId usado no caminho é o mesmo que será armazenado no documento.
   const consistentUserId = userId; 
 
   const analysisDataForFirestore = {
-    userId: consistentUserId, // Usando o userId validado e trimado
+    userId: consistentUserId, 
     fileName: trimmedFileName,
-    status: 'uploading',
-    progress: 0,
-    uploadProgress: 0,
+    status: 'uploading', // Initial status, will transition to 'summarizing_data' or 'identifying_regulations'
+    progress: 0, // Overall analysis progress
+    uploadProgress: 0, // Specific file upload progress
     tags: [],
     createdAt: serverTimestamp() as Timestamp,
   };
@@ -45,7 +44,6 @@ export async function createInitialAnalysisRecordAction(
   console.log(`[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: '${analysisCollectionPath}'. Data for user '${consistentUserId}'. Using Project ID: '${currentProjectId}'`);
 
   try {
-    // Usando consistentUserId para construir a referência da coleção
     const analysisCollectionRef = collection(db, 'users', consistentUserId, 'analyses'); 
     const docRef = await addDoc(analysisCollectionRef, analysisDataForFirestore);
     console.log(`[Action_createInitialAnalysisRecord] Document created with ID: ${docRef.id} for user ${consistentUserId} at path ${analysisCollectionPath}/${docRef.id}`);
@@ -89,6 +87,7 @@ export async function updateAnalysisUploadProgressAction(
       return { success: false, error: "Documento da análise não encontrado para atualizar progresso." };
     }
     
+    // Overall progress during upload phase (max 10% of total analysis)
     const overallProgressBasedOnUpload = Math.min(10, Math.round(uploadProgress * 0.1)); 
     await updateDoc(analysisRef, { 
         uploadProgress: Math.round(uploadProgress), 
@@ -130,13 +129,14 @@ export async function finalizeFileUploadRecordAction(
       console.warn(notFoundMsg);
       return { success: false, error: "Documento da análise não encontrado para finalizar registro." };
     }
+    // Transition to 'summarizing_data' as the first AI step after upload
     await updateDoc(analysisRef, {
       powerQualityDataUrl: downloadURL,
-      status: 'identifying_regulations', 
-      progress: 10, 
+      status: 'summarizing_data', 
+      progress: 10, // Mark upload phase as complete (10% of total)
       uploadProgress: 100,
     });
-    console.log(`[Action_finalizeFileUploadRecord] Document ${analysisId} (path: ${analysisDocPath}) updated with download URL and status 'identifying_regulations'.`);
+    console.log(`[Action_finalizeFileUploadRecord] Document ${analysisId} (path: ${analysisDocPath}) updated with download URL and status 'summarizing_data'.`);
     return { success: true };
   } catch (error) {
      let errorMessage = 'Falha ao finalizar registro do upload.';

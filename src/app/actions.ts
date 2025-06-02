@@ -4,6 +4,7 @@
 import { Timestamp, addDoc, collection, doc, getDocs, orderBy, query, updateDoc, where, writeBatch, serverTimestamp, getDoc, FirestoreError } from 'firebase/firestore';
 import { getDownloadURL, ref as storageRef } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
+import { summarizePowerQualityData } from '@/ai/flows/summarize-power-quality-data';
 import { identifyAEEEResolutions } from '@/ai/flows/identify-aneel-resolutions';
 import { analyzeComplianceReport } from '@/ai/flows/analyze-compliance-report';
 import type { Analysis } from '@/types/analysis';
@@ -90,15 +91,18 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       await updateDoc(analysisRef, { status: 'error', errorMessage: 'URL do arquivo de dados não encontrada no registro da análise.', progress: 0 });
       throw new Error(noFilePathMsg);
     }
-
-    console.log(`[processAnalysisFile] File path: ${filePath}. Current status: ${analysisData.status}. Updating to 'identifying_regulations'.`);
-    if (analysisData.status === 'uploading' || analysisData.status === 'identifying_regulations' || !analysisData.status) {
-       await updateDoc(analysisRef, { status: 'identifying_regulations', progress: 10 });
+    
+    // Initial status is 'identifying_regulations' set by finalizeFileUploadRecordAction
+    // So first actual AI processing step here is summarization
+    console.log(`[processAnalysisFile] File path: ${filePath}. Current status: ${analysisData.status}. Updating to 'summarizing_data'.`);
+     if (analysisData.status === 'identifying_regulations' || analysisData.status === 'uploading' || analysisData.status === 'summarizing_data' || !analysisData.status ) {
+       await updateDoc(analysisRef, { status: 'summarizing_data', progress: 20 }); // Progress for starting summarization
     }
 
-    let powerQualityData;
+
+    let powerQualityDataCsv;
     try {
-      powerQualityData = await getFileContentFromStorage(filePath);
+      powerQualityDataCsv = await getFileContentFromStorage(filePath);
       console.log(`[processAnalysisFile] File content read for analysis ${analysisId}.`);
     } catch (fileError) {
       const errMsg = fileError instanceof Error ? fileError.message : String(fileError);
@@ -107,14 +111,33 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       throw new Error(errMsg);
     }
 
-    console.log(`[processAnalysisFile] Calling identifyAEEEResolutions for analysis ${analysisId}.`);
+    console.log(`[processAnalysisFile] Calling summarizePowerQualityData for analysis ${analysisId}.`);
+    let summaryOutput;
+    try {
+      summaryOutput = await summarizePowerQualityData({ powerQualityDataCsv });
+    } catch (aiError) {
+      const errMsg = aiError instanceof Error ? aiError.message : String(aiError);
+      console.error(`[processAnalysisFile] Error from summarizePowerQualityData for ${analysisId} (path: ${analysisDocPath}):`, errMsg);
+      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na sumarização dos dados pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 20 });
+      throw new Error(errMsg);
+    }
+    const powerQualityDataSummary = summaryOutput.dataSummary;
+    console.log(`[processAnalysisFile] Data summary generated for ${analysisId}. Updating status to 'identifying_regulations'.`);
+    await updateDoc(analysisRef, {
+      status: 'identifying_regulations',
+      powerQualityDataSummary, // Store the summary
+      progress: 40 // Progress after summarization
+    });
+
+
+    console.log(`[processAnalysisFile] Calling identifyAEEEResolutions for analysis ${analysisId} using summary.`);
     let resolutionsOutput;
     try {
-      resolutionsOutput = await identifyAEEEResolutions({ powerQualityData });
+      resolutionsOutput = await identifyAEEEResolutions({ powerQualityDataSummary });
     } catch (aiError) {
       const errMsg = aiError instanceof Error ? aiError.message : String(aiError);
       console.error(`[processAnalysisFile] Error from identifyAEEEResolutions for ${analysisId} (path: ${analysisDocPath}):`, errMsg);
-      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na identificação de resoluções pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 25 });
+      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na identificação de resoluções pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 40 });
       throw new Error(errMsg);
     }
 
@@ -125,20 +148,20 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     await updateDoc(analysisRef, {
       status: 'assessing_compliance',
       identifiedRegulations,
-      progress: 50
+      progress: 70 // Progress after identifying regulations
     });
 
-    console.log(`[processAnalysisFile] Calling analyzeComplianceReport for analysis ${analysisId}.`);
+    console.log(`[processAnalysisFile] Calling analyzeComplianceReport for analysis ${analysisId} using summary.`);
     let reportOutput;
     try {
       reportOutput = await analyzeComplianceReport({
-        powerQualityData,
+        powerQualityDataSummary,
         identifiedRegulations: identifiedRegulationsString
       });
     } catch (aiError) {
       const errMsg = aiError instanceof Error ? aiError.message : String(aiError);
       console.error(`[processAnalysisFile] Error from analyzeComplianceReport for ${analysisId} (path: ${analysisDocPath}):`, errMsg);
-      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na análise de conformidade pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 50 });
+      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na análise de conformidade pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: 70 });
       throw new Error(errMsg);
     }
 
@@ -172,12 +195,19 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     try {
       const currentSnap = await getDoc(analysisRef);
       if (currentSnap.exists()) {
-        await updateDoc(analysisRef, { status: 'error', errorMessage: finalErrorMessageForFirestore, progress: 0 });
+        // Determine a reasonable progress value for an error state.
+        // If the error happened very early (e.g., reading file), progress might be 0 or low.
+        // If it happened during summarization, it's around 20. If during regulation ID, around 40, etc.
+        // For a generic catch-all, setting a low progress or 0 might be safest if the exact step isn't clear.
+        // However, the individual catch blocks above set more specific progress on error.
+        // This overall catch block should ideally only hit if something unexpected happens *outside* those.
+        // Let's assume if it gets here, it's a more general failure.
+        const existingData = currentSnap.data() as Analysis;
+        const errorProgress = existingData.progress > 0 && existingData.progress < 100 ? existingData.progress : 0;
+        await updateDoc(analysisRef, { status: 'error', errorMessage: finalErrorMessageForFirestore, progress: errorProgress });
         console.log(`[processAnalysisFile] Firestore updated with error status for analysis ${analysisId} (path: ${analysisDocPath}).`);
       } else {
          console.error(`[processAnalysisFile] CRITICAL: Analysis document ${analysisId} (path ${analysisDocPath}) not found when trying to update with overall error status.`);
-         // Se o documento não existe, a atualização do Firestore não é possível, mas o erro original ainda ocorreu.
-         // Isso não é uma falha na atualização do Firestore per se, mas uma condição prévia.
       }
     } catch (firestoreError) {
       const fsErrorMsg = firestoreError instanceof Error ? firestoreError.message : String(firestoreError);
@@ -230,12 +260,13 @@ export async function getPastAnalysesAction(userIdInput: string): Promise<Analys
       
       const analysisResult: Partial<Analysis> = {
         id: docSnap.id,
-        userId: data.userId as string, // Assuming userId from doc is already clean
+        userId: data.userId as string, 
         fileName: data.fileName as string,
         status: data.status as Analysis['status'],
         progress: data.progress as number,
         uploadProgress: data.uploadProgress as number | undefined,
         powerQualityDataUrl: data.powerQualityDataUrl as string | undefined,
+        powerQualityDataSummary: data.powerQualityDataSummary as string | undefined,
         identifiedRegulations: data.identifiedRegulations as string[] | undefined,
         summary: data.summary as string | undefined,
         complianceReport: data.complianceReport as string | undefined,
@@ -350,7 +381,7 @@ export async function deleteAnalysisAction(userIdInput: string, analysisIdInput:
         console.error(errorMsg);
         throw new Error("Análise não encontrada para exclusão.");
     }
-    await updateDoc(analysisRef, { status: 'deleted', summary: null, complianceReport: null, identifiedRegulations: null, errorMessage: 'Análise excluída pelo usuário.' });
+    await updateDoc(analysisRef, { status: 'deleted', summary: null, complianceReport: null, identifiedRegulations: null, powerQualityDataSummary: null, errorMessage: 'Análise excluída pelo usuário.' });
     console.log(`[deleteAnalysisAction] Analysis ${analysisId} (path: ${analysisDocPath}) marked as deleted for user ${userId}.`);
   } catch (error) {
     const originalErrorMessage = error instanceof Error ? error.message : String(error);
@@ -358,4 +389,3 @@ export async function deleteAnalysisAction(userIdInput: string, analysisIdInput:
     throw new Error(originalErrorMessage);
   }
 }
-

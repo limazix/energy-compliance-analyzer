@@ -7,20 +7,18 @@ export interface AnalysisStep {
   progress?: number;
 }
 
-// Adicionando 'uploading_file' e 'processing_queued' para maior clareza no processo refatorado.
-// 'uploading' será o status geral durante o upload e configuração inicial.
-// 'identifying_regulations', 'assessing_compliance' continuam como etapas do processamento AI.
 export interface Analysis {
   id: string;
   userId: string;
   fileName: string;
-  status: 'uploading' | 'identifying_regulations' | 'assessing_compliance' | 'completed' | 'error' | 'deleted';
+  status: 'uploading' | 'summarizing_data' | 'identifying_regulations' | 'assessing_compliance' | 'completed' | 'error' | 'deleted';
   progress: number; // Progresso geral da análise (0-100)
-  uploadProgress?: number; // Progresso específico do upload do arquivo (0-100), gerenciado por useFileUploadManager
+  uploadProgress?: number; // Progresso específico do upload do arquivo (0-100)
   powerQualityDataUrl?: string;
-  powerQualityDataPreview?: string;
+  powerQualityDataSummary?: string; // Sumário gerado pela IA
+  powerQualityDataPreview?: string; // Removido pois o sumário é mais relevante
   identifiedRegulations?: string[];
-  summary?: string;
+  summary?: string; // Sumário da conformidade final
   complianceReport?: string;
   errorMessage?: string;
   tags: string[];
