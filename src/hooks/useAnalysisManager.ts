@@ -6,7 +6,7 @@ import type { User } from 'firebase/auth';
 import { doc, onSnapshot, Timestamp, FirestoreError } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import type { Analysis, AnalysisStep } from '@/types/analysis';
+import type { Analysis } from '@/types/analysis';
 import { processAnalysisFile } from '@/features/analysis-processing/actions/analysisProcessingActions';
 import { getPastAnalysesAction } from '@/features/analysis-listing/actions/analysisListingActions';
 import { addTagToAction, removeTagAction } from '@/features/tag-management/actions/tagActions';
@@ -26,23 +26,24 @@ export function useAnalysisManager(user: User | null) {
   useEffect(() => {
     let unsub: (() => void) | undefined;
 
-    if (user && user.uid && typeof user.uid === 'string' && user.uid.trim() !== '' && currentAnalysis?.id && !currentAnalysis.id.startsWith('error-')) {
-      console.log(`[useAnalysisManager_onSnapshot] Subscribing to analysis ID: ${currentAnalysis.id} for user UID: ${user.uid}. Current local status: ${currentAnalysis?.status}`);
-      const analysisDocumentRef = doc(db, 'users', user.uid, 'analyses', currentAnalysis.id);
+    if (user?.uid && currentAnalysis?.id && !currentAnalysis.id.startsWith('error-')) {
+      const validUserId = user.uid; // Ensure it's a string before using
+      console.log(`[useAnalysisManager_onSnapshot] Subscribing to analysis ID: ${currentAnalysis.id} for user UID: ${validUserId}. Current local status: ${currentAnalysis?.status}`);
+      const analysisDocumentRef = doc(db, 'users', validUserId, 'analyses', currentAnalysis.id);
       
       try {
         unsub = onSnapshot(analysisDocumentRef,
           (docSnap) => {
             if (docSnap.exists()) {
               const data = docSnap.data();
-              console.log(`[useAnalysisManager_onSnapshot] Snapshot for ${currentAnalysis.id}: Status: ${data.status}, Progress: ${data.progress}, ErrMsg: ${data.errorMessage}`);
+              console.log(`[useAnalysisManager_onSnapshot] Snapshot for ${currentAnalysis.id}: Status: ${data.status}, Progress: ${data.progress}, ErrMsg: ${data.errorMessage?.substring(0,100)}`);
               
               const validStatuses: Analysis['status'][] = ['uploading', 'summarizing_data', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted', 'cancelling', 'cancelled'];
               const statusIsValid = data.status && validStatuses.includes(data.status as Analysis['status']);
 
               const updatedAnalysis: Analysis = {
                 id: docSnap.id,
-                userId: typeof data.userId === 'string' ? data.userId : user.uid,
+                userId: typeof data.userId === 'string' ? data.userId : validUserId,
                 fileName: typeof data.fileName === 'string' ? data.fileName : currentAnalysis?.fileName || 'Nome de arquivo desconhecido',
                 title: typeof data.title === 'string' ? data.title : currentAnalysis?.title,
                 description: typeof data.description === 'string' ? data.description : currentAnalysis?.description,
@@ -64,6 +65,10 @@ export function useAnalysisManager(user: User | null) {
                 completedAt: (data.completedAt instanceof Timestamp) ? data.completedAt.toDate().toISOString() : undefined,
               };
               setCurrentAnalysis(updatedAnalysis);
+
+              // Update pastAnalyses list if the current one changed significantly (e.g. status)
+              setPastAnalyses(prev => prev.map(pa => pa.id === updatedAnalysis.id ? updatedAnalysis : pa).filter(a => a.status !== 'deleted'));
+
             } else {
               console.warn(`[useAnalysisManager_onSnapshot] Document ${currentAnalysis?.id} not found. Current local status: ${currentAnalysis?.status}.`);
               if (currentAnalysis && currentAnalysis.id && !currentAnalysis.id.startsWith('error-') && currentAnalysis.status !== 'deleted' && currentAnalysis.status !== 'error' && currentAnalysis.status !== 'cancelled') {
@@ -101,61 +106,50 @@ export function useAnalysisManager(user: User | null) {
 
 
   const startAiProcessing = useCallback(async (analysisId: string, userIdFromCaller: string) => {
-    console.log(`[useAnalysisManager_startAiProcessing] Calling server action processAnalysisFile for ID: ${analysisId}, UserID: ${userIdFromCaller}`);
-    if (!userIdFromCaller || typeof userIdFromCaller !== 'string' || userIdFromCaller.trim() === '') {
-        const msg = `[useAnalysisManager_startAiProcessing] CRITICAL: userIdFromCaller is invalid ('${userIdFromCaller}') for analysisId: ${analysisId}. Aborting.`;
+    console.log(`[useAnalysisManager_startAiProcessing] Calling server action 'processAnalysisFile' for ID: ${analysisId}, UserID: ${userIdFromCaller}`);
+    if (!userIdFromCaller || !analysisId) {
+        const msg = `[useAnalysisManager_startAiProcessing] CRITICAL: userId ('${userIdFromCaller}') or analysisId ('${analysisId}') is invalid. Aborting.`;
         console.error(msg);
-        toast({ title: 'Erro Crítico', description: 'ID de usuário inválido para processamento.', variant: 'destructive'});
+        toast({ title: 'Erro Crítico', description: 'ID de usuário ou análise inválido.', variant: 'destructive'});
         setCurrentAnalysis(prev => prev && prev.id === analysisId ? { ...prev, status: 'error', errorMessage: msg} : prev);
         return;
     }
-    if (!analysisId || typeof analysisId !== 'string' || analysisId.trim() === '') {
-      const msg = `[useAnalysisManager_startAiProcessing] CRITICAL: analysisId is invalid ('${analysisId}') for userId: ${userIdFromCaller}. Aborting.`;
-      console.error(msg);
-      toast({ title: 'Erro Crítico', description: 'ID da análise inválido para processamento.', variant: 'destructive'});
-      setCurrentAnalysis(prev => prev && prev.id === analysisId ? { ...prev, status: 'error', errorMessage: msg} : prev);
-      return;
-    }
     
     try {
-      processAnalysisFile(analysisId, userIdFromCaller).then(result => {
-        console.log(`[useAnalysisManager_startAiProcessing] Server action processAnalysisFile completed for ID: ${analysisId}. Success: ${result.success}, Error: ${result.error}`);
-        if (!result.success) {
-             setCurrentAnalysis(prev => {
-                if (prev && prev.id === analysisId && prev.status !== 'error' && prev.status !== 'cancelled') {
-                    return { ...prev, status: 'error', errorMessage: `Falha ao processar análise: ${result.error}`};
-                }
-                return prev;
-            });
-        }
-      }).catch(networkOrUnexpectedError => {
-        const errorMsg = networkOrUnexpectedError instanceof Error ? networkOrUnexpectedError.message : String(networkOrUnexpectedError);
-        console.error(`[useAnalysisManager_startAiProcessing] Error calling processAnalysisFile for ${analysisId}:`, networkOrUnexpectedError);
+      // This action now just queues the analysis for background processing by the Firebase Function
+      const result = await processAnalysisFile(analysisId, userIdFromCaller);
+      console.log(`[useAnalysisManager_startAiProcessing] Server action 'processAnalysisFile' completed for ID: ${analysisId}. Success: ${result.success}, Error: ${result.error}`);
+      
+      if (result.success) {
+        toast({ title: 'Processamento Iniciado', description: 'A análise está sendo processada em segundo plano. O progresso será atualizado automaticamente.' });
+        // The onSnapshot listener will handle UI updates based on Firestore changes made by the Firebase Function.
+      } else {
+        const errorMsg = `Falha ao iniciar processamento: ${result.error || 'Erro desconhecido'}`;
         setCurrentAnalysis(prev => {
             if (prev && prev.id === analysisId && prev.status !== 'error' && prev.status !== 'cancelled') {
-                return { ...prev, status: 'error', errorMessage: `Erro de comunicação: ${errorMsg}`};
+                return { ...prev, status: 'error', errorMessage: errorMsg };
+            }
+            return prev;
+        });
+        toast({ title: 'Erro ao Iniciar', description: errorMsg, variant: 'destructive' });
+      }
+    } catch (e) {
+        const errorMsg = e instanceof Error ? e.message : String(e);
+        console.error(`[useAnalysisManager_startAiProcessing] Error calling 'processAnalysisFile' action for ${analysisId}:`, e);
+        setCurrentAnalysis(prev => {
+            if (prev && prev.id === analysisId && prev.status !== 'error' && prev.status !== 'cancelled') {
+                return { ...prev, status: 'error', errorMessage: `Erro de comunicação ao iniciar: ${errorMsg}`};
             }
             return prev;
         });
         toast({ title: 'Erro de Comunicação', description: `Não foi possível iniciar o processamento: ${errorMsg}`, variant: 'destructive'});
-      });
-    } catch (e) {
-        const errorMsg = e instanceof Error ? e.message : String(e);
-        console.error(`[useAnalysisManager_startAiProcessing] Unexpected synchronous error for ${analysisId}:`, e);
-        setCurrentAnalysis(prev => {
-            if (prev && prev.id === analysisId && prev.status !== 'error' && prev.status !== 'cancelled') {
-                return { ...prev, status: 'error', errorMessage: `Erro inesperado: ${errorMsg}`};
-            }
-            return prev;
-        });
-        toast({ title: 'Erro Inesperado', description: `Ocorreu um erro inesperado: ${errorMsg}`, variant: 'destructive'});
     }
   }, [toast]);
 
 
   const fetchPastAnalyses = useCallback(async () => {
-    if (!user || !user.uid || typeof user.uid !== 'string' || user.uid.trim() === '') {
-      console.warn('[useAnalysisManager_fetchPastAnalyses] No user or invalid user.uid, skipping fetch. User:', JSON.stringify(user));
+    if (!user?.uid) {
+      console.warn('[useAnalysisManager_fetchPastAnalyses] No user or invalid user.uid, skipping fetch.');
       setPastAnalyses([]);
       setIsLoadingPastAnalyses(false); 
       return;
@@ -175,70 +169,60 @@ export function useAnalysisManager(user: User | null) {
   }, [user, toast]);
 
   const handleAddTag = useCallback(async (analysisId: string, tag: string) => {
-    if (!user || !user.uid || typeof user.uid !== 'string' || user.uid.trim() === '' || !tag.trim() || !analysisId || typeof analysisId !== 'string' || analysisId.trim() === '') {
-        console.warn('[useAnalysisManager_handleAddTag] Invalid parameters. User UID:', user?.uid, 'Tag:', tag, 'AnalysisId:', analysisId);
-        toast({title: "Erro", description: "Não foi possível adicionar a tag devido a parâmetros inválidos.", variant: "destructive"});
+    if (!user?.uid || !tag.trim() || !analysisId ) {
+        toast({title: "Erro", description: "Não foi possível adicionar a tag: dados inválidos.", variant: "destructive"});
         return;
     }
-    const currentUserId = user.uid;
     try {
-      await addTagToAction(currentUserId, analysisId, tag.trim());
-      setPastAnalyses(prev => prev.map(a => a.id === analysisId ? { ...a, tags: [...new Set([...(a.tags || []), tag.trim()])]} : a));
-      if (currentAnalysis && currentAnalysis.id === analysisId) {
-        setCurrentAnalysis(prev => prev ? {...prev, tags: [...new Set([...(prev.tags || []), tag.trim()])]} : null);
-      }
+      await addTagToAction(user.uid, analysisId, tag.trim());
+      // Optimistic update handled by onSnapshot or fetchPastAnalyses re-fetch
       setTagInput('');
       toast({ title: 'Tag adicionada', description: `Tag "${tag.trim()}" adicionada.` });
     } catch (error) {
       console.error(`[useAnalysisManager_handleAddTag] Error adding tag to ${analysisId}:`, error);
       toast({ title: 'Erro ao adicionar tag', description: String(error instanceof Error ? error.message : error), variant: 'destructive' });
     }
-  }, [user, toast, currentAnalysis]);
+  }, [user, toast]);
 
   const handleRemoveTag = useCallback(async (analysisId: string, tagToRemove: string) => {
-     if (!user || !user.uid || typeof user.uid !== 'string' || user.uid.trim() === '' || !analysisId || typeof analysisId !== 'string' || analysisId.trim() === '' || !tagToRemove.trim()) {
-        console.warn('[useAnalysisManager_handleRemoveTag] Invalid parameters. User UID:', user?.uid, 'TagToRemove:', tagToRemove, 'AnalysisId:', analysisId);
-        toast({title: "Erro", description: "Não foi possível remover a tag devido a parâmetros inválidos.", variant: "destructive"});
+     if (!user?.uid || !analysisId || !tagToRemove.trim()) {
+        toast({title: "Erro", description: "Não foi possível remover a tag: dados inválidos.", variant: "destructive"});
         return;
     }
-    const currentUserId = user.uid;
     try {
-      await removeTagAction(currentUserId, analysisId, tagToRemove);
-      setPastAnalyses(prev => prev.map(a => a.id === analysisId ? { ...a, tags: (a.tags || []).filter(t => t !== tagToRemove) } : a));
-      if (currentAnalysis && currentAnalysis.id === analysisId) {
-        setCurrentAnalysis(prev => prev ? {...prev, tags: (prev.tags || []).filter(t => t !== tagToRemove)} : null);
-      }
+      await removeTagAction(user.uid, analysisId, tagToRemove);
+      // Optimistic update handled by onSnapshot or fetchPastAnalyses re-fetch
       toast({ title: 'Tag removida', description: `Tag "${tagToRemove}" removida.` });
     } catch (error) {
       console.error(`[useAnalysisManager_handleRemoveTag] Error removing tag from ${analysisId}:`, error);
       toast({ title: 'Erro ao remover tag', description: String(error instanceof Error ? error.message : error), variant: 'destructive' });
     }
-  }, [user, toast, currentAnalysis]);
+  }, [user, toast]);
 
 
   const handleDeleteAnalysis = useCallback(async (analysisId: string, onDeleted?: () => void) => {
-    if (!user || !user.uid || typeof user.uid !== 'string' || user.uid.trim() === '' || !analysisId || typeof analysisId !== 'string' || analysisId.trim() === '') {
-        console.warn('[useAnalysisManager_handleDeleteAnalysis] Invalid parameters. User UID:', user?.uid, 'AnalysisId:', analysisId);
-        toast({title: "Erro", description: "Não foi possível excluir a análise devido a parâmetros inválidos.", variant: "destructive"});
+    if (!user?.uid || !analysisId) {
+        toast({title: "Erro", description: "Não foi possível excluir a análise: dados inválidos.", variant: "destructive"});
         return;
     }
-    const currentUserId = user.uid;
     try {
-      await deleteAnalysisAction(currentUserId, analysisId);
-      setPastAnalyses(prev => prev.filter(a => a.id !== analysisId));
-      if (currentAnalysis?.id === analysisId) {
-        setCurrentAnalysis(null);
-      }
+      await deleteAnalysisAction(user.uid, analysisId);
+      // UI update will be handled by onSnapshot seeing the 'deleted' status and fetchPastAnalyses filtering it out
       toast({ title: 'Análise excluída', description: 'A análise foi marcada como excluída.' });
-      onDeleted?.();
+      onDeleted?.(); // Callback for UI actions like closing accordion
+      if (currentAnalysis?.id === analysisId) {
+        setCurrentAnalysis(null); // Clear current if it was the one deleted
+      }
+      // Refetch past analyses to update the list immediately
+      fetchPastAnalyses();
     } catch (error) {
       console.error(`[useAnalysisManager_handleDeleteAnalysis] Error deleting analysis ${analysisId}:`, error);
       toast({ title: 'Erro ao excluir', description: String(error instanceof Error ? error.message : error), variant: 'destructive' });
     }
-  }, [user, toast, currentAnalysis?.id]);
+  }, [user, toast, currentAnalysis?.id, fetchPastAnalyses]);
 
   const handleCancelAnalysis = useCallback(async (analysisId: string) => {
-    if (!user || !user.uid || !analysisId) {
+    if (!user?.uid || !analysisId) {
       toast({ title: 'Erro', description: 'Não foi possível solicitar o cancelamento: dados inválidos.', variant: 'destructive' });
       return;
     }
@@ -247,6 +231,7 @@ export function useAnalysisManager(user: User | null) {
       const result = await cancelAnalysisAction(user.uid, analysisId);
       if (result.success) {
         toast({ title: 'Cancelamento Solicitado', description: 'A análise será interrompida em breve.' });
+        // onSnapshot will update the UI when status changes to 'cancelling' and then 'cancelled'
       } else {
         toast({ title: 'Erro ao Cancelar', description: result.error || 'Não foi possível solicitar o cancelamento.', variant: 'destructive' });
       }
@@ -289,7 +274,7 @@ export function useAnalysisManager(user: User | null) {
     tagInput,
     setTagInput,
     fetchPastAnalyses,
-    startAiProcessing,
+    startAiProcessing, // This now just queues for Firebase Function
     handleAddTag,
     handleRemoveTag,
     handleDeleteAnalysis,

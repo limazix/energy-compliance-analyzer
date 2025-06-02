@@ -6,20 +6,26 @@ import { addDoc, collection, doc, serverTimestamp, updateDoc, Timestamp, getDoc,
 import { db } from '@/lib/firebase';
 
 const MAX_ERROR_MESSAGE_LENGTH = 1500;
+const UPLOAD_COMPLETED_OVERALL_PROGRESS = 10; // Represents 10% overall progress
 
 export async function createInitialAnalysisRecordAction(
   userIdInput: string,
   fileName: string,
-  title?: string, // Optional title
-  description?: string // Optional description
+  title?: string, 
+  description?: string,
+  languageCode?: string
 ): Promise<{ analysisId?: string; error?: string }> {
-  const userId = userIdInput ? userIdInput.trim() : '';
-  const trimmedFileName = fileName ? fileName.trim() : '';
+  const userId = userIdInput?.trim() ?? '';
+  const trimmedFileName = fileName?.trim() ?? '';
+  const finalTitle = title?.trim() || trimmedFileName;
+  const finalDescription = description?.trim() || '';
+  const finalLanguageCode = languageCode?.trim() || 'pt-BR';
 
-  console.log(`[Action_createInitialAnalysisRecord] Received trimmed userId: '${userId}', trimmed fileName: '${trimmedFileName}', title: '${title}', description: '${description}'`);
+
+  console.log(`[Action_createInitialAnalysisRecord] Received: userId='${userId}', fileName='${trimmedFileName}', title='${finalTitle}', description='${finalDescription}', lang='${finalLanguageCode}'`);
 
   if (!userId) {
-    const msg = `[Action_createInitialAnalysisRecord] CRITICAL: userId is invalid (null, empty, or whitespace after trim): '${userIdInput}' -> '${userId}'. Aborting.`;
+    const msg = `[Action_createInitialAnalysisRecord] CRITICAL: userId is invalid. Input: '${userIdInput}'. Aborting.`;
     console.error(msg);
     return { error: msg };
   }
@@ -29,41 +35,47 @@ export async function createInitialAnalysisRecordAction(
     return { error: msg };
   }
 
-  const consistentUserId = userId;
-
   const analysisDataForFirestore = {
-    userId: consistentUserId,
+    userId: userId,
     fileName: trimmedFileName,
-    title: title?.trim() || trimmedFileName, // Use provided title or default to fileName
-    description: description?.trim() || '', // Use provided description or default to empty
-    status: 'uploading', // Initial status, will transition to 'summarizing_data'
-    progress: 0, // Overall analysis progress
-    uploadProgress: 0, // Specific file upload progress
-    isDataChunked: false, // Initialize as false
+    title: finalTitle,
+    description: finalDescription,
+    languageCode: finalLanguageCode,
+    status: 'uploading', 
+    progress: 0, 
+    uploadProgress: 0, 
+    isDataChunked: false, 
     tags: [],
     createdAt: serverTimestamp() as Timestamp,
+    powerQualityDataUrl: null,
+    powerQualityDataSummary: null,
+    identifiedRegulations: null,
+    structuredReport: null,
+    mdxReportStoragePath: null,
+    errorMessage: null,
+    completedAt: null,
   };
 
-  const analysisCollectionPath = `users/${consistentUserId}/analyses`;
+  const analysisCollectionPath = `users/${userId}/analyses`;
   const currentProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET_OR_EMPTY';
-  console.log(`[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: '${analysisCollectionPath}'. Data for user '${consistentUserId}'. Using Project ID: '${currentProjectId}'`);
+  console.log(`[Action_createInitialAnalysisRecord] Adding doc to Firestore. Path: '${analysisCollectionPath}'. Project: '${currentProjectId}'`);
 
   try {
-    const analysisCollectionRef = collection(db, 'users', consistentUserId, 'analyses');
+    const analysisCollectionRef = collection(db, 'users', userId, 'analyses');
     const docRef = await addDoc(analysisCollectionRef, analysisDataForFirestore);
-    console.log(`[Action_createInitialAnalysisRecord] Document created with ID: ${docRef.id} for user ${consistentUserId} at path ${analysisCollectionPath}/${docRef.id}`);
+    console.log(`[Action_createInitialAnalysisRecord] Document created: ${docRef.id} for user ${userId}`);
     return { analysisId: docRef.id };
   } catch (error) {
     let errorMessage = 'Falha ao criar registro inicial da análise.';
     if (error instanceof FirestoreError) {
-      errorMessage = `Falha ao criar registro inicial da análise: ${error.code} ${error.message}`;
+      errorMessage = `Falha Firestore (criar registro): ${error.code} ${error.message}`;
       if (error.code === 'permission-denied' || error.code === 7) {
-        console.error(`[Action_createInitialAnalysisRecord] PERMISSION_DENIED ao tentar criar documento para userId: '${consistentUserId}' no caminho '${analysisCollectionPath}'. Verifique as regras do Firestore e se elas foram implantadas no projeto Firebase CORRETO ('${currentProjectId}'). Erro original: ${error.message}`);
+        console.error(`[Action_createInitialAnalysisRecord] PERMISSION_DENIED. Path '${analysisCollectionPath}'. Project '${currentProjectId}'. Err: ${error.message}`);
       }
     } else if (error instanceof Error) {
-      errorMessage = `Falha ao criar registro inicial da análise: ${error.message}`;
+      errorMessage = `Falha (criar registro): ${error.message}`;
     }
-    console.error(`[Action_createInitialAnalysisRecord] Catch block for userId '${consistentUserId}': ${errorMessage}`, error);
+    console.error(`[Action_createInitialAnalysisRecord] Catch for userId '${userId}': ${errorMessage}`, error);
     return { error: errorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH) };
   }
 }
@@ -73,11 +85,11 @@ export async function updateAnalysisUploadProgressAction(
   analysisIdInput: string,
   uploadProgress: number
 ): Promise<{ success: boolean; error?: string }> {
-  const userId = userIdInput ? userIdInput.trim() : '';
-  const analysisId = analysisIdInput ? analysisIdInput.trim() : '';
+  const userId = userIdInput?.trim() ?? '';
+  const analysisId = analysisIdInput?.trim() ?? '';
 
   if (!userId || !analysisId) {
-    const msg = `[Action_updateAnalysisUploadProgress] CRITICAL: userId ('${userIdInput}' -> '${userId}') or analysisId ('${analysisIdInput}' -> '${analysisId}') is invalid. Aborting.`;
+    const msg = `[Action_updateUploadProgress] CRITICAL: userId ('${userId}') or analysisId ('${analysisId}') invalid. Aborting.`;
     console.error(msg);
     return { success: false, error: msg };
   }
@@ -87,26 +99,26 @@ export async function updateAnalysisUploadProgressAction(
   try {
     const docSnap = await getDoc(analysisRef);
     if (!docSnap.exists()) {
-      const notFoundMsg = `[Action_updateAnalysisUploadProgress] Document ${analysisId} (path: ${analysisDocPath}) not found for user ${userId}. Cannot update progress.`;
-      console.warn(notFoundMsg);
-      return { success: false, error: "Documento da análise não encontrado para atualizar progresso." };
+      console.warn(`[Action_updateUploadProgress] Doc ${analysisId} not found at ${analysisDocPath}. Cannot update progress.`);
+      return { success: false, error: "Doc da análise não encontrado." };
     }
 
-    // Overall progress during upload phase (max 10% of total analysis)
-    const overallProgressBasedOnUpload = Math.min(10, Math.round(uploadProgress * 0.1));
+    const overallProgressBasedOnUpload = Math.min(UPLOAD_COMPLETED_OVERALL_PROGRESS -1, Math.round(uploadProgress * (UPLOAD_COMPLETED_OVERALL_PROGRESS / 100) ));
     await updateDoc(analysisRef, {
         uploadProgress: Math.round(uploadProgress),
-        progress: overallProgressBasedOnUpload
+        progress: overallProgressBasedOnUpload,
+        status: 'uploading' // Ensure status remains 'uploading'
     });
     return { success: true };
   } catch (error) {
+    // ... (error handling as before)
     let errorMessage = 'Falha ao atualizar progresso do upload.';
-    if (error instanceof FirestoreError) {
-      errorMessage = `Falha ao atualizar progresso do upload: ${error.code} ${error.message}`;
+     if (error instanceof FirestoreError) {
+      errorMessage = `Falha Firestore (progresso upload): ${error.code} ${error.message}`;
     } else if (error instanceof Error) {
-      errorMessage = `Falha ao atualizar progresso do upload: ${error.message}`;
+      errorMessage = `Falha (progresso upload): ${error.message}`;
     }
-    console.error(`[Action_updateAnalysisUploadProgress] Error for path ${analysisDocPath} (userId '${userId}'): ${errorMessage}`, error);
+    console.error(`[Action_updateUploadProgress] Error for ${analysisDocPath}: ${errorMessage}`, error);
     return { success: false, error: errorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH) };
   }
 }
@@ -116,11 +128,11 @@ export async function finalizeFileUploadRecordAction(
   analysisIdInput: string,
   downloadURL: string
 ): Promise<{ success: boolean; error?: string }> {
-  const userId = userIdInput ? userIdInput.trim() : '';
-  const analysisId = analysisIdInput ? analysisIdInput.trim() : '';
+  const userId = userIdInput?.trim() ?? '';
+  const analysisId = analysisIdInput?.trim() ?? '';
 
   if (!userId || !analysisId || !downloadURL) {
-    const msg = `[Action_finalizeFileUploadRecord] CRITICAL: userId ('${userIdInput}' -> '${userId}'), analysisId ('${analysisIdInput}' -> '${analysisId}'), or downloadURL is invalid. Aborting.`;
+    const msg = `[Action_finalizeUpload] CRITICAL: userId ('${userId}'), analysisId ('${analysisId}'), or downloadURL invalid. Aborting.`;
     console.error(msg);
     return { success: false, error: msg };
   }
@@ -130,50 +142,58 @@ export async function finalizeFileUploadRecordAction(
   try {
     const docSnap = await getDoc(analysisRef);
     if (!docSnap.exists()) {
-      const notFoundMsg = `[Action_finalizeFileUploadRecord] Document ${analysisId} (path: ${analysisDocPath}) not found for user ${userId}. Cannot finalize record.`;
-      console.warn(notFoundMsg);
-      return { success: false, error: "Documento da análise não encontrado para finalizar registro." };
+      console.warn(`[Action_finalizeUpload] Doc ${analysisId} not found at ${analysisDocPath}. Cannot finalize.`);
+      return { success: false, error: "Doc da análise não encontrado." };
     }
-    // Transition to 'summarizing_data' as the first AI step after upload
+    
+    // This status will trigger the Firebase Function to start processing
     await updateDoc(analysisRef, {
       powerQualityDataUrl: downloadURL,
-      status: 'summarizing_data',
-      progress: 10, // Mark upload phase as complete (10% of total)
+      status: 'summarizing_data', 
+      progress: UPLOAD_COMPLETED_OVERALL_PROGRESS, 
       uploadProgress: 100,
-      isDataChunked: false, 
+      errorMessage: null, // Clear any previous errors
+      // Reset fields that will be populated by the Firebase Function
+      powerQualityDataSummary: null,
+      identifiedRegulations: null,
+      structuredReport: null,
+      mdxReportStoragePath: null,
+      summary: null, 
+      completedAt: null,
     });
-    console.log(`[Action_finalizeFileUploadRecord] Document ${analysisId} (path: ${analysisDocPath}) updated with download URL and status 'summarizing_data'.`);
+    console.log(`[Action_finalizeUpload] Doc ${analysisId} updated. Status 'summarizing_data', ready for Function.`);
     return { success: true };
   } catch (error) {
-     let errorMessage = 'Falha ao finalizar registro do upload.';
+    // ... (error handling as before)
+    let errorMessage = 'Falha ao finalizar registro do upload.';
      if (error instanceof FirestoreError) {
-      errorMessage = `Falha ao finalizar registro do upload: ${error.code} ${error.message}`;
+      errorMessage = `Falha Firestore (finalizar upload): ${error.code} ${error.message}`;
     } else if (error instanceof Error) {
-      errorMessage = `Falha ao finalizar registro do upload: ${error.message}`;
+      errorMessage = `Falha (finalizar upload): ${error.message}`;
     }
-    console.error(`[Action_finalizeFileUploadRecord] Error for path ${analysisDocPath} (userId '${userId}'): ${errorMessage}`, error);
+    console.error(`[Action_finalizeUpload] Error for ${analysisDocPath}: ${errorMessage}`, error);
     return { success: false, error: errorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH) };
   }
 }
 
 export async function markUploadAsFailedAction(
   userIdInput: string,
-  analysisIdInput: string | null,
+  analysisIdInput: string | null, // analysisId can be null if createRecord failed
   uploadErrorMessage: string
 ): Promise<{ success: boolean; error?: string }> {
-  const userId = userIdInput ? userIdInput.trim() : '';
-  const analysisId = analysisIdInput ? analysisIdInput.trim() : '';
+  const userId = userIdInput?.trim() ?? '';
+  const analysisId = analysisIdInput?.trim() ?? ''; // Will be empty if null
 
   if (!userId) {
-    const msg = `[Action_markUploadAsFailed] CRITICAL: userId is invalid ('${userIdInput}' -> '${userId}'). Aborting.`;
+    const msg = `[Action_markUploadFailed] CRITICAL: userId is invalid ('${userIdInput}'). Aborting.`;
     console.error(msg);
     return { success: false, error: msg };
   }
 
-  if (!analysisId) {
-    const noIdMsg = `[Action_markUploadAsFailed] Analysis ID inválido ou não fornecido ('${analysisIdInput}' -> '${analysisId}'). Provável falha na criação do registro. Erro original do upload: ${uploadErrorMessage}`;
-    console.warn(noIdMsg);
-    return { success: true, error: "ID da análise inválido para marcar falha (criação pode ter falhado)." };
+  if (!analysisId) { // analysisId was null or empty
+    console.warn(`[Action_markUploadFailed] No valid analysisId ('${analysisIdInput}'). Error was: ${uploadErrorMessage}. Cannot update Firestore.`);
+    // Still return success as there's no specific record to update if creation failed.
+    return { success: true, error: "ID da análise inválido/não criado, falha no upload não registrada no DB." };
   }
 
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
@@ -181,26 +201,26 @@ export async function markUploadAsFailedAction(
   try {
     const docSnap = await getDoc(analysisRef);
     if (!docSnap.exists()) {
-      const notFoundMsg = `[Action_markUploadAsFailed] Document ${analysisId} (path: ${analysisDocPath}) not found for user ${userId}. Cannot mark as failed. Error was: ${uploadErrorMessage}`;
-      console.warn(notFoundMsg);
-      return { success: true, error: "Documento da análise não encontrado para marcar como falha." };
+      console.warn(`[Action_markUploadFailed] Doc ${analysisId} not found at ${analysisDocPath}. Error was: ${uploadErrorMessage}.`);
+      return { success: true, error: "Doc da análise não encontrado para marcar falha." };
     }
     await updateDoc(analysisRef, {
       status: 'error',
-      errorMessage: `Falha no upload: ${uploadErrorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH - 20)}`,
+      errorMessage: `Falha no upload: ${uploadErrorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH - 25)}`,
       progress: 0,
       uploadProgress: 0,
     });
-    console.log(`[Action_markUploadAsFailed] Document ${analysisId} (path: ${analysisDocPath}) marked as error due to upload failure.`);
+    console.log(`[Action_markUploadFailed] Doc ${analysisId} marked as error due to upload failure.`);
     return { success: true };
   } catch (error) {
-     let errorMessage = 'Falha ao marcar upload como falho.';
+    // ... (error handling as before)
+    let errorMessage = 'Falha ao marcar upload como falho.';
      if (error instanceof FirestoreError) {
-      errorMessage = `Falha ao marcar upload como falho: ${error.code} ${error.message}`;
+      errorMessage = `Falha Firestore (marcar falha upload): ${error.code} ${error.message}`;
     } else if (error instanceof Error) {
-      errorMessage = `Falha ao marcar upload como falho: ${error.message}`;
+      errorMessage = `Falha (marcar falha upload): ${error.message}`;
     }
-    console.error(`[Action_markUploadAsFailed] Error for path ${analysisDocPath} (userId '${userId}'): ${errorMessage}`, error);
+    console.error(`[Action_markUploadFailed] Error for ${analysisDocPath}: ${errorMessage}`, error);
     return { success: false, error: errorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH) };
   }
 }
