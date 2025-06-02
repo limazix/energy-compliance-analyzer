@@ -15,7 +15,7 @@ const BASE_ANALYSIS_STEPS: Omit<AnalysisStep, 'status' | 'progress' | 'details'>
   { name: 'Sumarizando Dados da Qualidade de Energia' },
   { name: 'Identificando Resoluções ANEEL' },
   { name: 'Analisando Conformidade' },
-  { name: 'Gerando Relatório Estruturado' }, // Etapa final atualizada
+  { name: 'Gerando Relatório Estruturado' }, 
 ];
 
 // Helper para formatar o relatório estruturado para TXT
@@ -190,19 +190,35 @@ export function useAnalysisManager(user: User | null) {
       setCurrentAnalysis(prev => prev && prev.id === analysisId ? { ...prev, status: 'error', errorMessage: msg} : prev);
       return;
     }
+    
     try {
-      await processAnalysisFile(analysisId, userIdFromCaller);
-      console.log(`[useAnalysisManager_startAiProcessing] Server action processAnalysisFile finished or threw for ID: ${analysisId}`);
-    } catch (processError) {
-        const errorMsg = processError instanceof Error ? processError.message : String(processError);
-        console.error(`[useAnalysisManager_startAiProcessing] Error calling processAnalysisFile for ${analysisId}:`, processError);
+      const result = await processAnalysisFile(analysisId, userIdFromCaller);
+      console.log(`[useAnalysisManager_startAiProcessing] Server action processAnalysisFile returned for ID: ${analysisId}. Success: ${result.success}`);
+
+      if (!result.success) {
+        const errorMsg = result.error || 'Erro desconhecido no processamento da análise.';
+        console.error(`[useAnalysisManager_startAiProcessing] Error returned from processAnalysisFile for ${analysisId}:`, errorMsg);
         setCurrentAnalysis(prev => {
             if (prev && prev.id === analysisId && prev.status !== 'error') {
-                return { ...prev, status: 'error', errorMessage: `Falha ao iniciar processamento AI: ${errorMsg}`};
+                return { ...prev, status: 'error', errorMessage: `Falha ao processar análise: ${errorMsg}`};
             }
             return prev;
         });
         toast({ title: 'Erro no Processamento', description: `Falha ao processar análise: ${errorMsg}`, variant: 'destructive'});
+      }
+      // If successful, onSnapshot will handle updating currentAnalysis state.
+    } catch (networkOrUnexpectedError) {
+        // This catch block is for truly unexpected errors, like network failures
+        // or if the Server Action itself crashes before returning a structured response.
+        const errorMsg = networkOrUnexpectedError instanceof Error ? networkOrUnexpectedError.message : String(networkOrUnexpectedError);
+        console.error(`[useAnalysisManager_startAiProcessing] Network or unexpected error calling processAnalysisFile for ${analysisId}:`, networkOrUnexpectedError);
+        setCurrentAnalysis(prev => {
+            if (prev && prev.id === analysisId && prev.status !== 'error') {
+                return { ...prev, status: 'error', errorMessage: `Erro de comunicação ou inesperado: ${errorMsg}`};
+            }
+            return prev;
+        });
+        toast({ title: 'Erro de Comunicação', description: `Não foi possível se comunicar com o servidor: ${errorMsg}`, variant: 'destructive'});
     }
   }, [toast]);
 
@@ -317,7 +333,8 @@ export function useAnalysisManager(user: User | null) {
 
     if (!currentAnalysis || currentAnalysis.id.startsWith('error-')) {
         const errorMsg = currentAnalysis?.errorMessage || 'Aguardando início da análise ou configuração inicial.';
-        steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: currentAnalysis?.errorMessage ? 'error': 'pending', details: errorMsg, progress: Math.max(0, Math.min(100, currentAnalysis?.uploadProgress ?? 0))};
+        const uploadProg = Math.max(0, Math.min(100, currentAnalysis?.uploadProgress ?? 0));
+        steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: currentAnalysis?.errorMessage ? 'error': 'pending', details: errorMsg, progress: uploadProg};
         for (let i = 1; i < steps.length; i++) {
             steps[i] = { ...BASE_ANALYSIS_STEPS[i], status: 'pending', progress: 0 };
         }
@@ -338,49 +355,50 @@ export function useAnalysisManager(user: User | null) {
     
     // Step 1: Summarizing Data
     if (status === 'summarizing_data') {
-        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'in_progress', progress: overallProgress }; 
+        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'in_progress', progress: Math.max(0, Math.min(100, overallProgress)) }; 
     } else if (['identifying_regulations', 'assessing_compliance', 'completed'].includes(status)) {
         steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'completed', progress: 100 };
     } else if (status === 'error' && powerQualityDataUrl && (!powerQualityDataSummary && !identifiedRegulations && !structuredReport)) {
-        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'error', details: errorMessage, progress: overallProgress };
+        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, overallProgress)) };
     }
 
     // Step 2: Identifying Regulations
     if (status === 'identifying_regulations') {
-        steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'in_progress', progress: overallProgress };
+        steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'in_progress', progress: Math.max(0, Math.min(100, overallProgress)) };
     } else if (['assessing_compliance', 'completed'].includes(status)) {
         steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'completed', progress: 100 };
     } else if (status === 'error' && powerQualityDataSummary && (!identifiedRegulations && !structuredReport)) {
-        steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'error', details: errorMessage, progress: overallProgress };
+        steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, overallProgress)) };
     }
     
-    // Step 3: Assessing Compliance (antiga) / Step 4: Gerando Relatório Estruturado (nova final)
+    // Step 3: Assessing Compliance & Step 4: Gerando Relatório Estruturado
     if (status === 'assessing_compliance') { 
         steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 }; 
-        steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'in_progress', progress: overallProgress }; 
+        steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'in_progress', progress: Math.max(0, Math.min(100, overallProgress)) }; 
     } else if (status === 'completed') {
         steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 };
         steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'completed', progress: 100 };
-    } else if (status === 'error' && identifiedRegulations && !structuredReport) { // Erro ocorreu durante 'assessing_compliance' (geração do relatório)
-        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 }; // A etapa anterior (identificar regulações) foi ok
-        steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'error', details: errorMessage, progress: overallProgress };
-    } else if (status === 'error' && structuredReport) { // Erro ocorreu após gerar relatório, o que é menos provável mas coberto
+    } else if (status === 'error' && identifiedRegulations && !structuredReport) { 
+        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 }; 
+        steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, overallProgress)) };
+    } else if (status === 'error' && structuredReport) { 
         steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 };
-        steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'error', details: errorMessage, progress: overallProgress };
+        steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, overallProgress)) };
     }
     
     if (status === 'error' && !steps.find(s => s.status === 'error')) {
         let errorAssigned = false;
         for (let i = steps.length - 1; i >= 0; i--) {
             if (steps[i].status === 'in_progress' || (steps[i].status === 'pending' && (steps[i-1]?.status === 'completed' || i === 0 ))) {
-                const stepProgressBeforeError = typeof steps[i].progress === 'number' && steps[i].progress < 100 ? steps[i].progress : overallProgress;
+                const stepProgressBeforeError = (typeof steps[i].progress === 'number' && (steps[i].progress ?? 0) < 100) ? steps[i].progress : overallProgress;
                 steps[i] = { ...steps[i], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, stepProgressBeforeError ?? 0)) };
                 errorAssigned = true;
                 break;
             }
         }
         if (!errorAssigned && steps.length > 0) {
-            steps[steps.length -1] = { ...steps[steps.length-1], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, overallProgress ?? 0))};
+            const lastStepProgress = Math.max(0, Math.min(100, overallProgress ?? 0));
+            steps[steps.length -1] = { ...steps[steps.length-1], status: 'error', details: errorMessage, progress: lastStepProgress};
         }
     }
     return steps;

@@ -8,7 +8,7 @@ import { summarizePowerQualityData } from '@/ai/flows/summarize-power-quality-da
 import { identifyAEEEResolutions } from '@/ai/flows/identify-aneel-resolutions';
 import { analyzeComplianceReport, AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report';
 import { convertStructuredReportToMdx } from '@/lib/reportUtils';
-import type { Analysis, AnalysisReportData } from '@/types/analysis'; // Added AnalysisReportData import
+import type { Analysis, AnalysisReportData } from '@/types/analysis'; 
 
 const CHUNK_SIZE = 100000;
 const OVERLAP_SIZE = 10000;
@@ -57,7 +57,10 @@ async function getFileContentFromStorage(filePath: string): Promise<string> {
   return textContent;
 }
 
-export async function processAnalysisFile(analysisIdInput: string, userIdInput: string): Promise<void> {
+export async function processAnalysisFile(
+  analysisIdInput: string,
+  userIdInput: string
+): Promise<{ success: boolean; analysisId: string; error?: string }> {
   const userId = userIdInput ? userIdInput.trim() : '';
   const analysisId = analysisIdInput ? analysisIdInput.trim() : '';
 
@@ -66,12 +69,12 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
   if (!userId || typeof userId !== 'string' || userId.trim() === "") {
     const criticalMsg = `[processAnalysisFile] CRITICAL: userId is invalid (null, empty, or whitespace after trim): '${userIdInput}' -> '${userId}' for analysisId: ${analysisId}. Aborting.`;
     console.error(criticalMsg);
-    throw new Error(criticalMsg);
+    return { success: false, analysisId: analysisId || analysisIdInput, error: criticalMsg };
   }
   if (!analysisId || typeof analysisId !== 'string' || analysisId.trim() === "") {
     const criticalMsg = `[processAnalysisFile] CRITICAL: analysisId is invalid (null, empty, or whitespace after trim): '${analysisIdInput}' -> '${analysisId}' for userId: ${userId}. Aborting.`;
     console.error(criticalMsg);
-    throw new Error(criticalMsg);
+    return { success: false, analysisId: analysisId || analysisIdInput, error: criticalMsg };
   }
 
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
@@ -86,7 +89,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     if (!analysisSnap.exists()) {
       const notFoundMsg = `[processAnalysisFile] Analysis document ${analysisId} not found at path ${analysisDocPath}. Aborting.`;
       console.error(notFoundMsg);
-      throw new Error(notFoundMsg);
+      return { success: false, analysisId, error: notFoundMsg };
     }
 
     const analysisData = analysisSnap.data() as Analysis;
@@ -97,7 +100,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       const noFilePathMsg = `[processAnalysisFile] File path (powerQualityDataUrl) not found for analysisId: ${analysisId} (path: ${analysisDocPath}).`;
       console.error(noFilePathMsg);
       await updateDoc(analysisRef, { status: 'error', errorMessage: 'URL do arquivo de dados não encontrada no registro da análise.', progress: 0 });
-      throw new Error(noFilePathMsg);
+      return { success: false, analysisId, error: noFilePathMsg };
     }
     
     if (analysisData.status === 'uploading' || !analysisData.status || analysisData.progress < UPLOAD_COMPLETION_PROGRESS) {
@@ -115,14 +118,14 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       const errMsg = fileError instanceof Error ? fileError.message : String(fileError);
       console.error(`[processAnalysisFile] Error getting file content for ${analysisId} (path: ${analysisDocPath}):`, errMsg);
       await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha ao ler arquivo: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: UPLOAD_COMPLETION_PROGRESS -1 });
-      throw new Error(errMsg);
+      return { success: false, analysisId, error: errMsg };
     }
 
     const chunks: string[] = [];
-    let isDataChunked = false;
+    let isDataActuallyChunked = false; // Renamed to avoid conflict with analysisData.isDataChunked
     if (powerQualityDataCsv.length > CHUNK_SIZE) {
       console.log(`[processAnalysisFile] CSV data for analysis ${analysisId} is large (${powerQualityDataCsv.length} chars), chunking will occur.`);
-      isDataChunked = true;
+      isDataActuallyChunked = true;
       for (let i = 0; i < powerQualityDataCsv.length; i += (CHUNK_SIZE - OVERLAP_SIZE)) {
         const chunkEnd = Math.min(i + CHUNK_SIZE, powerQualityDataCsv.length);
         const chunk = powerQualityDataCsv.substring(i, chunkEnd);
@@ -134,7 +137,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       chunks.push(powerQualityDataCsv);
        console.log(`[processAnalysisFile] CSV data for analysis ${analysisId} is small enough, no chunking needed.`);
     }
-    await updateDoc(analysisRef, { isDataChunked });
+    await updateDoc(analysisRef, { isDataChunked: isDataActuallyChunked });
 
 
     let aggregatedSummary = "";
@@ -162,7 +165,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
         const errMsg = aiError instanceof Error ? aiError.message : String(aiError);
         console.error(`[processAnalysisFile] Error from summarizePowerQualityData for chunk ${i + 1} of analysis ${analysisId} (path: ${analysisDocPath}):`, errMsg);
         await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na sumarização do chunk ${i + 1} pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: Math.round(currentOverallProgress) });
-        throw new Error(errMsg);
+        return { success: false, analysisId, error: errMsg };
       }
     }
     
@@ -183,7 +186,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       const errMsg = aiError instanceof Error ? aiError.message : String(aiError);
       console.error(`[processAnalysisFile] Error from identifyAEEEResolutions for ${analysisId} (path: ${analysisDocPath}):`, errMsg);
       await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na identificação de resoluções pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: SUMMARIZATION_COMPLETION_PROGRESS });
-      throw new Error(errMsg);
+      return { success: false, analysisId, error: errMsg };
     }
 
     const identifiedRegulations = resolutionsOutput.relevantResolutions;
@@ -209,7 +212,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       const errMsg = aiError instanceof Error ? aiError.message : String(aiError);
       console.error(`[processAnalysisFile] Error from analyzeComplianceReport for ${analysisId} (path: ${analysisDocPath}):`, errMsg);
       await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na análise de conformidade estruturada pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: IDENTIFY_REG_COMPLETION_PROGRESS });
-      throw new Error(errMsg);
+      return { success: false, analysisId, error: errMsg };
     }
 
     console.log(`[processAnalysisFile] Structured compliance report generated for ${analysisId}. Converting to MDX and uploading to Storage.`);
@@ -225,6 +228,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     } catch(mdxError) {
       const errMsg = mdxError instanceof Error ? mdxError.message : String(mdxError);
       console.warn(`[processAnalysisFile] Failed to generate or upload MDX report for ${analysisId}: ${errMsg}. Proceeding without MDX path.`);
+      // Não vamos retornar erro fatal aqui, mas o relatório pode ficar sem MDX
     }
 
     console.log(`[processAnalysisFile] Updating Firestore document for ${analysisId} with status 'completed'.`);
@@ -238,6 +242,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       completedAt: serverTimestamp(),
     });
     console.log(`[processAnalysisFile] Analysis ${analysisId} completed successfully for user ${userId} (path: ${analysisDocPath}).`);
+    return { success: true, analysisId };
 
   } catch (error) {
     const originalErrorMessage = error instanceof Error ? error.message : String(error);
@@ -280,12 +285,9 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     } else if (isCriticalError) {
         clientSafeErrorMessage = originalErrorMessage;
     }
-    // throw new Error(clientSafeErrorMessage); // Comentado para evitar o erro que interrompe o Next.js de forma abrupta
-    console.error("[processAnalysisFile] Final Error before re-throw: " + clientSafeErrorMessage)
-    // Em vez de throw, que pode ser mascarado pelo Next.js, vamos retornar um objeto de erro se a função permitir
-    // Como esta função processAnalysisFile retorna Promise<void>, o throw é a maneira de sinalizar erro.
-    // A questão é se o Next.js está engolindo ou reformatando esse erro de forma a perder o stack trace original da ação.
-     throw new Error(clientSafeErrorMessage);
+    
+    console.error("[processAnalysisFile] Final Error before returning error object: " + clientSafeErrorMessage);
+    return { success: false, analysisId, error: clientSafeErrorMessage };
   }
 }
 
@@ -545,3 +547,4 @@ export async function getAnalysisReportAction(
     return { mdxContent: null, fileName: null, analysisId: analysisId, error: `Erro ao carregar o relatório: ${errorMessage}` };
   }
 }
+
