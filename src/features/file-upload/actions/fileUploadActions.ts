@@ -9,12 +9,14 @@ const MAX_ERROR_MESSAGE_LENGTH = 1500;
 
 export async function createInitialAnalysisRecordAction(
   userIdInput: string,
-  fileName: string
+  fileName: string,
+  title?: string, // Optional title
+  description?: string // Optional description
 ): Promise<{ analysisId?: string; error?: string }> {
   const userId = userIdInput ? userIdInput.trim() : '';
   const trimmedFileName = fileName ? fileName.trim() : '';
 
-  console.log(`[Action_createInitialAnalysisRecord] Received trimmed userId: '${userId}', trimmed fileName: '${trimmedFileName}'`);
+  console.log(`[Action_createInitialAnalysisRecord] Received trimmed userId: '${userId}', trimmed fileName: '${trimmedFileName}', title: '${title}', description: '${description}'`);
 
   if (!userId) {
     const msg = `[Action_createInitialAnalysisRecord] CRITICAL: userId is invalid (null, empty, or whitespace after trim): '${userIdInput}' -> '${userId}'. Aborting.`;
@@ -32,6 +34,8 @@ export async function createInitialAnalysisRecordAction(
   const analysisDataForFirestore = {
     userId: consistentUserId,
     fileName: trimmedFileName,
+    title: title?.trim() || trimmedFileName, // Use provided title or default to fileName
+    description: description?.trim() || '', // Use provided description or default to empty
     status: 'uploading', // Initial status, will transition to 'summarizing_data'
     progress: 0, // Overall analysis progress
     uploadProgress: 0, // Specific file upload progress

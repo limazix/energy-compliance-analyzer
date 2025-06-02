@@ -102,6 +102,8 @@ export default function HomePage() {
             id: docSnap.id,
             userId: data.userId,
             fileName: data.fileName,
+            title: data.title,
+            description: data.description,
             status: data.status, 
             progress: data.progress,
             uploadProgress: data.uploadProgress,
@@ -129,6 +131,7 @@ export default function HomePage() {
           console.error(`[HomePage_handleUploadResult] Document ${result.analysisId} not found after upload.`);
            setCurrentAnalysis({
             id: `error-fetch-${Date.now()}`, userId: user.uid, fileName: result.fileName || "Desconhecido",
+            title: result.title || result.fileName || "Desconhecido", description: result.description || "",
             status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
             errorMessage: 'Falha ao buscar o documento da análise recém-criado após upload.'
            });
@@ -139,6 +142,7 @@ export default function HomePage() {
         console.error(`[HomePage_handleUploadResult] Error fetching document ${result.analysisId}:`, fetchError);
          setCurrentAnalysis({
             id: `error-fetch-catch-${Date.now()}`, userId: user.uid, fileName: result.fileName || "Desconhecido",
+            title: result.title || result.fileName || "Desconhecido", description: result.description || "",
             status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
             errorMessage: 'Erro ao buscar detalhes da análise após upload.'
            });
@@ -152,6 +156,8 @@ export default function HomePage() {
             id: errorAnalysisId,
             userId: user.uid,
             fileName: result.fileName || "Desconhecido",
+            title: result.title || result.fileName || "Desconhecido",
+            description: result.description || "",
             status: 'error',
             progress: 0,
             uploadProgress: uploadProgress,
@@ -166,12 +172,13 @@ export default function HomePage() {
   }, [user, setCurrentAnalysis, startAiProcessing, uploadProgress, fetchPastAnalyses]);
 
 
-  const handleStartUploadAndAnalyze = useCallback(async () => {
+  const handleStartUploadAndAnalyze = useCallback(async (title: string, description: string) => {
     if (!user) {
       router.replace('/login');
       return;
     }
-    const result = await uploadFileAndCreateRecord(user);
+    // Pass title and description to uploadFileAndCreateRecord
+    const result = await uploadFileAndCreateRecord(user, title, description);
     await handleUploadResult(result);
   }, [user, uploadFileAndCreateRecord, handleUploadResult, router]);
   
@@ -265,7 +272,7 @@ export default function HomePage() {
                       <AccordionTrigger className="py-4 px-2 hover:bg-muted/50 w-full text-left">
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full">
                           <span className="font-medium text-base text-foreground truncate max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl">
-                            {analysisItem.fileName}
+                            {analysisItem.title || analysisItem.fileName}
                           </span>
                           <div className="flex flex-col md:flex-row md:items-center text-sm text-muted-foreground mt-1 md:mt-0 md:ml-4 space-y-1 md:space-y-0 md:space-x-3">
                             <span>
@@ -285,7 +292,7 @@ export default function HomePage() {
                           <AnalysisView
                             analysis={currentAnalysis} 
                             analysisSteps={displayedAnalysisSteps}
-                            onDownloadReport={() => downloadReportAsTxt(currentAnalysis)} // Pass currentAnalysis to download function
+                            onDownloadReport={() => downloadReportAsTxt(currentAnalysis)} 
                             tagInput={tagInput}
                             onTagInputChange={setTagInput}
                             onAddTag={(tag) => handleAddTag(currentAnalysis.id, tag)}

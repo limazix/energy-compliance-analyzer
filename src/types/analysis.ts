@@ -13,6 +13,8 @@ export interface Analysis {
   id: string;
   userId: string;
   fileName: string;
+  title?: string; // User-defined title for the analysis
+  description?: string; // User-defined description for the analysis
   status: 'uploading' | 'summarizing_data' | 'identifying_regulations' | 'assessing_compliance' | 'completed' | 'error' | 'deleted';
   progress: number; // Progresso geral da análise (0-100)
   uploadProgress?: number; // Progresso específico do upload do arquivo (0-100)
@@ -42,3 +44,4 @@ export interface AnalysisReportData {
   analysisId: string | null;
   error?: string | null;
 }
+

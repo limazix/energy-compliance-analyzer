@@ -1,20 +1,23 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Loader2, UploadCloud, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress'; // Para mostrar progresso do upload
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // Para mostrar erros
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress'; 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; 
 
 type NewAnalysisFormProps = {
   fileToUpload: File | null;
   isUploading: boolean;
-  uploadProgress: number; // Progresso específico do upload do arquivo (0-100)
-  uploadError: string | null; // Mensagem de erro do upload
+  uploadProgress: number; 
+  uploadError: string | null; 
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onUploadAndAnalyze: () => void;
+  onUploadAndAnalyze: (title: string, description: string) => void; // Modified to pass title and description
   onCancel: () => void;
 };
 
@@ -27,22 +30,69 @@ export function NewAnalysisForm({
   onUploadAndAnalyze,
   onCancel,
 }: NewAnalysisFormProps) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+
+  useEffect(() => {
+    if (fileToUpload) {
+      setTitle(fileToUpload.name); // Default title to filename
+      setDescription(''); // Reset description
+    } else {
+      setTitle('');
+      setDescription('');
+    }
+  }, [fileToUpload]);
+
+  const handleSubmit = () => {
+    if (fileToUpload) {
+      onUploadAndAnalyze(title || fileToUpload.name, description);
+    }
+  };
+
   return (
     <Card className="shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl font-headline text-primary">Nova Análise de Conformidade</CardTitle>
-        <CardDescription>Faça upload do seu arquivo CSV de dados de qualidade de energia.</CardDescription>
+        <CardDescription>Faça upload do seu arquivo CSV e adicione um título e descrição para a análise.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <Input 
-          type="file" 
-          accept=".csv" 
-          onChange={onFileChange} 
-          className="text-base p-2 border-2 border-dashed h-auto" 
-          disabled={isUploading}
-        />
+      <CardContent className="space-y-6">
+        <div>
+          <Label htmlFor="analysis-file" className="mb-2 block text-sm font-medium text-foreground">Arquivo CSV de Dados</Label>
+          <Input 
+            id="analysis-file"
+            type="file" 
+            accept=".csv" 
+            onChange={onFileChange} 
+            className="text-base p-2 border-2 border-dashed h-auto" 
+            disabled={isUploading}
+          />
+          {fileToUpload && !isUploading && <p className="mt-1 text-sm text-muted-foreground">Arquivo selecionado: {fileToUpload.name}</p>}
+        </div>
         
-        {fileToUpload && !isUploading && <p className="text-sm text-muted-foreground">Arquivo selecionado: {fileToUpload.name}</p>}
+        <div>
+          <Label htmlFor="analysis-title" className="mb-2 block text-sm font-medium text-foreground">Título da Análise</Label>
+          <Input
+            id="analysis-title"
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Ex: Análise Trimestral Setor X"
+            disabled={isUploading || !fileToUpload}
+            className="text-base"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="analysis-description" className="mb-2 block text-sm font-medium text-foreground">Descrição (Opcional)</Label>
+          <Textarea
+            id="analysis-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Ex: Verificação de conformidade dos dados de energia do transformador T01 do período Y."
+            disabled={isUploading || !fileToUpload}
+            className="text-base min-h-[80px]"
+          />
+        </div>
         
         {isUploading && (
           <div className="space-y-2">
@@ -59,11 +109,11 @@ export function NewAnalysisForm({
           </Alert>
         )}
 
-        <div className="flex gap-4 pt-2">
+        <div className="flex flex-col sm:flex-row gap-4 pt-2">
           <Button 
-            onClick={onUploadAndAnalyze} 
+            onClick={handleSubmit} 
             disabled={!fileToUpload || isUploading} 
-            className="w-full md:w-auto" 
+            className="w-full sm:w-auto flex-grow" 
             size="lg"
           >
             {isUploading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <UploadCloud className="mr-2 h-5 w-5" />}
@@ -72,7 +122,7 @@ export function NewAnalysisForm({
           <Button 
             variant="outline" 
             onClick={onCancel} 
-            className="w-full md:w-auto" 
+            className="w-full sm:w-auto" 
             size="lg"
             disabled={isUploading}
           >

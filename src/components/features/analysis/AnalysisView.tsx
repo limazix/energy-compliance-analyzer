@@ -3,7 +3,7 @@
 
 import type { Analysis, AnalysisStep } from '@/types/analysis';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, Trash2 } from 'lucide-react';
+import { AlertTriangle, Trash2, FileText as FileTextIcon, Info } from 'lucide-react'; // Added Info icon
 import { AnalysisProgressDisplay } from './AnalysisProgressDisplay';
 import { AnalysisResultsDisplay } from './AnalysisResultsDisplay';
 import { TagEditor } from './TagEditor';
@@ -24,12 +24,12 @@ import {
 type AnalysisViewProps = {
   analysis: Analysis;
   analysisSteps: AnalysisStep[];
-  onDownloadReport: (reportText: string | undefined, fileName: string) => void;
+  onDownloadReport: (analysisData: Analysis | null) => void; // Changed to accept Analysis | null
   tagInput: string;
   onTagInputChange: (value: string) => void;
   onAddTag: (analysisId: string, tag: string) => void;
   onRemoveTag: (analysisId: string, tag: string) => void;
-  onDeleteAnalysis: (analysisId: string) => void; // Nova prop
+  onDeleteAnalysis: (analysisId: string) => void;
 };
 
 export function AnalysisView({
@@ -40,7 +40,7 @@ export function AnalysisView({
   onTagInputChange,
   onAddTag,
   onRemoveTag,
-  onDeleteAnalysis, // Nova prop
+  onDeleteAnalysis,
 }: AnalysisViewProps) {
   const isCompleted = analysis.status === 'completed';
   const isError = analysis.status === 'error';
@@ -48,12 +48,31 @@ export function AnalysisView({
 
   return (
     <div className="space-y-6">
+      <Card className="border-primary/30 shadow-md">
+        <CardHeader>
+          <CardTitle className="text-xl text-primary flex items-center">
+            <FileTextIcon className="mr-3 h-6 w-6" />
+            {analysis.title || analysis.fileName}
+          </CardTitle>
+          {analysis.description && (
+            <CardDescription className="pt-1 text-base text-foreground/80">
+              {analysis.description}
+            </CardDescription>
+          )}
+           <CardDescription className="text-xs">
+            Nome do arquivo original: {analysis.fileName}
+          </CardDescription>
+        </CardHeader>
+        {/* Content can be added here if needed, or remove CardContent if header is enough */}
+      </Card>
+
+
       {isInProgress && (
         <AnalysisProgressDisplay analysisSteps={analysisSteps} />
       )}
 
       {isCompleted && (
-        <AnalysisResultsDisplay analysis={analysis} onDownloadReport={onDownloadReport} />
+        <AnalysisResultsDisplay analysis={analysis} onDownloadReport={() => onDownloadReport(analysis)} />
       )}
 
       {isError && (
@@ -94,7 +113,7 @@ export function AnalysisView({
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza de que deseja excluir a análise do arquivo "{analysis.fileName}"? Esta ação não pode ser desfeita e todos os dados associados, incluindo o relatório e o arquivo original, serão removidos.
+                Tem certeza de que deseja excluir a análise "{analysis.title || analysis.fileName}"? Esta ação não pode ser desfeita e todos os dados associados, incluindo o relatório e o arquivo original, serão removidos.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
