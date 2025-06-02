@@ -8,10 +8,10 @@ import { summarizePowerQualityData } from '@/ai/flows/summarize-power-quality-da
 import { identifyAEEEResolutions } from '@/ai/flows/identify-aneel-resolutions';
 import { analyzeComplianceReport, AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report';
 import { convertStructuredReportToMdx } from '@/lib/reportUtils';
-import type { Analysis } from '@/types/analysis';
+import type { Analysis, AnalysisReportData } from '@/types/analysis'; // Added AnalysisReportData import
 
-const CHUNK_SIZE = 100000; 
-const OVERLAP_SIZE = 10000; 
+const CHUNK_SIZE = 100000;
+const OVERLAP_SIZE = 10000;
 const MAX_ERROR_MESSAGE_LENGTH = 1500;
 
 async function getFileContentFromStorage(filePath: string): Promise<string> {
@@ -77,9 +77,9 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = doc(db, analysisDocPath);
 
-  const UPLOAD_COMPLETION_PROGRESS = 10; 
-  const SUMMARIZATION_COMPLETION_PROGRESS = 40; 
-  const SUMMARIZATION_PROGRESS_SPAN = SUMMARIZATION_COMPLETION_PROGRESS - UPLOAD_COMPLETION_PROGRESS; 
+  const UPLOAD_COMPLETION_PROGRESS = 10;
+  const SUMMARIZATION_COMPLETION_PROGRESS = 40;
+  const SUMMARIZATION_PROGRESS_SPAN = SUMMARIZATION_COMPLETION_PROGRESS - UPLOAD_COMPLETION_PROGRESS;
 
   try {
     let analysisSnap = await getDoc(analysisRef);
@@ -91,7 +91,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
 
     const analysisData = analysisSnap.data() as Analysis;
     const filePath = analysisData.powerQualityDataUrl;
-    const originalFileName = analysisData.fileName; 
+    const originalFileName = analysisData.fileName;
 
     if (!filePath) {
       const noFilePathMsg = `[processAnalysisFile] File path (powerQualityDataUrl) not found for analysisId: ${analysisId} (path: ${analysisDocPath}).`;
@@ -114,7 +114,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     } catch (fileError) {
       const errMsg = fileError instanceof Error ? fileError.message : String(fileError);
       console.error(`[processAnalysisFile] Error getting file content for ${analysisId} (path: ${analysisDocPath}):`, errMsg);
-      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha ao ler arquivo: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: UPLOAD_COMPLETION_PROGRESS -1 }); 
+      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha ao ler arquivo: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: UPLOAD_COMPLETION_PROGRESS -1 });
       throw new Error(errMsg);
     }
 
@@ -127,7 +127,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
         const chunkEnd = Math.min(i + CHUNK_SIZE, powerQualityDataCsv.length);
         const chunk = powerQualityDataCsv.substring(i, chunkEnd);
         chunks.push(chunk);
-        if (chunkEnd === powerQualityDataCsv.length) break; // Evitar chunk vazio ou muito pequeno no final
+        if (chunkEnd === powerQualityDataCsv.length) break; 
       }
       console.log(`[processAnalysisFile] Created ${chunks.length} chunks for analysis ${analysisId}.`);
     } else {
@@ -147,15 +147,15 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       try {
         if (chunk.trim() === "") {
             console.warn(`[processAnalysisFile] Chunk ${i + 1} for analysis ${analysisId} is empty or whitespace-only. Skipping summarization for this chunk.`);
-            aggregatedSummary += ""; // Add nothing or a placeholder if needed
+            aggregatedSummary += ""; 
         } else {
             const summaryOutput = await summarizePowerQualityData({ powerQualityDataCsv: chunk });
-            aggregatedSummary += (summaryOutput.dataSummary || "") + "\n\n"; 
+            aggregatedSummary += (summaryOutput.dataSummary || "") + "\n\n";
         }
         currentOverallProgress += progressIncrementPerChunk;
         await updateDoc(analysisRef, {
-          progress: Math.min(SUMMARIZATION_COMPLETION_PROGRESS, Math.round(currentOverallProgress)), 
-          status: 'summarizing_data' 
+          progress: Math.min(SUMMARIZATION_COMPLETION_PROGRESS, Math.round(currentOverallProgress)),
+          status: 'summarizing_data'
         });
          console.log(`[processAnalysisFile] Summary for chunk ${i+1} generated. Progress: ${Math.round(currentOverallProgress)}%`);
       } catch (aiError) {
@@ -171,7 +171,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     await updateDoc(analysisRef, {
       status: 'identifying_regulations',
       powerQualityDataSummary,
-      progress: SUMMARIZATION_COMPLETION_PROGRESS 
+      progress: SUMMARIZATION_COMPLETION_PROGRESS
     });
 
 
@@ -193,7 +193,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
 
     await updateDoc(analysisRef, {
       status: 'assessing_compliance',
-      identifiedRegulations, // Save as array
+      identifiedRegulations, 
       progress: IDENTIFY_REG_COMPLETION_PROGRESS
     });
 
@@ -203,7 +203,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       structuredReportOutput = await analyzeComplianceReport({
         powerQualityDataSummary,
         identifiedRegulations: identifiedRegulationsString,
-        fileName: originalFileName 
+        fileName: originalFileName
       });
     } catch (aiError) {
       const errMsg = aiError instanceof Error ? aiError.message : String(aiError);
@@ -220,20 +220,19 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       const mdxFilePath = `user_reports/${userId}/${analysisId}/report.mdx`;
       const mdxFileRef = storageRef(storage, mdxFilePath);
       await uploadString(mdxFileRef, mdxContent, 'raw', { contentType: 'text/markdown' });
-      mdxReportStoragePath = mdxFilePath; // Store the GCS path, not download URL
+      mdxReportStoragePath = mdxFilePath; 
       console.log(`[processAnalysisFile] MDX report uploaded to Storage at ${mdxReportStoragePath} for analysis ${analysisId}.`);
     } catch(mdxError) {
       const errMsg = mdxError instanceof Error ? mdxError.message : String(mdxError);
       console.warn(`[processAnalysisFile] Failed to generate or upload MDX report for ${analysisId}: ${errMsg}. Proceeding without MDX path.`);
-      // Non-fatal, proceed to update Firestore with structuredReport, but mdxReportStoragePath will be empty/null
     }
 
     console.log(`[processAnalysisFile] Updating Firestore document for ${analysisId} with status 'completed'.`);
     await updateDoc(analysisRef, {
       status: 'completed',
       structuredReport: structuredReportOutput,
-      mdxReportStoragePath: mdxReportStoragePath || null, // Save path or null if upload failed
-      summary: structuredReportOutput.introduction.overallResultsSummary, 
+      mdxReportStoragePath: mdxReportStoragePath || null,
+      summary: structuredReportOutput.introduction.overallResultsSummary,
       complianceReport: structuredReportOutput.analysisSections.map(s => `## ${s.title}\n${s.content}`).join('\n\n'),
       progress: 100,
       completedAt: serverTimestamp(),
@@ -257,7 +256,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     const finalErrorMessageForFirestore = detailedErrorMessageForFirestore.substring(0, MAX_ERROR_MESSAGE_LENGTH);
 
     let firestoreUpdateFailed = false;
-    if (!isCriticalError) { 
+    if (!isCriticalError) {
         try {
           const currentSnap = await getDoc(analysisRef);
           if (currentSnap.exists()) {
@@ -281,7 +280,12 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     } else if (isCriticalError) {
         clientSafeErrorMessage = originalErrorMessage;
     }
-    throw new Error(clientSafeErrorMessage);
+    // throw new Error(clientSafeErrorMessage); // Comentado para evitar o erro que interrompe o Next.js de forma abrupta
+    console.error("[processAnalysisFile] Final Error before re-throw: " + clientSafeErrorMessage)
+    // Em vez de throw, que pode ser mascarado pelo Next.js, vamos retornar um objeto de erro se a função permitir
+    // Como esta função processAnalysisFile retorna Promise<void>, o throw é a maneira de sinalizar erro.
+    // A questão é se o Next.js está engolindo ou reformatando esse erro de forma a perder o stack trace original da ação.
+     throw new Error(clientSafeErrorMessage);
   }
 }
 
@@ -290,7 +294,7 @@ export async function getPastAnalysesAction(userIdInput: string): Promise<Analys
   const userId = userIdInput ? userIdInput.trim() : '';
   console.log(`[getPastAnalysesAction] Fetching for trimmed userId: ${userId}`);
 
-  if (!userId || typeof userId !== 'string' || userId.trim() === "") { 
+  if (!userId || typeof userId !== 'string' || userId.trim() === "") {
     const errorMsg = `[getPastAnalysesAction] CRITICAL: userId is invalid (null, empty, or whitespace after trim): '${userIdInput}' -> '${userId}'. Aborting.`;
     console.error(errorMsg);
     throw new Error(errorMsg);
@@ -447,25 +451,23 @@ export async function deleteAnalysisAction(userIdInput: string, analysisIdInput:
         throw new Error("Análise não encontrada para exclusão.");
     }
 
-    // Soft delete: mark as deleted and clear sensitive/large data
-    await updateDoc(analysisRef, { 
-        status: 'deleted', 
-        summary: null, 
-        complianceReport: null, 
+    await updateDoc(analysisRef, {
+        status: 'deleted',
+        summary: null,
+        complianceReport: null,
         structuredReport: null,
-        mdxReportStoragePath: null, // Clear MDX path as well
-        powerQualityDataUrl: null, // Optionally clear original data URL
-        identifiedRegulations: null, 
-        powerQualityDataSummary: null, 
-        errorMessage: 'Análise excluída pelo usuário.' 
+        mdxReportStoragePath: null, 
+        powerQualityDataUrl: null, 
+        identifiedRegulations: null,
+        powerQualityDataSummary: null,
+        errorMessage: 'Análise excluída pelo usuário.'
     });
     console.log(`[deleteAnalysisAction] Analysis ${analysisId} (path: ${analysisDocPath}) marked as deleted for user ${userId}.`);
 
-    // Optionally, delete the associated files from Storage
     const dataToDelete = analysisSnap.data();
     if (dataToDelete.powerQualityDataUrl) {
         try {
-            const originalFileRef = storageRef(storage, dataToDelete.powerQualityDataUrl); // Assuming this is a full path
+            const originalFileRef = storageRef(storage, dataToDelete.powerQualityDataUrl); 
             await deleteObject(originalFileRef);
             console.log(`[deleteAnalysisAction] Original data file ${dataToDelete.powerQualityDataUrl} deleted from Storage.`);
         } catch (storageError) {
@@ -486,5 +488,60 @@ export async function deleteAnalysisAction(userIdInput: string, analysisIdInput:
     const originalErrorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[deleteAnalysisAction] Error soft deleting analysis ${analysisId} (path: ${analysisDocPath}) for user ${userId}:`, originalErrorMessage);
     throw new Error(originalErrorMessage);
+  }
+}
+
+
+export async function getAnalysisReportAction(
+  userId: string,
+  analysisId: string
+): Promise<AnalysisReportData> {
+  console.log(`[getAnalysisReportAction] Fetching report for userId: ${userId}, analysisId: ${analysisId}. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV VAR NOT SET'}`);
+
+  if (!userId || !analysisId) {
+    const errorMsg = "[getAnalysisReportAction] User ID e Analysis ID são obrigatórios.";
+    console.error(errorMsg);
+    return { mdxContent: null, fileName: null, analysisId: analysisId, error: errorMsg };
+  }
+
+  const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
+  const analysisRef = doc(db, analysisDocPath);
+
+  try {
+    const docSnap = await getDoc(analysisRef);
+    if (!docSnap.exists()) {
+      const errorMsg = `[getAnalysisReportAction] Análise não encontrada em ${analysisDocPath}.`;
+      console.warn(errorMsg);
+      return { mdxContent: null, fileName: null, analysisId: analysisId, error: "Análise não encontrada ou você não tem permissão." };
+    }
+
+    const analysisData = docSnap.data() as Analysis;
+
+    if (analysisData.userId !== userId) {
+      const errorMsg = `[getAnalysisReportAction] Não autorizado: Usuário ${userId} tentou acessar análise ${analysisId} pertencente a ${analysisData.userId}.`;
+      console.warn(errorMsg);
+      return { mdxContent: null, fileName: null, analysisId: analysisId, error: "Você não tem permissão para acessar este relatório." };
+    }
+
+    if (!analysisData.mdxReportStoragePath) {
+      const errorMsg = `[getAnalysisReportAction] Caminho do relatório MDX não encontrado para a análise ${analysisId}.`;
+      console.warn(errorMsg);
+      return { mdxContent: null, fileName: analysisData.fileName, analysisId: analysisId, error: "O relatório MDX ainda não foi gerado ou o caminho não foi salvo." };
+    }
+
+    const mdxContent = await getFileContentFromStorage(analysisData.mdxReportStoragePath);
+    console.log(`[getAnalysisReportAction] Conteúdo MDX baixado com sucesso de ${analysisData.mdxReportStoragePath} para análise ${analysisId}.`);
+
+    return {
+      mdxContent,
+      fileName: analysisData.fileName,
+      analysisId: analysisId,
+      error: null,
+    };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[getAnalysisReportAction] Erro ao buscar relatório para análise ${analysisId}:`, errorMessage);
+    return { mdxContent: null, fileName: null, analysisId: analysisId, error: `Erro ao carregar o relatório: ${errorMessage}` };
   }
 }

@@ -17,14 +17,14 @@ export interface Analysis {
   progress: number; // Progresso geral da análise (0-100)
   uploadProgress?: number; // Progresso específico do upload do arquivo (0-100)
   powerQualityDataUrl?: string;
-  powerQualityDataSummary?: string; 
-  isDataChunked?: boolean; 
+  powerQualityDataSummary?: string;
+  isDataChunked?: boolean;
   identifiedRegulations?: string[];
-  
+
   // Campos antigos - podem ser mantidos para compatibilidade ou removidos gradualmente
-  summary?: string; 
-  complianceReport?: string; 
-  
+  summary?: string;
+  complianceReport?: string;
+
   // Novo campo para o relatório estruturado
   structuredReport?: AnalyzeComplianceReportOutput;
   mdxReportStoragePath?: string; // Path para o arquivo MDX no Firebase Storage
@@ -33,4 +33,12 @@ export interface Analysis {
   tags: string[];
   createdAt: string | Timestamp;
   completedAt?: string | Timestamp;
+}
+
+// Define the return type for the getAnalysisReportAction
+export interface AnalysisReportData {
+  mdxContent: string | null;
+  fileName: string | null;
+  analysisId: string | null;
+  error?: string | null;
 }
