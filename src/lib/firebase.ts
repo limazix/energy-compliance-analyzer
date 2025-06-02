@@ -1,8 +1,8 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getAuth, GoogleAuthProvider, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
 
 // Firebase SDK will throw its own errors if critical parts of firebaseConfig are missing/invalid.
 // We are relying on next.config.ts to provide these environment variables to the client.
@@ -30,4 +30,30 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const googleProvider = new GoogleAuthProvider();
 
+if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+  console.log('Firebase: Connecting to local emulators.');
+  try {
+    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+    console.log('Firebase: Auth emulator connected.');
+  } catch (e) {
+    console.error('Firebase: Error connecting to Auth emulator.', e);
+  }
+  try {
+    connectFirestoreEmulator(db, 'localhost', 8080);
+    console.log('Firebase: Firestore emulator connected.');
+  } catch (e) {
+    console.error('Firebase: Error connecting to Firestore emulator.', e);
+  }
+  try {
+    connectStorageEmulator(storage, 'localhost', 9199);
+    console.log('Firebase: Storage emulator connected.');
+  } catch (e) {
+    console.error('Firebase: Error connecting to Storage emulator.', e);
+  }
+} else {
+  console.log('Firebase: Connecting to production Firebase services.');
+}
+
+
 export { app, auth, db, storage, googleProvider };
+

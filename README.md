@@ -94,6 +94,49 @@ Para executar o projeto localmente, siga os passos abaixo:
     ```
     Isso iniciará a UI de desenvolvimento do Genkit, normalmente em `http://localhost:4000`.
 
+### Executando com Firebase Emulators (Recomendado para Desenvolvimento Local)
+
+O projeto está configurado para conectar-se automaticamente aos Firebase Emulators (Auth, Firestore, Storage) quando a aplicação é acessada via `localhost`.
+
+1.  **Verifique a configuração dos emuladores:**
+    O arquivo `firebase.json` na raiz do projeto contém a configuração dos emuladores:
+    ```json
+    {
+      // ... outras configurações ...
+      "emulators": {
+        "auth": { "port": 9099 },
+        "firestore": { "port": 8080 },
+        "storage": { "port": 9199 },
+        "ui": { "enabled": true, "port": 4001 }, // Emulator UI
+        "singleProjectMode": true,
+        "hub": {"port": 4400}
+      }
+    }
+    ```
+    Essas são as portas padrão. Se você precisar alterá-las, atualize aqui e também em `src/lib/firebase.ts` se necessário (embora `src/lib/firebase.ts` use as portas padrão).
+
+2.  **Inicie os Firebase Emulators:**
+    Em um terminal separado, na raiz do projeto, execute:
+    ```bash
+    npm run emulators:start
+    ```
+    Isso iniciará os emuladores. O comando usa a flag `--import=./firebase-emulator-data --export-on-exit`, o que significa que os dados dos emuladores serão salvos na pasta `firebase-emulator-data` ao sair e carregados na próxima vez que você iniciar os emuladores. Esta pasta está incluída no `.gitignore`.
+    Você pode acessar a Emulator UI em `http://localhost:4001`.
+
+3.  **Inicie sua aplicação Next.js:**
+    Em outro terminal, execute:
+    ```bash
+    npm run dev
+    ```
+    Acesse sua aplicação em `http://localhost:9002` (ou a porta que o Next.js indicar). O código em `src/lib/firebase.ts` detectará que você está em `localhost` e se conectará aos emuladores.
+
+4.  **(Alternativa) Executar emuladores e dev server juntos:**
+    Você pode usar o comando:
+    ```bash
+    npm run emulators:dev
+    ```
+    Isso tentará executar o `npm run dev` dentro do ambiente dos emuladores. Pode ser mais conveniente, mas ter terminais separados oferece mais controle e visibilidade dos logs.
+
 ## Integração com Firebase
 
 Este projeto é configurado para ser implantado no projeto Firebase `electric-magnitudes-analizer` usando o Firebase App Hosting.
