@@ -8,14 +8,87 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import type { Analysis, AnalysisStep } from '@/types/analysis';
 import { processAnalysisFile, getPastAnalysesAction, addTagToAction, removeTagAction, deleteAnalysisAction } from '@/app/actions';
+import type { AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report';
 
 const BASE_ANALYSIS_STEPS: Omit<AnalysisStep, 'status' | 'progress' | 'details'>[] = [
   { name: 'Upload do Arquivo e Preparação' },
   { name: 'Sumarizando Dados da Qualidade de Energia' },
   { name: 'Identificando Resoluções ANEEL' },
   { name: 'Analisando Conformidade' },
-  { name: 'Gerando Resultados Finais' },
+  { name: 'Gerando Relatório Estruturado' }, // Etapa final atualizada
 ];
+
+// Helper para formatar o relatório estruturado para TXT
+function formatStructuredReportToTxt(report: AnalyzeComplianceReportOutput | undefined, fileName: string): string {
+  if (!report) return "Relatório estruturado não disponível.";
+
+  let txt = `RELATÓRIO DE CONFORMIDADE DA QUALIDADE DE ENERGIA ELÉTRICA\n`;
+  txt += `========================================================\n\n`;
+  
+  if (report.reportMetadata) {
+    txt += `Título: ${report.reportMetadata.title || 'N/A'}\n`;
+    if (report.reportMetadata.subtitle) txt += `Subtítulo: ${report.reportMetadata.subtitle}\n`;
+    txt += `Autor: ${report.reportMetadata.author || 'N/A'}\n`;
+    txt += `Data de Geração: ${report.reportMetadata.generatedDate || 'N/A'}\n`;
+    txt += `Arquivo Analisado: ${fileName}\n\n`;
+  }
+
+  if (report.tableOfContents && report.tableOfContents.length > 0) {
+    txt += `SUMÁRIO\n`;
+    txt += `-------\n`;
+    report.tableOfContents.forEach(item => {
+      txt += `- ${item}\n`;
+    });
+    txt += `\n`;
+  }
+
+  if (report.introduction) {
+    txt += `INTRODUÇÃO\n`;
+    txt += `----------\n`;
+    txt += `Objetivo: ${report.introduction.objective || 'N/A'}\n`;
+    txt += `Resumo dos Resultados: ${report.introduction.overallResultsSummary || 'N/A'}\n`;
+    txt += `Visão Geral das Normas Utilizadas: ${report.introduction.usedNormsOverview || 'N/A'}\n\n`;
+  }
+
+  if (report.analysisSections && report.analysisSections.length > 0) {
+    report.analysisSections.forEach(section => {
+      txt += `SEÇÃO: ${section.title.toUpperCase()}\n`;
+      txt += `---------------------------------------------\n`;
+      txt += `Conteúdo da Análise:\n${section.content || 'N/A'}\n\n`;
+      if (section.insights && section.insights.length > 0) {
+        txt += `Insights Chave:\n`;
+        section.insights.forEach(insight => txt += `- ${insight}\n`);
+        txt += `\n`;
+      }
+      if (section.relevantNormsCited && section.relevantNormsCited.length > 0) {
+        txt += `Normas Citadas nesta Seção:\n`;
+        section.relevantNormsCited.forEach(norm => txt += `- ${norm}\n`);
+        txt += `\n`;
+      }
+      if (section.chartOrImageSuggestion) {
+        txt += `Sugestão de Gráfico/Imagem:\n${section.chartOrImageSuggestion}\n\n`;
+      }
+    });
+  }
+
+  if (report.finalConsiderations) {
+    txt += `CONSIDERAÇÕES FINAIS\n`;
+    txt += `--------------------\n`;
+    txt += `${report.finalConsiderations}\n\n`;
+  }
+
+  if (report.bibliography && report.bibliography.length > 0) {
+    txt += `REFERÊNCIAS BIBLIOGRÁFICAS\n`;
+    txt += `--------------------------\n`;
+    report.bibliography.forEach(ref => {
+      txt += `- ${ref.text}`;
+      if (ref.link) txt += ` (Disponível em: ${ref.link})`;
+      txt += `\n`;
+    });
+  }
+  return txt;
+}
+
 
 export function useAnalysisManager(user: User | null) {
   const { toast } = useToast();
@@ -50,9 +123,15 @@ export function useAnalysisManager(user: User | null) {
                 uploadProgress: typeof data.uploadProgress === 'number' ? data.uploadProgress : undefined,
                 powerQualityDataUrl: typeof data.powerQualityDataUrl === 'string' ? data.powerQualityDataUrl : undefined,
                 powerQualityDataSummary: typeof data.powerQualityDataSummary === 'string' ? data.powerQualityDataSummary : undefined,
+                isDataChunked: typeof data.isDataChunked === 'boolean' ? data.isDataChunked : undefined,
                 identifiedRegulations: Array.isArray(data.identifiedRegulations) ? data.identifiedRegulations.map(String) : undefined,
-                summary: typeof data.summary === 'string' ? data.summary : undefined,
-                complianceReport: typeof data.complianceReport === 'string' ? data.complianceReport : undefined,
+                
+                // Campos antigos - podem ser preenchidos a partir do novo, se necessário, ou removidos da UI
+                summary: typeof data.summary === 'string' ? data.summary : (data.structuredReport as AnalyzeComplianceReportOutput)?.introduction?.overallResultsSummary,
+                complianceReport: typeof data.complianceReport === 'string' ? data.complianceReport : undefined, // Pode ser complexo recriar o antigo a partir do novo
+
+                structuredReport: data.structuredReport as AnalyzeComplianceReportOutput | undefined,
+
                 errorMessage: statusIsValid ? (typeof data.errorMessage === 'string' ? data.errorMessage : undefined) : (data.errorMessage || 'Status inválido recebido do Firestore.'),
                 tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
                 createdAt: (data.createdAt instanceof Timestamp) ? data.createdAt.toDate().toISOString() : (currentAnalysis?.createdAt || new Date().toISOString()),
@@ -159,7 +238,6 @@ export function useAnalysisManager(user: User | null) {
     try {
       await addTagToAction(currentUserId, analysisId, tag.trim());
       setPastAnalyses(prev => prev.map(a => a.id === analysisId ? { ...a, tags: [...new Set([...(a.tags || []), tag.trim()])]} : a));
-      // Update currentAnalysis if it's the one being tagged
       if (currentAnalysis && currentAnalysis.id === analysisId) {
         setCurrentAnalysis(prev => prev ? {...prev, tags: [...new Set([...(prev.tags || []), tag.trim()])]} : null);
       }
@@ -181,7 +259,6 @@ export function useAnalysisManager(user: User | null) {
     try {
       await removeTagAction(currentUserId, analysisId, tagToRemove);
       setPastAnalyses(prev => prev.map(a => a.id === analysisId ? { ...a, tags: (a.tags || []).filter(t => t !== tagToRemove) } : a));
-       // Update currentAnalysis if it's the one being modified
       if (currentAnalysis && currentAnalysis.id === analysisId) {
         setCurrentAnalysis(prev => prev ? {...prev, tags: (prev.tags || []).filter(t => t !== tagToRemove)} : null);
       }
@@ -214,21 +291,26 @@ export function useAnalysisManager(user: User | null) {
     }
   }, [user, toast, currentAnalysis?.id]);
 
-  const downloadReportAsTxt = (reportText: string | undefined, fileName: string = "relatorio") => {
-    if (!reportText) {
-      toast({ title: "Download não disponível", description: "O relatório está vazio ou não foi gerado.", variant: "destructive" });
+  const downloadReportAsTxt = useCallback((analysisData: Analysis | null) => {
+    if (!analysisData) {
+        toast({ title: "Download não disponível", description: "Nenhuma análise selecionada.", variant: "destructive" });
+        return;
+    }
+    const reportText = formatStructuredReportToTxt(analysisData.structuredReport, analysisData.fileName);
+    if (reportText === "Relatório estruturado não disponível.") {
+      toast({ title: "Download não disponível", description: "O relatório estruturado está vazio ou não foi gerado.", variant: "destructive" });
       return;
     }
-    const blob = new Blob([reportText], { type: 'text/plain;charset=utf-utf-8' });
+    const blob = new Blob([reportText], { type: 'text/plain;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${fileName.replace(/\.[^/.]+$/, "")}_relatorio_conformidade.txt`;
+    link.download = `${analysisData.fileName.replace(/\.[^/.]+$/, "")}_relatorio_conformidade_estruturado.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
-    toast({title: "Download Iniciado", description: "O relatório está sendo baixado."});
-  };
+    toast({title: "Download Iniciado", description: "O relatório estruturado está sendo baixado."});
+  }, [toast]);
 
  const displayedAnalysisSteps = useMemo(() => {
     let steps: AnalysisStep[] = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'pending', progress: 0 }));
@@ -242,7 +324,7 @@ export function useAnalysisManager(user: User | null) {
         return steps;
     }
 
-    const { status, progress, errorMessage, powerQualityDataUrl, powerQualityDataSummary, identifiedRegulations, summary: finalSummary, uploadProgress } = currentAnalysis;
+    const { status, progress, errorMessage, powerQualityDataUrl, powerQualityDataSummary, identifiedRegulations, structuredReport, uploadProgress } = currentAnalysis;
     const overallProgress = typeof progress === 'number' ? Math.min(100, Math.max(0, progress)) : 0;
 
     // Step 0: Upload and Preparation
@@ -250,17 +332,16 @@ export function useAnalysisManager(user: User | null) {
       steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'completed', progress: 100 };
     } else if (status === 'uploading') {
         steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'in_progress', progress: uploadProgress ?? 0 };
-    } else if (status === 'error' && (!powerQualityDataUrl && !powerQualityDataSummary && !identifiedRegulations && !finalSummary)) {
+    } else if (status === 'error' && (!powerQualityDataUrl && !powerQualityDataSummary && !identifiedRegulations && !structuredReport)) {
         steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'error', details: errorMessage, progress: uploadProgress ?? 0 };
     }
     
     // Step 1: Summarizing Data
     if (status === 'summarizing_data') {
-        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'in_progress', progress: overallProgress }; // Overall progress reflects current step
+        steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'in_progress', progress: overallProgress }; 
     } else if (['identifying_regulations', 'assessing_compliance', 'completed'].includes(status)) {
         steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'completed', progress: 100 };
-    } else if (status === 'error' && powerQualityDataUrl && (!powerQualityDataSummary && !identifiedRegulations && !finalSummary)) {
-         // Error occurred during or before summarization
+    } else if (status === 'error' && powerQualityDataUrl && (!powerQualityDataSummary && !identifiedRegulations && !structuredReport)) {
         steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'error', details: errorMessage, progress: overallProgress };
     }
 
@@ -269,35 +350,26 @@ export function useAnalysisManager(user: User | null) {
         steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'in_progress', progress: overallProgress };
     } else if (['assessing_compliance', 'completed'].includes(status)) {
         steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'completed', progress: 100 };
-    } else if (status === 'error' && powerQualityDataSummary && (!identifiedRegulations && !finalSummary)) {
-        // Error occurred during or before regulation identification
+    } else if (status === 'error' && powerQualityDataSummary && (!identifiedRegulations && !structuredReport)) {
         steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'error', details: errorMessage, progress: overallProgress };
     }
     
-    // Step 3: Assessing Compliance
-    if (status === 'assessing_compliance') {
-        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'in_progress', progress: overallProgress };
+    // Step 3: Assessing Compliance (agora é gerar o relatório estruturado)
+    if (status === 'assessing_compliance') { // This status now leads to the 'Gerando Relatório Estruturado' step
+        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 }; // Mark old "Assessing Compliance" as done
+        steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'in_progress', progress: overallProgress }; // New final step in progress
     } else if (status === 'completed') {
         steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 };
-    } else if (status === 'error' && identifiedRegulations && !finalSummary) {
-         // Error occurred during or before compliance assessment
-        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'error', details: errorMessage, progress: overallProgress };
-    }
-
-    // Step 4: Generating Final Results
-    if (status === 'completed') {
         steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'completed', progress: 100 };
-    } else if (status === 'error' && finalSummary) { // Error might be in final report generation but summary exists
+    } else if (status === 'error' && identifiedRegulations && !structuredReport) {
+        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'error', details: errorMessage, progress: overallProgress };
+    } else if (status === 'error' && structuredReport) { // Error occurred during final report generation but previous steps were ok
+        steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'completed', progress: 100 };
         steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'error', details: errorMessage, progress: overallProgress };
-    } else if (steps[0].status === 'completed' && steps[1].status === 'completed' && steps[2].status === 'completed' && steps[3].status === 'completed' && status !== 'error' && status !== 'completed') {
-        // If all previous steps are done, and we are not in error or completed, then this step is in progress (e.g. if assessing_compliance is the current db status, but it actually means generating final report)
-        steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'in_progress', progress: overallProgress };
     }
     
-    // General error handling if status is 'error' but not caught by specific step conditions
     if (status === 'error' && !steps.find(s => s.status === 'error')) {
         let errorAssigned = false;
-        // Try to assign error to the current in_progress or last pending step
         for (let i = steps.length - 1; i >= 0; i--) {
             if (steps[i].status === 'in_progress' || (steps[i].status === 'pending' && (steps[i-1]?.status === 'completed' || i === 0 ))) {
                 steps[i] = { ...steps[i], status: 'error', details: errorMessage, progress: steps[i].progress === 100 ? overallProgress : steps[i].progress };
@@ -305,7 +377,6 @@ export function useAnalysisManager(user: User | null) {
                 break;
             }
         }
-        // Fallback: assign error to the last step if no other place seems appropriate
         if (!errorAssigned && steps.length > 0) {
             steps[steps.length -1] = { ...steps[steps.length-1], status: 'error', details: errorMessage, progress: overallProgress};
         }

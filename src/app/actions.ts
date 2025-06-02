@@ -6,14 +6,13 @@ import { getDownloadURL, ref as storageRef } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { summarizePowerQualityData } from '@/ai/flows/summarize-power-quality-data';
 import { identifyAEEEResolutions } from '@/ai/flows/identify-aneel-resolutions';
-import { analyzeComplianceReport } from '@/ai/flows/analyze-compliance-report';
+import { analyzeComplianceReport, AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report'; // Importar o tipo
 import type { Analysis } from '@/types/analysis';
 
-const CHUNK_SIZE = 100000; // Max characters per chunk for AI summarization
-const OVERLAP_SIZE = 10000; // 10% overlap
+const CHUNK_SIZE = 100000; 
+const OVERLAP_SIZE = 10000; 
 const MAX_ERROR_MESSAGE_LENGTH = 1500;
 
-// Helper function to read file content from Firebase Storage
 async function getFileContentFromStorage(filePath: string): Promise<string> {
   console.log(`[getFileContentFromStorage] Attempting to download: ${filePath}`);
   const fileRef = storageRef(storage, filePath);
@@ -77,10 +76,9 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = doc(db, analysisDocPath);
 
-  // Define progress range for summarization
-  const UPLOAD_COMPLETION_PROGRESS = 10; // Progress after upload
-  const SUMMARIZATION_COMPLETION_PROGRESS = 40; // Target progress after summarization
-  const SUMMARIZATION_PROGRESS_SPAN = SUMMARIZATION_COMPLETION_PROGRESS - UPLOAD_COMPLETION_PROGRESS; // e.g., 30 points
+  const UPLOAD_COMPLETION_PROGRESS = 10; 
+  const SUMMARIZATION_COMPLETION_PROGRESS = 40; 
+  const SUMMARIZATION_PROGRESS_SPAN = SUMMARIZATION_COMPLETION_PROGRESS - UPLOAD_COMPLETION_PROGRESS; 
 
   try {
     let analysisSnap = await getDoc(analysisRef);
@@ -92,6 +90,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
 
     const analysisData = analysisSnap.data() as Analysis;
     const filePath = analysisData.powerQualityDataUrl;
+    const originalFileName = analysisData.fileName; // Get the original file name
 
     if (!filePath) {
       const noFilePathMsg = `[processAnalysisFile] File path (powerQualityDataUrl) not found for analysisId: ${analysisId} (path: ${analysisDocPath}).`;
@@ -100,12 +99,10 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       throw new Error(noFilePathMsg);
     }
     
-    // Ensure status is 'summarizing_data' or set initial progress
     if (analysisData.status === 'uploading' || !analysisData.status || analysisData.progress < UPLOAD_COMPLETION_PROGRESS) {
         console.log(`[processAnalysisFile] File path: ${filePath}. Current status: ${analysisData.status}. Updating to 'summarizing_data' and progress ${UPLOAD_COMPLETION_PROGRESS}.`);
         await updateDoc(analysisRef, { status: 'summarizing_data', progress: UPLOAD_COMPLETION_PROGRESS });
     } else if (analysisData.status !== 'error' && analysisData.status !== 'completed' && analysisData.progress < UPLOAD_COMPLETION_PROGRESS) {
-        // If it's some other valid processing status, ensure progress is at least at summarization start
         await updateDoc(analysisRef, { progress: Math.max(analysisData.progress, UPLOAD_COMPLETION_PROGRESS) });
     }
 
@@ -116,14 +113,15 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     } catch (fileError) {
       const errMsg = fileError instanceof Error ? fileError.message : String(fileError);
       console.error(`[processAnalysisFile] Error getting file content for ${analysisId} (path: ${analysisDocPath}):`, errMsg);
-      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha ao ler arquivo: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: UPLOAD_COMPLETION_PROGRESS -1 }); // Slightly before upload completion
+      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha ao ler arquivo: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: UPLOAD_COMPLETION_PROGRESS -1 }); 
       throw new Error(errMsg);
     }
 
     const chunks: string[] = [];
+    let isDataChunked = false;
     if (powerQualityDataCsv.length > CHUNK_SIZE) {
       console.log(`[processAnalysisFile] CSV data for analysis ${analysisId} is large (${powerQualityDataCsv.length} chars), chunking will occur.`);
-      await updateDoc(analysisRef, { isDataChunked: true });
+      isDataChunked = true;
       for (let i = 0; i < powerQualityDataCsv.length; i += (CHUNK_SIZE - OVERLAP_SIZE)) {
         const chunk = powerQualityDataCsv.substring(i, Math.min(i + CHUNK_SIZE, powerQualityDataCsv.length));
         chunks.push(chunk);
@@ -131,9 +129,10 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       console.log(`[processAnalysisFile] Created ${chunks.length} chunks for analysis ${analysisId}.`);
     } else {
       chunks.push(powerQualityDataCsv);
-      await updateDoc(analysisRef, { isDataChunked: false });
        console.log(`[processAnalysisFile] CSV data for analysis ${analysisId} is small enough, no chunking needed.`);
     }
+    await updateDoc(analysisRef, { isDataChunked });
+
 
     let aggregatedSummary = "";
     let currentOverallProgress = UPLOAD_COMPLETION_PROGRESS;
@@ -144,11 +143,11 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
       console.log(`[processAnalysisFile] Calling summarizePowerQualityData for analysis ${analysisId}, chunk ${i + 1}/${chunks.length}. Chunk size: ${chunk.length} chars.`);
       try {
         const summaryOutput = await summarizePowerQualityData({ powerQualityDataCsv: chunk });
-        aggregatedSummary += (summaryOutput.dataSummary || "") + "\n\n"; // Add newlines to separate summaries
+        aggregatedSummary += (summaryOutput.dataSummary || "") + "\n\n"; 
         currentOverallProgress += progressIncrementPerChunk;
         await updateDoc(analysisRef, {
-          progress: Math.min(SUMMARIZATION_COMPLETION_PROGRESS, Math.round(currentOverallProgress)), // Cap at target
-          status: 'summarizing_data' // Keep status during loop
+          progress: Math.min(SUMMARIZATION_COMPLETION_PROGRESS, Math.round(currentOverallProgress)), 
+          status: 'summarizing_data' 
         });
          console.log(`[processAnalysisFile] Summary for chunk ${i+1} generated. Progress: ${Math.round(currentOverallProgress)}%`);
       } catch (aiError) {
@@ -164,7 +163,7 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
     await updateDoc(analysisRef, {
       status: 'identifying_regulations',
       powerQualityDataSummary,
-      progress: SUMMARIZATION_COMPLETION_PROGRESS // Set to defined end of summarization phase
+      progress: SUMMARIZATION_COMPLETION_PROGRESS 
     });
 
 
@@ -186,30 +185,33 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
 
     await updateDoc(analysisRef, {
       status: 'assessing_compliance',
-      identifiedRegulations,
+      identifiedRegulations, // Save as array
       progress: IDENTIFY_REG_COMPLETION_PROGRESS
     });
 
     console.log(`[processAnalysisFile] Calling analyzeComplianceReport for analysis ${analysisId} using aggregated summary.`);
-    let reportOutput;
+    let structuredReportOutput: AnalyzeComplianceReportOutput;
     try {
-      reportOutput = await analyzeComplianceReport({
+      structuredReportOutput = await analyzeComplianceReport({
         powerQualityDataSummary,
-        identifiedRegulations: identifiedRegulationsString
+        identifiedRegulations: identifiedRegulationsString,
+        fileName: originalFileName // Pass the original file name
       });
     } catch (aiError) {
       const errMsg = aiError instanceof Error ? aiError.message : String(aiError);
       console.error(`[processAnalysisFile] Error from analyzeComplianceReport for ${analysisId} (path: ${analysisDocPath}):`, errMsg);
-      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na análise de conformidade pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: IDENTIFY_REG_COMPLETION_PROGRESS });
+      await updateDoc(analysisRef, { status: 'error', errorMessage: `Falha na análise de conformidade estruturada pela IA: ${errMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`, progress: IDENTIFY_REG_COMPLETION_PROGRESS });
       throw new Error(errMsg);
     }
 
-    console.log(`[processAnalysisFile] Compliance report generated for ${analysisId}. Updating status to 'completed'.`);
+    console.log(`[processAnalysisFile] Structured compliance report generated for ${analysisId}. Updating status to 'completed'.`);
 
     await updateDoc(analysisRef, {
       status: 'completed',
-      summary: reportOutput.summary,
-      complianceReport: reportOutput.complianceReport,
+      structuredReport: structuredReportOutput, // Save the new structured report
+      // Optionally, populate old fields for smoother transition or if parts of UI still use them
+      summary: structuredReportOutput.introduction.overallResultsSummary, 
+      complianceReport: structuredReportOutput.analysisSections.map(s => `## ${s.title}\n${s.content}`).join('\n\n'), // Basic text representation
       progress: 100,
       completedAt: serverTimestamp(),
     });
@@ -217,42 +219,45 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
 
   } catch (error) {
     const originalErrorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[processAnalysisFile] Overall error processing analysis ${analysisId} for user ${userId} (path: ${analysisDocPath}):`, originalErrorMessage, error);
+    const isCriticalError = originalErrorMessage.startsWith("[processAnalysisFile] CRITICAL:");
+    
+    if (!isCriticalError) { // Don't log again if it was already logged as critical before throwing
+        console.error(`[processAnalysisFile] Overall error processing analysis ${analysisId} for user ${userId} (path: ${analysisDocPath}):`, originalErrorMessage, error);
+    }
 
     let detailedErrorMessageForFirestore = 'Erro desconhecido durante o processamento.';
     if (error instanceof Error) {
         detailedErrorMessageForFirestore = `Error: ${error.message}`;
-        if (error.stack) {
-            detailedErrorMessageForFirestore += ` Stack: ${error.stack.substring(0, 500)}`;
-        }
     } else {
         detailedErrorMessageForFirestore = String(error);
     }
     const finalErrorMessageForFirestore = detailedErrorMessageForFirestore.substring(0, MAX_ERROR_MESSAGE_LENGTH);
 
     let firestoreUpdateFailed = false;
-    try {
-      const currentSnap = await getDoc(analysisRef);
-      if (currentSnap.exists()) {
-        const existingData = currentSnap.data() as Analysis;
-        const errorProgress = existingData.progress > 0 && existingData.progress < 100 && existingData.status !== 'uploading' ? existingData.progress : UPLOAD_COMPLETION_PROGRESS;
-        await updateDoc(analysisRef, { status: 'error', errorMessage: finalErrorMessageForFirestore, progress: errorProgress });
-        console.log(`[processAnalysisFile] Firestore updated with error status for analysis ${analysisId} (path: ${analysisDocPath}).`);
-      } else {
-         console.error(`[processAnalysisFile] CRITICAL: Analysis document ${analysisId} (path ${analysisDocPath}) not found when trying to update with overall error status.`);
-      }
-    } catch (firestoreError) {
-      const fsErrorMsg = firestoreError instanceof Error ? firestoreError.message : String(firestoreError);
-      console.error(`[processAnalysisFile] CRITICAL: Failed to update Firestore with overall error status for analysis ${analysisId} (path: ${analysisDocPath}) (Original error: ${finalErrorMessageForFirestore.substring(0,200)}...):`, fsErrorMsg);
-      firestoreUpdateFailed = true;
+    if (!isCriticalError) { // Avoid trying to update Firestore if the error was a critical pre-check failure
+        try {
+          const currentSnap = await getDoc(analysisRef);
+          if (currentSnap.exists()) {
+            const existingData = currentSnap.data() as Analysis;
+            const errorProgress = existingData.progress > 0 && existingData.progress < 100 && existingData.status !== 'uploading' ? existingData.progress : UPLOAD_COMPLETION_PROGRESS;
+            await updateDoc(analysisRef, { status: 'error', errorMessage: finalErrorMessageForFirestore, progress: errorProgress });
+            console.log(`[processAnalysisFile] Firestore updated with error status for analysis ${analysisId} (path: ${analysisDocPath}).`);
+          } else {
+             console.error(`[processAnalysisFile] CRITICAL: Analysis document ${analysisId} (path ${analysisDocPath}) not found when trying to update with overall error status.`);
+          }
+        } catch (firestoreError) {
+          const fsErrorMsg = firestoreError instanceof Error ? firestoreError.message : String(firestoreError);
+          console.error(`[processAnalysisFile] CRITICAL: Failed to update Firestore with overall error status for analysis ${analysisId} (path: ${analysisDocPath}) (Original error: ${finalErrorMessageForFirestore.substring(0,200)}...):`, fsErrorMsg);
+          firestoreUpdateFailed = true;
+        }
     }
 
     let clientSafeErrorMessage = `Erro no processamento da análise (ID: ${analysisId}). Consulte os logs do servidor para detalhes.`;
     if (firestoreUpdateFailed) {
       clientSafeErrorMessage = `Erro crítico no processamento da análise (ID: ${analysisId}). Falha ao registrar o erro detalhado. Consulte os logs do servidor.`;
+    } else if (isCriticalError) {
+        clientSafeErrorMessage = originalErrorMessage; // Propagate the critical message as is
     }
-    // This re-throw will be caught by the caller (e.g., useAnalysisManager's startAiProcessing)
-    // and potentially update the UI state.
     throw new Error(clientSafeErrorMessage);
   }
 }
@@ -303,8 +308,11 @@ export async function getPastAnalysesAction(userIdInput: string): Promise<Analys
         powerQualityDataSummary: data.powerQualityDataSummary as string | undefined,
         isDataChunked: data.isDataChunked as boolean | undefined,
         identifiedRegulations: data.identifiedRegulations as string[] | undefined,
+        // Campos antigos
         summary: data.summary as string | undefined,
         complianceReport: data.complianceReport as string | undefined,
+        // Novo campo
+        structuredReport: data.structuredReport as AnalyzeComplianceReportOutput | undefined,
         errorMessage: data.errorMessage as string | undefined,
         tags: (data.tags || []) as string[],
       };
@@ -416,7 +424,15 @@ export async function deleteAnalysisAction(userIdInput: string, analysisIdInput:
         console.error(errorMsg);
         throw new Error("Análise não encontrada para exclusão.");
     }
-    await updateDoc(analysisRef, { status: 'deleted', summary: null, complianceReport: null, identifiedRegulations: null, powerQualityDataSummary: null, errorMessage: 'Análise excluída pelo usuário.' });
+    await updateDoc(analysisRef, { 
+        status: 'deleted', 
+        summary: null, 
+        complianceReport: null, 
+        structuredReport: null, // Clear the structured report too
+        identifiedRegulations: null, 
+        powerQualityDataSummary: null, 
+        errorMessage: 'Análise excluída pelo usuário.' 
+    });
     console.log(`[deleteAnalysisAction] Analysis ${analysisId} (path: ${analysisDocPath}) marked as deleted for user ${userId}.`);
   } catch (error) {
     const originalErrorMessage = error instanceof Error ? error.message : String(error);
