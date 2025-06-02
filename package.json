@@ -14,9 +14,8 @@
     "typecheck": "tsc --noEmit",
     "emulators:start": "firebase emulators:start --import=./firebase-emulator-data --export-on-exit",
     "emulators:dev": "firebase emulators:exec --import=./firebase-emulator-data 'npm run dev'",
-    "test:jest": "jest",
-    "test": "firebase emulators:exec --import=./firebase-emulator-data --export-on-exit 'npm run test:jest'",
-    "test:watch": "firebase emulators:exec --import=./firebase-emulator-data --export-on-exit 'npm run test:jest -- --watch'"
+    "test": "firebase emulators:exec --import=./firebase-emulator-data --export-on-exit jest",
+    "test:watch": "firebase emulators:exec --import=./firebase-emulator-data --export-on-exit 'jest --watch'"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",
@@ -52,6 +51,7 @@
     "genkit": "^1.8.0",
     "lucide-react": "^0.475.0",
     "next": "15.2.3",
+    "next-mdx-remote": "^5.0.0",
     "patch-package": "^8.0.0",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",

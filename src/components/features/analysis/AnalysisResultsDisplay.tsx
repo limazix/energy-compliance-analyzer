@@ -1,11 +1,11 @@
 
 'use client';
 
-import { CheckCircle2, FileText, Download, FileJson } from 'lucide-react';
+import Link from 'next/link';
+import { CheckCircle2, FileText, Download, FileJson, Eye } from 'lucide-react';
 import type { Analysis } from '@/types/analysis';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 type AnalysisResultsDisplayProps = {
@@ -38,7 +38,7 @@ export function AnalysisResultsDisplay({ analysis, onDownloadReport }: AnalysisR
           Análise Concluída com Sucesso!
         </h3>
         <p className="text-sm text-muted-foreground">
-          O relatório estruturado foi gerado. Você pode visualizar um resumo abaixo ou baixar o conteúdo completo.
+          O relatório estruturado foi gerado. Você pode visualizar um resumo abaixo, baixar o conteúdo completo ou ver o relatório detalhado em uma nova página.
         </p>
       </div>
 
@@ -61,59 +61,31 @@ export function AnalysisResultsDisplay({ analysis, onDownloadReport }: AnalysisR
             
             {structuredReport.analysisSections && structuredReport.analysisSections.length > 0 && (
               <div>
-                <h4 className="text-md font-semibold mb-2">Seções da Análise:</h4>
-                <Accordion type="single" collapsible className="w-full">
-                  {structuredReport.analysisSections.map((section, index) => (
+                <h4 className="text-md font-semibold mb-2">Seções da Análise (Prévia):</h4>
+                <Accordion type="single" collapsible className="w-full max-h-60 overflow-y-auto">
+                  {structuredReport.analysisSections.slice(0, 3).map((section, index) => ( // Mostrar prévia de até 3 seções
                     <AccordionItem value={`section-${index}`} key={index} className="border-b border-border/50">
-                      <AccordionTrigger className="text-sm hover:bg-muted/50 py-3 px-2">
+                      <AccordionTrigger className="text-sm hover:bg-muted/50 py-3 px-2 text-left">
                         {section.title || `Seção ${index + 1}`}
                       </AccordionTrigger>
                       <AccordionContent className="p-3 space-y-2 text-xs bg-background rounded-b-md">
-                        <p className="whitespace-pre-wrap">{section.content}</p>
-                        {section.insights && section.insights.length > 0 && (
-                            <>
-                                <strong className="block mt-2">Insights Chave:</strong>
-                                <ul className="list-disc list-inside pl-2">
-                                    {section.insights.map((insight, i) => <li key={i}>{insight}</li>)}
-                                </ul>
-                            </>
-                        )}
-                        {section.relevantNormsCited && section.relevantNormsCited.length > 0 && (
-                             <>
-                                <strong className="block mt-2">Normas Citadas:</strong>
-                                <ul className="list-disc list-inside pl-2">
-                                    {section.relevantNormsCited.map((norm, i) => <li key={i}>{norm}</li>)}
-                                </ul>
-                            </>
-                        )}
-                        {section.chartOrImageSuggestion && (
-                            <p className="mt-2 italic text-muted-foreground"><strong>Sugestão de Gráfico/Imagem:</strong> {section.chartOrImageSuggestion}</p>
-                        )}
+                        <p className="whitespace-pre-wrap line-clamp-3">{section.content}</p>
+                        {/* Outros detalhes da seção podem ser omitidos na prévia para economizar espaço */}
                       </AccordionContent>
                     </AccordionItem>
                   ))}
                 </Accordion>
+                {structuredReport.analysisSections.length > 3 && <p className="text-xs text-muted-foreground mt-1">Mais seções disponíveis no relatório detalhado.</p>}
               </div>
             )}
 
             <div>
-              <h4 className="text-md font-semibold mb-1">Considerações Finais:</h4>
-              <p className="text-sm whitespace-pre-wrap text-foreground/80">
+              <h4 className="text-md font-semibold mb-1">Considerações Finais (Prévia):</h4>
+              <p className="text-sm whitespace-pre-wrap text-foreground/80 line-clamp-3">
                 {structuredReport.finalConsiderations || 'Não disponível.'}
               </p>
             </div>
             
-            {/* Opcional: Mostrar Bibliografia se for curta, ou deixar apenas para download */}
-            {/* <div>
-              <h4 className="text-md font-semibold mb-1">Referências Bibliográficas:</h4>
-              <Textarea
-                readOnly
-                value={structuredReport.bibliography?.map(b => `- ${b.text}${b.link ? ` (${b.link})` : ''}`).join('\n') || 'Não disponível.'}
-                className="h-32 text-xs bg-background"
-                aria-label="Referências Bibliográficas"
-              />
-            </div> */}
-
           </CardContent>
         </Card>
       ) : (
@@ -121,21 +93,24 @@ export function AnalysisResultsDisplay({ analysis, onDownloadReport }: AnalysisR
       )}
 
       <div className="flex flex-wrap gap-2 mt-4">
-        <Button
-          onClick={() => onDownloadReport(analysis)}
-          className="mt-2"
-          variant="default"
-          disabled={!structuredReport}
-        >
-          <Download className="mr-2 h-4 w-4" /> Baixar Relatório (TXT Formatado)
+        <Button asChild variant="default" disabled={!structuredReport}>
+          <Link href={`/report/${analysis.id}`}>
+            <Eye className="mr-2 h-4 w-4" /> Visualizar Relatório Detalhado
+          </Link>
         </Button>
         <Button
-          onClick={downloadJsonReport}
-          className="mt-2"
+          onClick={() => onDownloadReport(analysis)}
           variant="outline"
           disabled={!structuredReport}
         >
-          <FileJson className="mr-2 h-4 w-4" /> Baixar Relatório (JSON)
+          <Download className="mr-2 h-4 w-4" /> Baixar (TXT Formatado)
+        </Button>
+        <Button
+          onClick={downloadJsonReport}
+          variant="outline"
+          disabled={!structuredReport}
+        >
+          <FileJson className="mr-2 h-4 w-4" /> Baixar (JSON)
         </Button>
       </div>
     </div>
