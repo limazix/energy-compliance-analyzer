@@ -35,7 +35,7 @@ export async function createInitialAnalysisRecordAction(
     status: 'uploading', // Initial status, will transition to 'summarizing_data'
     progress: 0, // Overall analysis progress
     uploadProgress: 0, // Specific file upload progress
-    isDataTruncated: false, // Initialize as false
+    isDataChunked: false, // Initialize as false
     tags: [],
     createdAt: serverTimestamp() as Timestamp,
   };
@@ -136,7 +136,7 @@ export async function finalizeFileUploadRecordAction(
       status: 'summarizing_data',
       progress: 10, // Mark upload phase as complete (10% of total)
       uploadProgress: 100,
-      isDataTruncated: false, // Ensure it's set, though createInitial should do it.
+      isDataChunked: false, 
     });
     console.log(`[Action_finalizeFileUploadRecord] Document ${analysisId} (path: ${analysisDocPath}) updated with download URL and status 'summarizing_data'.`);
     return { success: true };
