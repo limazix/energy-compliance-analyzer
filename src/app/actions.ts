@@ -58,12 +58,12 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
 
   console.log(`[processAnalysisFile] Starting for analysisId: ${analysisId}, userId: ${userId}`);
 
-  if (!userId || typeof userId !== 'string' || userId.trim() === "") { // Redundant check after trim
+  if (!userId || typeof userId !== 'string' || userId.trim() === "") {
     const criticalMsg = `[processAnalysisFile] CRITICAL: userId is invalid (null, empty, or whitespace after trim): '${userIdInput}' -> '${userId}' for analysisId: ${analysisId}. Aborting.`;
     console.error(criticalMsg);
     throw new Error(criticalMsg);
   }
-  if (!analysisId || typeof analysisId !== 'string' || analysisId.trim() === "") { // Redundant check after trim
+  if (!analysisId || typeof analysisId !== 'string' || analysisId.trim() === "") {
     const criticalMsg = `[processAnalysisFile] CRITICAL: analysisId is invalid (null, empty, or whitespace after trim): '${analysisIdInput}' -> '${analysisId}' for userId: ${userId}. Aborting.`;
     console.error(criticalMsg);
     throw new Error(criticalMsg);
@@ -167,7 +167,8 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
         detailedErrorMessageForFirestore = String(error);
     }
     const finalErrorMessageForFirestore = detailedErrorMessageForFirestore.substring(0, MAX_ERROR_MESSAGE_LENGTH);
-
+    
+    let firestoreUpdateFailed = false;
     try {
       const currentSnap = await getDoc(analysisRef);
       if (currentSnap.exists()) {
@@ -175,12 +176,19 @@ export async function processAnalysisFile(analysisIdInput: string, userIdInput: 
         console.log(`[processAnalysisFile] Firestore updated with error status for analysis ${analysisId} (path: ${analysisDocPath}).`);
       } else {
          console.error(`[processAnalysisFile] CRITICAL: Analysis document ${analysisId} (path ${analysisDocPath}) not found when trying to update with overall error status.`);
+         // Se o documento não existe, a atualização do Firestore não é possível, mas o erro original ainda ocorreu.
+         // Isso não é uma falha na atualização do Firestore per se, mas uma condição prévia.
       }
     } catch (firestoreError) {
       const fsErrorMsg = firestoreError instanceof Error ? firestoreError.message : String(firestoreError);
       console.error(`[processAnalysisFile] CRITICAL: Failed to update Firestore with overall error status for analysis ${analysisId} (path: ${analysisDocPath}) (Original error: ${finalErrorMessageForFirestore.substring(0,200)}...):`, fsErrorMsg);
+      firestoreUpdateFailed = true;
     }
-    const clientSafeErrorMessage = `Erro no processamento da análise (ID: ${analysisId}). Consulte os logs do servidor para detalhes.`;
+    
+    let clientSafeErrorMessage = `Erro no processamento da análise (ID: ${analysisId}). Consulte os logs do servidor para detalhes.`;
+    if (firestoreUpdateFailed) {
+      clientSafeErrorMessage = `Erro crítico no processamento da análise (ID: ${analysisId}). Falha ao registrar o erro detalhado. Consulte os logs do servidor.`;
+    }
     throw new Error(clientSafeErrorMessage);
   }
 }
@@ -350,3 +358,4 @@ export async function deleteAnalysisAction(userIdInput: string, analysisIdInput:
     throw new Error(originalErrorMessage);
   }
 }
+
