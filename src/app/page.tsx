@@ -164,33 +164,41 @@ export default function HomePage() {
   };
   
   const navigateToPastAnalyses = useCallback(() => {
+    setCurrentAnalysis(null); // Clear current analysis before fetching/navigating
     fetchPastAnalyses().then(() => {
       setViewState('past_analyses');
     });
-  }, [fetchPastAnalyses]);
+  }, [fetchPastAnalyses, setCurrentAnalysis]);
 
   const viewAnalysisDetails = (analysis: Analysis) => {
     setCurrentAnalysis(analysis);
+    // viewState will be updated by the useEffect monitoring currentAnalysis or explicitly if needed
+    setViewState('analysis_view');
   };
   
   const afterDeleteAnalysis = () => {
+    // If currentAnalysis was deleted and now it's null
     if (viewState === 'analysis_view' && !currentAnalysis) {
-        navigateToDashboard();
+        navigateToPastAnalyses(); // Go back to list view after deleting the current one
+    } else {
+        fetchPastAnalyses(); // Or just refresh the list if a different one was deleted
     }
   };
 
   const handleTabChange = (tabValue: HeaderTabValue) => {
+    setCurrentAnalysis(null); // Always clear current analysis when changing main tabs
     if (tabValue === 'past_analyses') {
       navigateToPastAnalyses();
     }
-    // No other tabs to handle for now
+    // No other tabs to handle for now directly changing viewState,
+    // navigation to dashboard is handled by AppHeader's onNavigateToDashboard prop
   };
 
   const getActiveTab = (): HeaderTabValue | undefined => {
-    if (viewState === 'past_analyses') {
+    if (viewState === 'past_analyses' && !currentAnalysis) { // Only active if viewing the list
       return 'past_analyses';
     }
-    return undefined; // No tab active for dashboard, new_analysis, or analysis_view
+    return undefined;
   };
 
 
@@ -244,7 +252,7 @@ export default function HomePage() {
           />
         )}
 
-        {viewState === 'past_analyses' && (
+        {viewState === 'past_analyses' && !currentAnalysis && ( // Ensure currentAnalysis is null to show list
           <PastAnalysesView
             analyses={pastAnalyses}
             isLoading={isLoadingPastAnalyses}
