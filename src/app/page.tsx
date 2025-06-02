@@ -102,14 +102,17 @@ export default function HomePage() {
             id: docSnap.id,
             userId: data.userId,
             fileName: data.fileName,
-            status: data.status, // This will be 'identifying_regulations' or 'summarizing_data' after finalizeFileUpload
+            status: data.status, 
             progress: data.progress,
             uploadProgress: data.uploadProgress,
             powerQualityDataUrl: data.powerQualityDataUrl,
             powerQualityDataSummary: data.powerQualityDataSummary,
+            isDataChunked: data.isDataChunked,
             identifiedRegulations: data.identifiedRegulations,
             summary: data.summary,
             complianceReport: data.complianceReport,
+            structuredReport: data.structuredReport,
+            mdxReportStoragePath: data.mdxReportStoragePath,
             errorMessage: data.errorMessage,
             tags: data.tags || [],
             createdAt: data.createdAt.toDate().toISOString(),
@@ -119,7 +122,6 @@ export default function HomePage() {
           setExpandedAnalysisId(fetchedAnalysis.id); 
           setShowNewAnalysisForm(false); 
           await fetchPastAnalyses(); 
-          // The processAnalysisFile action will be triggered if status is 'summarizing_data' (or 'identifying_regulations' if summarization is skipped)
           if (fetchedAnalysis.status === 'summarizing_data' || fetchedAnalysis.status === 'identifying_regulations') {
              await startAiProcessing(result.analysisId, user.uid);
           }
@@ -283,11 +285,12 @@ export default function HomePage() {
                           <AnalysisView
                             analysis={currentAnalysis} 
                             analysisSteps={displayedAnalysisSteps}
-                            onDownloadReport={downloadReportAsTxt}
+                            onDownloadReport={() => downloadReportAsTxt(currentAnalysis)} // Pass currentAnalysis to download function
                             tagInput={tagInput}
                             onTagInputChange={setTagInput}
                             onAddTag={(tag) => handleAddTag(currentAnalysis.id, tag)}
                             onRemoveTag={(tag) => handleRemoveTag(currentAnalysis.id, tag)}
+                            onDeleteAnalysis={() => handleDeleteAnalysis(currentAnalysis.id, afterDeleteAnalysis)}
                           />
                         ) : expandedAnalysisId === analysisItem.id && analysisItem.status === 'error' && analysisItem.id.startsWith('error-') ? (
                            <div className="p-4 bg-destructive/10 rounded-md border border-destructive">

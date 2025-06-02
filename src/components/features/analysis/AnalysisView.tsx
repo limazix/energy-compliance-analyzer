@@ -3,11 +3,23 @@
 
 import type { Analysis, AnalysisStep } from '@/types/analysis';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Trash2 } from 'lucide-react';
 import { AnalysisProgressDisplay } from './AnalysisProgressDisplay';
 import { AnalysisResultsDisplay } from './AnalysisResultsDisplay';
 import { TagEditor } from './TagEditor';
 import { AnalysisStepItem } from './AnalysisStepItem';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type AnalysisViewProps = {
   analysis: Analysis;
@@ -17,7 +29,7 @@ type AnalysisViewProps = {
   onTagInputChange: (value: string) => void;
   onAddTag: (analysisId: string, tag: string) => void;
   onRemoveTag: (analysisId: string, tag: string) => void;
-  // onNavigateToDashboard e onNavigateToPastAnalyses não são mais necessários aqui
+  onDeleteAnalysis: (analysisId: string) => void; // Nova prop
 };
 
 export function AnalysisView({
@@ -28,21 +40,14 @@ export function AnalysisView({
   onTagInputChange,
   onAddTag,
   onRemoveTag,
+  onDeleteAnalysis, // Nova prop
 }: AnalysisViewProps) {
   const isCompleted = analysis.status === 'completed';
   const isError = analysis.status === 'error';
   const isInProgress = !isCompleted && !isError;
 
-  // Não é mais um Card principal, mas o conteúdo interno.
-  // A remoção de Card, CardHeader, CardContent e CardTitle aqui
-  // pressupõe que o AccordionContent fornecerá o encapsulamento.
-  // Ou, mantemos um Card interno para consistência de padding/estilo se necessário.
-  // Por ora, manterei a estrutura interna do conteúdo.
   return (
     <div className="space-y-6">
-      {/* CardHeader e CardDescription são agora parte do AccordionTrigger, não aqui */}
-      {/* Breadcrumbs removidos */}
-
       {isInProgress && (
         <AnalysisProgressDisplay analysisSteps={analysisSteps} />
       )}
@@ -76,6 +81,34 @@ export function AnalysisView({
         onAddTag={onAddTag}
         onRemoveTag={onRemoveTag}
       />
+
+      <div className="mt-8 pt-6 border-t">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" size="sm">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Excluir Análise
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza de que deseja excluir a análise do arquivo "{analysis.fileName}"? Esta ação não pode ser desfeita e todos os dados associados, incluindo o relatório e o arquivo original, serão removidos.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => onDeleteAnalysis(analysis.id)}>
+                Confirmar Exclusão
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        <p className="text-xs text-muted-foreground mt-2">
+          A exclusão removerá o registro do Firestore e os arquivos do Storage.
+        </p>
+      </div>
     </div>
   );
 }
