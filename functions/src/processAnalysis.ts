@@ -125,7 +125,15 @@ const summarizeDataChunkFlow = ai.definePrompt({
   name: 'summarizePowerQualityDataChunkInFunction',
   input: { schema: SummarizePowerQualityDataInputSchema },
   output: { schema: SummarizePowerQualityDataOutputSchema },
-  prompt: `You are an expert power systems analyst... (full prompt as in Next.js app, adapted for language: {{languageCode}})
+  prompt: `You are an expert power systems analyst. You will be provided with a CHUNK of power quality data in CSV format from a PowerNET PQ-600 G4 device. This is one segment of a potentially larger dataset. Your task is to:
+1. Analyze THIS CHUNK of data.
+2. Generate a CONCISE TEXTUAL SUMMARY that captures the most critical information *within this chunk* relevant for a subsequent ANEEL regulatory compliance assessment.
+3. The summary for THIS CHUNK should highlight:
+    - Key voltage, current, power factor, and frequency statistics (e.g., min, max, average, significant deviations) *observed in this chunk*.
+    - Presence of any notable events or anomalies (e.g., sags, swells, interruptions, harmonic distortions exceeding typical thresholds) *visible in this chunk*.
+    - General stability and quality trends *observed in this chunk*.
+4. DO NOT add any introductory or concluding phrases like "This chunk covers..." or "In summary, this segment shows...". Provide only the direct factual summary of the data in this specific chunk.
+5. The output summary for THIS CHUNK MUST be significantly smaller than the input data to be suitable for aggregation and further processing. Focus on information density and relevance for regulatory checks. Do not include raw data rows.
 
 Power Quality CSV Data CHUNK:
 {{powerQualityDataCsv}}
@@ -136,21 +144,70 @@ const identifyResolutionsFlow = ai.definePrompt({
   name: 'identifyAEEEResolutionsInFunction',
   input: {schema: IdentifyAEEEResolutionsInputSchema},
   output: {schema: IdentifyAEEEResolutionsOutputSchema},
-  prompt: `You are an expert in Brazilian electrical regulations... (full prompt as in Next.js app, for language: {{languageCode}})
+  prompt: `You are an expert in Brazilian electrical regulations, specifically ANEEL Normative Resolutions.
+  Based on the provided summary of power quality data, identify the relevant ANEEL Normative Resolutions that apply.
+  Return a list of the relevant resolutions.
 
-Power Quality Data Summary:
-{{powerQualityDataSummary}}`,
+  Power Quality Data Summary:
+  {{powerQualityDataSummary}}`,
 });
 
 const analyzeReportFlow = ai.definePrompt({
   name: 'generateStructuredComplianceReportInFunction',
   input: {schema: AnalyzeComplianceReportInputSchema},
   output: {schema: AnalyzeComplianceReportOutputSchema},
-  prompt: `Você é um especialista em engenharia elétrica... (full prompt as in Next.js app, for language: {{languageCode}})
-Contexto:
-- Arquivo: {{fileName}}
-- Sumário: {{powerQualityDataSummary}}
-- Resoluções: {{identifiedRegulations}}
+  prompt: `
+Você é um especialista em engenharia elétrica e regulamentações da ANEEL, encarregado de gerar um relatório técnico de conformidade detalhado e bem estruturado.
+
+**Contexto da Análise:**
+- Arquivo de Dados Analisado: {{fileName}}
+- Sumário dos Dados de Qualidade de Energia: {{powerQualityDataSummary}}
+- Resoluções ANEEL Identificadas como Pertinentes: {{identifiedRegulations}}
+
+**Sua Tarefa:**
+Gerar um relatório de conformidade completo, seguindo RIGOROSAMENTE a estrutura de saída JSON definida. O relatório deve ser técnico, claro, objetivo e pronto para ser a base de um documento PDF profissional.
+
+**Diretrizes Detalhadas para Cada Parte do Relatório:**
+
+1.  **reportMetadata:**
+    *   \`title\`: Crie um título formal, como "Relatório de Análise de Conformidade da Qualidade de Energia Elétrica".
+    *   \`subtitle\`: Opcional. Pode incluir o nome do arquivo: "Análise referente ao arquivo '{{fileName}}'".
+    *   \`author\`: Use "Energy Compliance Analyzer".
+    *   \`generatedDate\`: Use a data atual no formato YYYY-MM-DD.
+
+2.  **tableOfContents:**
+    *   Liste os títulos das seções principais que você criará: "Introdução", todos os títulos de \`analysisSections\`, "Considerações Finais", "Referências Bibliográficas".
+
+3.  **introduction:**
+    *   \`objective\`: Descreva o propósito do relatório (ex: analisar a conformidade dos dados de '{{fileName}}' com as resoluções ANEEL).
+    *   \`overallResultsSummary\`: Forneça um breve panorama dos achados (ex: se a maioria dos parâmetros está conforme, ou se há violações significativas).
+    *   \`usedNormsOverview\`: Mencione de forma geral as principais resoluções ANEEL (da lista {{identifiedRegulations}}) que fundamentaram a análise.
+
+4.  **analysisSections (Array):** Esta é a parte principal. Crie múltiplas seções.
+    *   **Ordenação:** Organize as seções por temas comuns (ex: "Análise de Tensão", "Análise de Frequência", "Desequilíbrio de Tensão", "Harmônicos") e, dentro dos temas, se possível, de forma cronológica caso os dados no sumário permitam identificar eventos com data/hora.
+    *   Para cada \`ReportSectionSchema\` no array:
+        *   \`title\`: Um título claro e descritivo para a seção (ex: "Análise dos Níveis de Tensão em Regime Permanente").
+        *   \`content\`: Detalhe a análise dos parâmetros relevantes para esta seção, baseado no \`powerQualityDataSummary\`. Seja técnico, mas claro. Compare os valores observados com os limites regulatórios.
+        *   \`insights\`: Liste os principais insights, observações ou problemas detectados nesta seção específica. Cada insight deve ser uma frase concisa.
+        *   \`relevantNormsCited\`: Para cada insight ou problema, **explicite a norma ANEEL e o artigo/item específico** que o respalda (ex: "Resolução XXX/YYYY, Art. Z, Inciso W", ou "PRODIST Módulo 8, item 3.2.1"). Seja preciso.
+        *   \`chartOrImageSuggestion\`: (OPCIONAL, MAS RECOMENDADO) Descreva verbalmente um gráfico ou imagem que poderia ilustrar os achados da seção. Ex: "Sugestão de Gráfico: Histograma das medições de tensão eficaz versus os limites de tensão adequada e precária definidos pela REN XXX/YYYY." ou "Sugestão de Imagem: Forma de onda do evento de afundamento de tensão ocorrido em [data/hora, se disponível no sumário]."
+
+5.  **finalConsiderations:**
+    *   Resuma as principais conclusões da análise.
+    *   Destaque os pontos mais críticos de não conformidade, se houver.
+    *   Pode incluir recomendações gerais (se o sumário de dados permitir inferi-las).
+
+6.  **bibliography (Array):**
+    *   Para cada norma ANEEL que foi CITADA em \`relevantNormsCited\` em qualquer \`analysisSections\`:
+        *   Crie um item \`BibliographyItemSchema\`.
+        *   \`text\`: Forneça a referência completa da norma (ex: "Agência Nacional de Energia Elétrica (ANEEL). Resolução Normativa nº 956, de 7 de dezembro de 2021. Estabelece os Procedimentos de Distribuição de Energia Elétrica no Sistema Elétrico Nacional – PRODIST."). Se for um módulo específico, cite-o (ex: "ANEEL. PRODIST Módulo 8 - Qualidade da Energia Elétrica. Revisão 2023.").
+        *   \`link\`: Se você souber de um link oficial para a norma, inclua-o. Caso contrário, pode omitir.
+
+**Importante:**
+*   Seja o mais detalhado e preciso possível, baseando-se estritamente nas informações do \`powerQualityDataSummary\` e nas \`identifiedRegulations\`.
+*   Se o sumário for limitado, reconheça isso em suas análises (ex: "Com base nos dados sumarizados, não foi possível avaliar X em detalhe...").
+*   A qualidade da estruturação e a precisão das referências às normas são cruciais.
+*   Garanta que a saída seja um JSON válido que corresponda ao schema \`AnalyzeComplianceReportOutputSchema\`.
 `,
 });
 
@@ -299,10 +356,10 @@ export const processAnalysisOnUpdate = functions
 
       // MDX generation and upload (placeholder, you might do this in Next.js or here)
       // For now, we'll skip direct MDX generation in the function to simplify
-      // const mdxContent = convertStructuredReportToMdx(structuredReportOutput, originalFileName); // If you move this util
-      // const mdxFilePath = `user_reports/${userId}/${analysisId}/report.mdx`;
-      // await storage.bucket().file(mdxFilePath).save(mdxContent, { contentType: 'text/markdown' });
-      // await analysisRef.update({ mdxReportStoragePath: mdxFilePath });
+      const mdxContent = convertStructuredReportToMdx(structuredReportOutput, originalFileName); // If you move this util
+      const mdxFilePath = `user_reports/${userId}/${analysisId}/report.mdx`;
+      await storage.bucket().file(mdxFilePath).save(mdxContent, { contentType: 'text/markdown' });
+      await analysisRef.update({ mdxReportStoragePath: mdxFilePath });
 
       await analysisRef.update({
         status: 'completed',
