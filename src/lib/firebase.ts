@@ -3,6 +3,7 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { getDatabase, connectDatabaseEmulator } from 'firebase/database'; // Added
 
 // Firebase SDK will throw its own errors if critical parts of firebaseConfig are missing/invalid.
 // We are relying on next.config.ts to provide these environment variables to the client.
@@ -15,7 +16,7 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!,
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL!,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL!, // Ensure this is set in .env for RTDB
 };
 
 let app: FirebaseApp;
@@ -28,6 +29,7 @@ if (getApps().length === 0) {
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const rtdb = getDatabase(app); // Added
 const googleProvider = new GoogleAuthProvider();
 
 if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
@@ -50,10 +52,16 @@ if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
   } catch (e) {
     console.error('Firebase: Error connecting to Storage emulator.', e);
   }
+  try { // Added RTDB emulator connection
+    connectDatabaseEmulator(rtdb, 'localhost', 9000);
+    console.log('Firebase: Realtime Database emulator connected.');
+  } catch (e) {
+    console.error('Firebase: Error connecting to RTDB emulator.', e);
+  }
 } else {
   console.log('Firebase: Connecting to production Firebase services.');
 }
 
 
-export { app, auth, db, storage, googleProvider };
+export { app, auth, db, storage, rtdb, googleProvider }; // Added rtdb export
 
