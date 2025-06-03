@@ -42,7 +42,7 @@ jobs:
           # Configurar variáveis de ambiente para testes, se necessário
           # Ex: Se o app espera chaves específicas no ambiente de teste
           CI: true # Muitas bibliotecas de teste usam CI=true para otimizar logs, etc.
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: "electric-magnitudes-analizer" # Necessário para SDK init
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} # Necessário para SDK init
           # Outras NEXT_PUBLIC_FIREBASE_* vars podem ser "dummy" para testes se não forem críticas
           # ou se os emuladores não as exigirem estritamente (o SDK geralmente lida bem com emuladores)
           NEXT_PUBLIC_FIREBASE_API_KEY: "test-api-key"
@@ -80,7 +80,7 @@ jobs:
           # Certifique-se de configurá-los no seu repositório GitHub: Settings > Secrets and variables > Actions
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: "electric-magnitudes-analizer" # Pode ser fixo se for sempre este
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} # Pode ser fixo se for sempre este
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
@@ -104,7 +104,7 @@ jobs:
           # Você pode encontrá-lo no Firebase Console após o primeiro deploy manual ou criação do backend.
           # Exemplo de ID: energy-compliance-analyzer-backend (mas verifique o seu)
           firebase apphosting:backends:deploy YOUR_APP_HOSTING_BACKEND_ID \
-            --project electric-magnitudes-analizer \
+            --project ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} \
             --region us-central1 # Ajuste a região se necessário
             --non-interactive
         env:
