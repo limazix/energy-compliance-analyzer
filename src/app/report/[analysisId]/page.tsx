@@ -12,29 +12,34 @@ import Link from 'next/link';
 import { AppHeader } from '@/components/app-header'; 
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter, useParams } from 'next/navigation';
-import type { AnalysisReportData, Analysis } from '@/types/analysis'; // Added Analysis
+import type { AnalysisReportData, Analysis } from '@/types/analysis';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { rtdb } from '@/lib/firebase'; // Import RTDB instance
-import { ref, onValue, push, serverTimestamp, off } from 'firebase/database'; // Import RTDB functions
+import { rtdb } from '@/lib/firebase';
+import { ref, onValue, push, serverTimestamp, off, child, update } from 'firebase/database';
 import type { AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report';
+import { doc, getDoc, onSnapshot as firestoreOnSnapshot, type Unsubscribe as FirestoreUnsubscribe } from 'firebase/firestore'; // Added for structuredReport listener
+import { db } from '@/lib/firebase'; // Added for structuredReport listener
 
-
-interface ReportDataState extends AnalysisReportData {
+interface ReportDataState {
+  mdxContent: string | null;
+  fileName: string | null;
+  analysisId: string | null; // Ensure this is always a string if report page is loaded
   isLoading: boolean;
-  structuredReport: AnalyzeComplianceReportOutput | null; // Added for storing structured report
+  error: string | null;
+  structuredReport: AnalyzeComplianceReportOutput | null; 
 }
 
 interface ChatMessage {
-  id: string; // Will be the RTDB key
+  id: string; 
   sender: 'user' | 'ai';
   text: string;
-  timestamp: number; // RTDB serverTimestamp will be a number
-  // Optional fields if AI suggests report changes, to be stored with the AI's message
-  revisedStructuredReport?: AnalyzeComplianceReportOutput;
-  suggestedMdxChanges?: string;
+  timestamp: number; 
+  revisedStructuredReport?: AnalyzeComplianceReportOutput; // No longer stored in chat message
+  suggestedMdxChanges?: string; // No longer stored in chat message
+  isError?: boolean; // Custom flag for AI error messages in chat
 }
 
 export default function ReportPage() {
@@ -57,10 +62,10 @@ export default function ReportPage() {
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [userInput, setUserInput] = useState('');
-  const [isAiResponding, setIsAiResponding] = useState(false);
+  const [isAiResponding, setIsAiResponding] = useState(false); // To disable input while AI "thinks" before streaming
   const [currentLanguageCode, setCurrentLanguageCode] = useState('pt-BR');
 
-  const fetchReportData = useCallback(async (currentAnalysisId: string, currentUserId: string) => {
+  const fetchReportAndInitialStructuredData = useCallback(async (currentAnalysisId: string, currentUserId: string) => {
     setReportData(prev => ({ ...prev, isLoading: true, error: null, analysisId: currentAnalysisId }));
     try {
       const data = await getAnalysisReportAction(currentUserId, currentAnalysisId);
@@ -75,21 +80,22 @@ export default function ReportPage() {
         });
         toast({ title: "Erro ao Carregar Relatório", description: data.error, variant: "destructive"});
       } else {
-        // Fetch structured report if MDX is loaded successfully
-        // This assumes structuredReport is part of Analysis document, or a separate fetch is needed.
-        // For now, we'll need to adjust getAnalysisReportAction or add another action.
-        // Let's assume for now `getAnalysisReportAction` could also return structuredReport
-        // For simplicity, let's just set it if available from a different source or in a later step.
-        // For this PR, structuredReport will be populated when AI makes changes.
+        // Fetch initial structured report from Firestore
+        const analysisDocRef = doc(db, 'users', currentUserId, 'analyses', currentAnalysisId);
+        const analysisSnap = await getDoc(analysisDocRef);
+        let initialStructuredReport: AnalyzeComplianceReportOutput | null = null;
+        if (analysisSnap.exists()) {
+          initialStructuredReport = (analysisSnap.data() as Analysis).structuredReport || null;
+        }
+
         setReportData({
           mdxContent: data.mdxContent || null,
           fileName: data.fileName || 'Relatório',
           analysisId: data.analysisId || currentAnalysisId,
           isLoading: false,
           error: null,
-          structuredReport: null, // Initially null, will be updated by AI interactions
+          structuredReport: initialStructuredReport, 
         });
-         // Initial AI welcome message will be handled by RTDB listener if no messages exist
       }
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : String(e);
@@ -105,6 +111,66 @@ export default function ReportPage() {
     }
   }, [toast]);
 
+
+  // Listener for Firestore document changes (structuredReport, mdxReportStoragePath)
+  useEffect(() => {
+    if (!user?.uid || !analysisId || reportData.isLoading) return;
+
+    const analysisDocRef = doc(db, 'users', user.uid, 'analyses', analysisId);
+    const unsubscribeFirestore: FirestoreUnsubscribe = firestoreOnSnapshot(analysisDocRef, async (docSnap) => {
+      if (docSnap.exists()) {
+        const analysisData = docSnap.data() as Analysis;
+        const newStructuredReport = analysisData.structuredReport || null;
+        const newMdxPath = analysisData.mdxReportStoragePath;
+
+        // Check if structuredReport or mdxPath has actually changed
+        // This avoids unnecessary re-renders or MDX fetches if other fields changed
+        const hasStructuredReportChanged = JSON.stringify(newStructuredReport) !== JSON.stringify(reportData.structuredReport);
+        
+        // We don't store MDX path in reportData state directly, but if it changes, we need new MDX content
+        // For simplicity, if structured report changed, we assume MDX might also need update
+        // Or, if MDX is primarily generated from structured, this check is sufficient.
+        // A more robust check would compare newMdxPath with a previously stored one if we did.
+
+        if (hasStructuredReportChanged) {
+          console.log("[ReportPage] Firestore listener: structuredReport or mdxReportStoragePath changed. Updating state.");
+          setReportData(prev => ({
+            ...prev,
+            structuredReport: newStructuredReport,
+            // If MDX path changes, we need to re-fetch MDX content
+            // For now, if structuredReport changes, we assume MDX will be provided by askReportOrchestratorAction or needs re-fetch.
+            // This part is tricky: if Firestore changes *remotely*, we might need to refetch MDX.
+            // Let's assume askReportOrchestratorAction provides the new MDX for now.
+            // If user is not interacting but report changes (e.g. another session), they'd need to refresh MDX.
+          }));
+          // If only structured report changes via Firestore listener (not via current chat interaction),
+          // we might need to refetch MDX content based on the new mdxReportStoragePath.
+          // This is complex as the local `reportData.mdxContent` might be stale.
+          // The current `askReportOrchestratorAction` handles updating MDX based on its changes.
+          // This listener is more for remote changes.
+          if (newMdxPath && user.uid && analysisId) { // If path exists
+             // To avoid re-fetching MDX if the orchestrator action already updated it:
+             // We could add a timestamp or version to the MDX/Structured report.
+             // For now, if structured report changes via Firestore, let's prompt a refresh or auto-refresh MDX.
+             // Simple approach: refetch MDX if structuredReport changes from Firestore
+             try {
+                const updatedMdxData = await getAnalysisReportAction(user.uid, analysisId);
+                if (!updatedMdxData.error && updatedMdxData.mdxContent) {
+                    setReportData(prev => ({...prev, mdxContent: updatedMdxData.mdxContent, fileName: updatedMdxData.fileName || prev.fileName}));
+                    toast({title: "Relatório Atualizado", description: "O conteúdo do relatório foi atualizado remotamente."});
+                }
+             } catch (fetchError) {
+                 console.error("[ReportPage] Error re-fetching MDX after Firestore update:", fetchError);
+             }
+          }
+        }
+      }
+    });
+    return () => unsubscribeFirestore();
+  }, [user, analysisId, reportData.isLoading, reportData.structuredReport, toast]); // Added reportData.structuredReport
+
+
+  // Listener for RTDB chat messages
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
@@ -114,33 +180,38 @@ export default function ReportPage() {
     setCurrentLanguageCode(navigator.language || 'pt-BR');
 
     if (user && user.uid && analysisId) {
-      fetchReportData(analysisId, user.uid);
+      if (reportData.isLoading && !reportData.error) { // Fetch initial report data only if not already fetched/errored
+         fetchReportAndInitialStructuredData(analysisId, user.uid);
+      }
 
       const chatRef = ref(rtdb, `chats/${analysisId}`);
-      const unsubscribe = onValue(chatRef, (snapshot) => {
+      const unsubscribeRTDB = onValue(chatRef, (snapshot) => {
         const data = snapshot.val();
         const loadedMessages: ChatMessage[] = [];
         if (data) {
           for (const key in data) {
             loadedMessages.push({ id: key, ...data[key] });
           }
-          loadedMessages.sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp
+          loadedMessages.sort((a, b) => a.timestamp - b.timestamp);
         }
         
-        if (loadedMessages.length === 0 && !reportData.isLoading && !reportData.error) {
-           // Add initial AI welcome message if no messages exist and report is loaded
-            const welcomeMessage: Omit<ChatMessage, 'id' | 'timestamp'> = {
-                sender: 'ai',
-                text: `Olá! Sou seu assistente para este relatório (${reportData.fileName || 'Relatório'}). Como posso ajudar você a entender ou refinar este documento?`,
-            };
-            push(chatRef, {...welcomeMessage, timestamp: serverTimestamp() });
-        } else {
-             setChatMessages(loadedMessages);
+        setChatMessages(loadedMessages); // Update chat messages
+
+        if (loadedMessages.length === 0 && !reportData.isLoading && !reportData.error && reportData.fileName) {
+            const welcomeMessageExists = loadedMessages.some(msg => msg.text.startsWith("Olá! Sou seu assistente para este relatório"));
+            if (!welcomeMessageExists) {
+                const welcomeMessagePayload = {
+                    sender: 'ai' as const,
+                    text: `Olá! Sou seu assistente para este relatório (${reportData.fileName || 'Relatório'}). Como posso ajudar você a entender ou refinar este documento?`,
+                    timestamp: serverTimestamp(),
+                };
+                push(chatRef, welcomeMessagePayload);
+            }
         }
       });
       return () => {
-        off(chatRef); // Detach listener
-        unsubscribe();
+        off(chatRef); 
+        unsubscribeRTDB();
       };
     } else if (!analysisId && user && !authLoading) {
         setReportData({
@@ -148,12 +219,12 @@ export default function ReportPage() {
             error: "ID da análise não encontrado na URL.", structuredReport: null,
         });
     }
-  }, [analysisId, user, authLoading, router, fetchReportData, reportData.isLoading, reportData.error, reportData.fileName]); // Added reportData dependencies
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysisId, user, authLoading, router, reportData.isLoading, reportData.error, reportData.fileName]);
 
   useEffect(() => {
-    // Scroll to bottom of chat
     if (chatScrollAreaRef.current) {
-      const scrollElement = chatScrollAreaRef.current.children[0] as HTMLDivElement;
+      const scrollElement = chatScrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
       if (scrollElement) {
         scrollElement.scrollTop = scrollElement.scrollHeight;
       }
@@ -162,110 +233,104 @@ export default function ReportPage() {
 
 
   const handleSendMessage = useCallback(async () => {
-    if (!userInput.trim() || isAiResponding || !user || !reportData.fileName) {
+    if (!userInput.trim() || !user || !reportData.fileName) {
       if (!userInput.trim()) {
         toast({ title: "Entrada vazia", description: "Por favor, digite sua pergunta.", variant: "destructive"});
       }
       return;
     }
-    if (!reportData.mdxContent && !reportData.structuredReport) {
-        toast({ title: "Relatório não carregado", description: "O conteúdo do relatório não está disponível para interação.", variant: "destructive"});
+     if (isAiResponding) { // Prevent multiple sends while AI is "thinking" (before streaming starts)
+        toast({ title: "Aguarde", description: "A IA ainda está processando a solicitação anterior.", variant: "default"});
+        return;
+    }
+    if (!reportData.structuredReport) { // Crucial for revisions
+        toast({ title: "Relatório não Sincronizado", description: "O relatório estruturado não está disponível para interação ou revisão. Tente recarregar.", variant: "destructive"});
+        return;
+    }
+     if (!reportData.mdxContent) { 
+        toast({ title: "Conteúdo do Relatório Ausente", description: "O conteúdo MDX do relatório não está carregado.", variant: "destructive"});
         return;
     }
 
-    const userMessageText = userInput.trim();
-    setUserInput(''); // Clear input immediately
 
-    const chatRef = ref(rtdb, `chats/${analysisId}`);
-    const userMessageForRtdb: Omit<ChatMessage, 'id' | 'timestamp'> = {
-      sender: 'user',
+    const userMessageText = userInput.trim();
+    setUserInput(''); 
+    setIsAiResponding(true); // Indicate AI is about to process
+
+    const userMessageForRtdb = {
+      sender: 'user' as const,
       text: userMessageText,
+      timestamp: serverTimestamp(),
     };
+    const chatRef = ref(rtdb, `chats/${analysisId}`);
     try {
-      await push(chatRef, {...userMessageForRtdb, timestamp: serverTimestamp()});
+      await push(chatRef, userMessageForRtdb);
     } catch (dbError) {
       console.error("Failed to push user message to RTDB:", dbError);
       toast({ title: "Erro ao Enviar", description: "Não foi possível enviar sua mensagem.", variant: "destructive"});
-      setUserInput(userMessageText); // Restore input if send failed
+      setUserInput(userMessageText); 
+      setIsAiResponding(false);
       return;
     }
     
-    setIsAiResponding(true);
-
     try {
-      // Use current mdxContent and structuredReport from state for the orchestrator
-      const currentMdx = reportData.mdxContent;
-      const currentStructReport = reportData.structuredReport;
-
-      if (!currentMdx) {
-         throw new Error("Conteúdo MDX do relatório não está disponível para o orquestrador.");
-      }
-      if (!currentStructReport) { // Assuming orchestrator always needs structured report for revisions
-         // Potentially fetch it here if it's not loaded but MDX is.
-         // For now, let's assume it should ideally be available if MDX is.
-         // If it's critical for all interactions, this needs a robust way to ensure it's loaded.
-         console.warn("[handleSendMessage] Structured report is null. Revisor tool might not work optimally.");
-      }
-
-      const result = await askReportOrchestratorAction(
+      const actionResult = await askReportOrchestratorAction(
         user.uid,
         analysisId,
         userMessageText,
-        currentMdx,
-        currentStructReport, // Pass current structured report
+        reportData.mdxContent, 
+        reportData.structuredReport,
         reportData.fileName,
         currentLanguageCode
       );
+      
+      // AI response text is now streamed directly to RTDB by the server action.
+      // The onValue listener will pick it up.
+      // The server action might return an error or success status.
 
-      let aiTextResponse = "Desculpe, não consegui processar sua solicitação no momento.";
-      let aiMessageForRtdb: Omit<ChatMessage, 'id' | 'timestamp'> = { sender: 'ai', text: aiTextResponse };
-
-      if (result.error) {
-        console.error("Error from AI orchestrator action:", result.error);
-        toast({ title: "Erro na Resposta da IA", description: result.error, variant: "destructive" });
-        aiMessageForRtdb.text = `Ocorreu um erro: ${result.error}`;
-      } else {
-        aiMessageForRtdb.text = result.aiResponseText || aiTextResponse;
-        if (result.revisedStructuredReport && result.suggestedMdxChanges) {
-          aiMessageForRtdb.revisedStructuredReport = result.revisedStructuredReport;
-          aiMessageForRtdb.suggestedMdxChanges = result.suggestedMdxChanges;
-          // Update local state for MDX rendering immediately
-          setReportData(prev => ({
-            ...prev,
-            mdxContent: result.suggestedMdxChanges || prev.mdxContent,
-            structuredReport: result.revisedStructuredReport || prev.structuredReport,
-          }));
-          toast({ title: "Relatório Atualizado", description: "O relatório foi modificado pela IA."});
-        }
+      if (actionResult.error) {
+        console.error("Error from AI orchestrator action:", actionResult.error);
+        toast({ title: "Erro na Resposta da IA", description: actionResult.error, variant: "destructive" });
+        // An error message might have already been pushed to RTDB by the action.
       }
-      await push(chatRef, {...aiMessageForRtdb, timestamp: serverTimestamp()});
+
+      if (actionResult.reportModified && actionResult.revisedStructuredReport && actionResult.newMdxContent) {
+        setReportData(prev => ({
+          ...prev,
+          structuredReport: actionResult.revisedStructuredReport!,
+          mdxContent: actionResult.newMdxContent!,
+        }));
+        toast({ title: "Relatório Atualizado", description: "O relatório foi modificado pela IA."});
+      }
 
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : String(e);
       console.error("Failed to send message to orchestrator:", e);
       toast({ title: "Erro de Comunicação", description: `Não foi possível contatar o assistente: ${errorMsg}`, variant: "destructive" });
-      const aiErrorResponseForRtdb: Omit<ChatMessage, 'id' | 'timestamp'> = {
-        sender: 'ai',
+      // Attempt to push an error message to chat via RTDB if orchestrator call failed entirely client-side
+      const aiErrorResponseForRtdb = {
+        sender: 'ai' as const,
         text: `Desculpe, ocorreu um erro de comunicação: ${errorMsg}`,
+        timestamp: serverTimestamp(),
+        isError: true,
       };
       try {
-        await push(chatRef, {...aiErrorResponseForRtdb, timestamp: serverTimestamp()});
+        await push(chatRef, aiErrorResponseForRtdb);
       } catch (dbPushError) {
         console.error("Failed to push AI error message to RTDB:", dbPushError);
       }
     } finally {
-      setIsAiResponding(false);
+      setIsAiResponding(false); // AI processing (for this interaction call) is done
     }
-  }, [userInput, isAiResponding, user, analysisId, reportData.mdxContent, reportData.fileName, reportData.structuredReport, currentLanguageCode, toast]);
+  }, [userInput, isAiResponding, user, analysisId, reportData, currentLanguageCode, toast]);
 
   const handleRetryFetch = () => {
     if (user && user.uid && analysisId) {
-      fetchReportData(analysisId, user.uid);
+      fetchReportAndInitialStructuredData(analysisId, user.uid);
     }
   };
 
-
-  if (authLoading || reportData.isLoading) {
+  if (authLoading || (reportData.isLoading && !reportData.error)) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <AppHeader />
@@ -333,8 +398,10 @@ export default function ReportPage() {
     );
   }
 
+  // Ensure mdxContent is a string for MDXRemote
+  const mdxSource = reportData.mdxContent || "# Relatório indisponível\nO conteúdo não pôde ser carregado.";
   const mdxProps: MDXRemoteProps = {
-    source: reportData.mdxContent,
+    source: mdxSource,
     // components: { /* Custom components if any */ }
   };
 
@@ -357,7 +424,7 @@ export default function ReportPage() {
 
         <article className="prose prose-slate lg:prose-xl max-w-none bg-card p-6 sm:p-8 md:p-10 rounded-lg shadow-lg">
           <Suspense fallback={<div className="text-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto"/> Carregando relatório...</div>}>
-            {/* @ts-expect-error MDXRemoteProps might be expecting compiledSource from serialize, but we're passing raw string */}
+            {/* @ts-expect-error MDXRemoteProps can accept string source */}
             <MDXRemote {...mdxProps} />
           </Suspense>
         </article>
@@ -375,33 +442,25 @@ export default function ReportPage() {
                   "mb-3 flex items-start gap-3 p-3 rounded-lg max-w-[85%]",
                   msg.sender === 'user' 
                     ? "ml-auto bg-primary/80 text-primary-foreground flex-row-reverse shadow-md" 
-                    : "mr-auto bg-muted text-foreground shadow"
+                    : "mr-auto bg-muted text-foreground shadow",
+                  msg.isError && msg.sender === 'ai' ? "bg-destructive/20 border border-destructive/50" : ""
                 )}
               >
                 <Avatar className="h-8 w-8 border border-border/50">
                   <AvatarImage src={msg.sender === 'user' ? user?.photoURL ?? undefined : undefined} />
-                  <AvatarFallback className={cn(msg.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-accent text-accent-foreground')}>
+                  <AvatarFallback className={cn(msg.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-accent text-accent-foreground', msg.isError && msg.sender === 'ai' ? 'bg-destructive text-destructive-foreground' : '')}>
                     {msg.sender === 'user' ? (user?.displayName?.charAt(0)?.toUpperCase() || <UserCircle/>) : <Sparkles/>}
                   </AvatarFallback>
                 </Avatar>
                 <div className={cn("flex flex-col", msg.sender === 'user' ? 'items-end' : 'items-start')}>
-                  <p className={cn("text-sm whitespace-pre-wrap", msg.sender === 'user' ? 'text-right' : 'text-left')}>{msg.text}</p>
+                  <p className={cn("text-sm whitespace-pre-wrap", msg.sender === 'user' ? 'text-right' : 'text-left')}>{msg.text || (msg.sender === 'ai' && !msg.isError ? "..." : "")}</p>
                   <span className="text-xs text-muted-foreground/80 mt-1">
                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
               </div>
             ))}
-            {isAiResponding && (
-              <div className="mb-3 flex items-start gap-3 p-3 rounded-lg max-w-[85%] mr-auto bg-muted text-foreground">
-                 <Avatar className="h-8 w-8 border border-border/50">
-                   <AvatarFallback className='bg-accent text-accent-foreground'><Sparkles/></AvatarFallback>
-                 </Avatar>
-                 <div className="pt-1">
-                    <Loader2 className="h-5 w-5 animate-spin text-accent" />
-                 </div>
-              </div>
-            )}
+            {/* No need for a separate "isAiResponding" visual cue here if text streams directly */}
           </ScrollArea>
 
           <div className="flex items-start gap-2">
@@ -416,16 +475,17 @@ export default function ReportPage() {
                   handleSendMessage();
                 }
               }}
-              disabled={isAiResponding || reportData.isLoading}
+              disabled={isAiResponding || reportData.isLoading || !reportData.structuredReport}
               aria-label="Caixa de texto para interagir com o relatório"
             />
-            <Button onClick={handleSendMessage} disabled={!userInput.trim() || isAiResponding || reportData.isLoading} size="lg" className="shadow-md">
+            <Button onClick={handleSendMessage} disabled={!userInput.trim() || isAiResponding || reportData.isLoading || !reportData.structuredReport} size="lg" className="shadow-md">
               <Send className="mr-0 sm:mr-2 h-5 w-5" />
               <span className="hidden sm:inline">Enviar</span>
             </Button>
           </div>
            <p className="text-xs text-muted-foreground mt-2">
             Dica: Pressione Shift+Enter para nova linha. Use o idioma '{currentLanguageCode}' para interagir.
+            {!reportData.structuredReport && !reportData.isLoading && " O chat interativo requer que o relatório estruturado esteja carregado."}
           </p>
         </section>
       </main>
@@ -435,4 +495,3 @@ export default function ReportPage() {
     </div>
   );
 }
-
