@@ -46,7 +46,7 @@ jobs:
       - name: Deploy to Firebase App Hosting
         run: |
           # IMPORTANTE: Substitua YOUR_APP_HOSTING_BACKEND_ID pelo ID real do seu backend do App Hosting.
-          firebase apphosting:backends:deploy YOUR_APP_HOSTING_BACKEND_ID \
+          firebase apphosting:backends:deploy ema-backend \
             --project ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} \
             --region us-central1 # Ajuste a região se necessário
             --non-interactive
