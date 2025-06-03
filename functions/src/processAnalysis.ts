@@ -9,25 +9,25 @@ import {
   summarizePowerQualityDataPromptConfig, 
   SummarizePowerQualityDataInputSchema, 
   type SummarizePowerQualityDataInput
-} from '../../src/ai/prompt-configs/summarize-power-quality-data-prompt-config';
+} from '@/ai/prompt-configs/summarize-power-quality-data-prompt-config';
 import { 
   identifyAEEEResolutionsPromptConfig, 
   IdentifyAEEEResolutionsInputSchema, 
   type IdentifyAEEEResolutionsInput
-} from '../../src/ai/prompt-configs/identify-aneel-resolutions-prompt-config';
+} from '@/ai/prompt-configs/identify-aneel-resolutions-prompt-config';
 import { 
   analyzeComplianceReportPromptConfig, 
   AnalyzeComplianceReportInputSchema, 
   type AnalyzeComplianceReportInput,
   type AnalyzeComplianceReportOutput
-} from '../../src/ai/prompt-configs/analyze-compliance-report-prompt-config';
+} from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
 import {
   reviewComplianceReportPromptConfig,
   ReviewComplianceReportInputSchema,
   type ReviewComplianceReportInput
-} from '../../src/ai/prompt-configs/review-compliance-report-prompt-config';
+} from '@/ai/prompt-configs/review-compliance-report-prompt-config';
 
-import { convertStructuredReportToMdx } from '../../src/lib/reportUtils';
+import { convertStructuredReportToMdx } from '@/lib/reportUtils';
 
 
 if (admin.apps.length === 0) {
@@ -58,8 +58,8 @@ const OVERLAP_SIZE = 10000;
 
 const PROGRESS_FILE_READ = 10;
 const PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE = 15; 
-const PROGRESS_SUMMARIZATION_TOTAL_SPAN = 30; // Adjusted from 35
-const PROGRESS_IDENTIFY_REGULATIONS_COMPLETE = SUMMARIZATION_CHUNK_COMPLETE_BASE + PROGRESS_SUMMARIZATION_TOTAL_SPAN + 15; // Should be 60
+const PROGRESS_SUMMARIZATION_TOTAL_SPAN = 30; 
+const PROGRESS_IDENTIFY_REGULATIONS_COMPLETE = PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE + PROGRESS_SUMMARIZATION_TOTAL_SPAN + 15; // Should be 60
 const PROGRESS_ANALYZE_COMPLIANCE_COMPLETE = PROGRESS_IDENTIFY_REGULATIONS_COMPLETE + 15; // Should be 75
 const PROGRESS_REVIEW_REPORT_COMPLETE = PROGRESS_ANALYZE_COMPLIANCE_COMPLETE + 15; // Should be 90
 const PROGRESS_FINAL_COMPLETE = 100;

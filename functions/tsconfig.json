@@ -4,26 +4,25 @@
     "module": "commonjs",
     "noImplicitReturns": true,
     "noUnusedLocals": true,
-    "outDir": "lib",                       // O diretório de saída permanece functions/lib
-    "rootDir": "..",                       // Define a raiz do projeto como rootDir (um nível acima de functions/)
+    "outDir": "lib",                       // Output relative to tsconfig.json, so functions/lib
+    "rootDir": "src",                      // Root of the functions source files is functions/src
     "sourceMap": true,
     "strict": true,
     "target": "es2021",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true
-    // "baseUrl": ".", // Não é estritamente necessário com rootDir ajustado
-    // "paths": {} // Não é estritamente necessário com rootDir ajustado
+    "resolveJsonModule": true,
+    "baseUrl": ".",                        // Base for path resolution is the functions/ directory
+    "paths": {
+      "@/*": ["../src/*"]                // Maps @/* to PROJECT_ROOT/src/*
+    }
   },
   "include": [
-    "functions/src",                // Caminho relativo ao rootDir: PROJECT_ROOT/functions/src
-    "src/ai/prompt-configs"         // Caminho relativo ao rootDir: PROJECT_ROOT/src/ai/prompt-configs
+    "src/**/*"                         // Include all files within functions/src/
   ],
   "exclude": [
-    "node_modules",                 // Exclui functions/node_modules
-    "../node_modules",              // Exclui PROJECT_ROOT/node_modules
-    "lib"                           // Exclui o próprio diretório de saída
+    "node_modules",                    // Exclude functions/node_modules
+    "lib"                              // Exclude functions/lib (output directory)
   ],
   "compileOnSave": true
 }
-
