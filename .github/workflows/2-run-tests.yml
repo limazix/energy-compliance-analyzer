@@ -3,16 +3,16 @@ name: 2. Run Integration Tests
 
 on:
   workflow_run:
-    workflows: ["1. Build for Tests"] # Aciona quando o workflow "1. Build for Tests" completar
+    workflows: ["1. Build for Tests"] 
     types:
       - completed
 
 jobs:
   test_application:
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success' # Só executa se o workflow anterior teve sucesso
+    if: github.event.workflow_run.conclusion == 'success' 
     permissions:
-      contents: read # Só precisa ler o código e artefatos
+      contents: read 
 
     steps:
       - name: Checkout repository
@@ -24,17 +24,16 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Download Functions build artifact
+      - name: Download Functions source artifact
         uses: actions/download-artifact@v4
         with:
-          name: functions-build-for-test
-          path: functions/lib # Baixa para o local esperado pelas functions
+          name: functions-src-for-test # Nome do artefato atualizado
+          path: functions/src # Baixa para functions/src
 
       - name: Install Next.js app dependencies
         run: npm ci
 
       - name: Install Firebase Functions dependencies
-        # Necessário para ter node_modules em functions/ se os emuladores ou testes os requerem
         run: npm ci --prefix functions
 
       - name: Install Firebase CLI
@@ -44,10 +43,7 @@ jobs:
         run: npm test
         env:
           CI: true
-          # O NEXT_PUBLIC_FIREBASE_PROJECT_ID aqui deve ser o ID do projeto usado pelos emuladores
-          # ou um ID de projeto de teste se os testes não dependerem de um ID específico para os emuladores.
-          # Se firebase.ts usa essa variável para configurar emuladores, ela é necessária.
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} # Assumindo que jest.setup.js ou firebase.ts usem isso
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} 
           NEXT_PUBLIC_FIREBASE_API_KEY: "test-api-key"
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "localhost"
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "default-bucket"

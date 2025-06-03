@@ -3,18 +3,16 @@ name: 3. Build for Deployment
 
 on:
   workflow_run:
-    workflows: ["2. Run Integration Tests"] # Aciona quando o workflow "2. Run Integration Tests" completar
+    workflows: ["2. Run Integration Tests"] 
     types:
       - completed
 
 jobs:
   build_production_package:
     runs-on: ubuntu-latest
-    # Só executa se os testes passaram E o evento que acionou é da branch 'main'
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       (github.event.workflow_run.head_branch == 'main' || (github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.pull_requests[0].base.ref == 'main'))
-
 
     permissions:
       contents: read
@@ -23,7 +21,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Garante que estamos fazendo checkout do commit correto que disparou a cadeia de workflows
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set up Node.js
@@ -38,7 +35,6 @@ jobs:
       - name: Build Next.js application
         run: npm run build
         env:
-          # Segredos para o build do Next.js
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }}
@@ -55,13 +51,10 @@ jobs:
           cp -r .next nextjs-deploy-artifact/
           cp -r public nextjs-deploy-artifact/
           cp package.json nextjs-deploy-artifact/
-          cp package-lock.json nextjs-deploy-artifact/ # ou yarn.lock
-          cp next.config.mjs nextjs-deploy-artifact/ # ou .ts
+          cp package-lock.json nextjs-deploy-artifact/ 
+          cp next.config.mjs nextjs-deploy-artifact/ 
           cp apphosting.yaml nextjs-deploy-artifact/
-          # Adicione outros arquivos/pastas da raiz necessários para App Hosting
-          # Ex: tsconfig.json (se referenciado pelo next.config.mjs)
           if [ -f "tsconfig.json" ]; then cp tsconfig.json nextjs-deploy-artifact/; fi
-
 
       - name: Upload Next.js deployment artifact
         uses: actions/upload-artifact@v4
@@ -73,15 +66,15 @@ jobs:
       - name: Install Firebase Functions dependencies
         run: npm ci --prefix functions
 
-      - name: Build Firebase Functions
-        run: npm run build --prefix functions
-        env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
+      # Etapa de build das functions removida
+      # - name: Build Firebase Functions
+      #  run: npm run build --prefix functions
+      #  env:
+      #    NODE_OPTIONS: "--max-old-space-size=4096"
 
-      - name: Upload Functions deployment artifact
-        # Inclui package.json, node_modules, e o diretório lib construído
+      - name: Upload Functions deployment artifact (includes src, package.json, node_modules)
         uses: actions/upload-artifact@v4
         with:
           name: functions-prod-build
-          path: functions/
+          path: functions/ # Agora faz upload de toda a pasta functions
           retention-days: 1

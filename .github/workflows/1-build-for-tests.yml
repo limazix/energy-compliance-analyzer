@@ -13,8 +13,8 @@ jobs:
   build_test_environment:
     runs-on: ubuntu-latest
     permissions:
-      contents: read # Esta job só precisa ler o código e fazer build
-      actions: write # Para fazer upload de artefatos, se necessário, ou permitir que outros workflows o vejam
+      contents: read
+      actions: write 
 
     steps:
       - name: Checkout repository
@@ -32,14 +32,16 @@ jobs:
       - name: Install Firebase Functions dependencies
         run: npm ci --prefix functions
 
-      - name: Build Firebase Functions for Emulators
-        run: npm run build --prefix functions
-        env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
+      # Etapa de build das functions removida pois agora são JS
+      # - name: Build Firebase Functions for Emulators
+      #   run: npm run build --prefix functions
+      #   env:
+      #     NODE_OPTIONS: "--max-old-space-size=4096"
 
-      - name: Upload Functions build artifact (for test workflow)
+      # Upload do diretório src das functions, já que não há mais 'lib'
+      - name: Upload Functions source artifact (for test workflow)
         uses: actions/upload-artifact@v4
         with:
-          name: functions-build-for-test
-          path: functions/lib # Apenas o diretório 'lib' construído
-          retention-days: 1 # Artefato só é necessário para o próximo workflow
+          name: functions-src-for-test # Mudou o nome do artefato
+          path: functions/src # Faz upload do código fonte JS
+          retention-days: 1
