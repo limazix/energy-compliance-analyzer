@@ -1,19 +1,22 @@
+
 'use client'; 
 
-import { Suspense, useEffect, useState, use, useCallback } from 'react'; // Added use, useCallback
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { MDXRemote, type MDXRemoteProps } from 'next-mdx-remote/rsc'; 
 import { getAnalysisReportAction } from '@/features/report-viewing/actions/reportViewingActions';
+import { askReportOrchestratorAction } from '@/features/report-chat/actions/reportChatActions'; // New Action
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, AlertTriangle, Loader2, Send, UserCircle, Sparkles } from 'lucide-react'; // Added Send, UserCircle, Sparkles
+import { ArrowLeft, AlertTriangle, Loader2, Send, UserCircle, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { AppHeader } from '@/components/app-header'; 
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter, useParams } from 'next/navigation';
 import type { AnalysisReportData } from '@/types/analysis';
-import { ScrollArea } from '@/components/ui/scroll-area'; // Added ScrollArea
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Added Avatar
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast'; // Import useToast
 
 interface ReportDataState extends AnalysisReportData {
   isLoading: boolean;
@@ -30,6 +33,7 @@ export default function ReportPage() {
   const router = useRouter();
   const params = useParams();
   const analysisId = params.analysisId as string; 
+  const { toast } = useToast(); // Initialize toast
 
   const { user, loading: authLoading } = useAuth();
 
@@ -41,10 +45,10 @@ export default function ReportPage() {
     error: null,
   });
 
-  // State for conversational UI
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [userInput, setUserInput] = useState('');
   const [isAiResponding, setIsAiResponding] = useState(false);
+  const [currentLanguageCode, setCurrentLanguageCode] = useState('pt-BR'); // Default language
 
   useEffect(() => {
     if (authLoading) {
@@ -55,6 +59,8 @@ export default function ReportPage() {
       router.replace('/login'); 
       return;
     }
+    // Set language code from browser or default
+    setCurrentLanguageCode(navigator.language || 'pt-BR');
 
     if (user && user.uid && analysisId) {
       setReportData(prev => ({ ...prev, isLoading: true, error: null, analysisId: analysisId }));
@@ -76,7 +82,6 @@ export default function ReportPage() {
               isLoading: false,
               error: null,
             });
-            // Initialize chat with a welcome message from AI
             setChatMessages([
               {
                 id: 'ai-welcome',
@@ -88,13 +93,15 @@ export default function ReportPage() {
           }
         })
         .catch(e => {
+          const errorMsg = e instanceof Error ? e.message : String(e);
           setReportData({
             mdxContent: null,
             fileName: null,
             analysisId: analysisId,
             isLoading: false,
-            error: `Erro ao carregar o relatório: ${e instanceof Error ? e.message : String(e)}`,
+            error: `Erro ao carregar o relatório: ${errorMsg}`,
           });
+          toast({ title: "Erro ao Carregar", description: `Detalhes: ${errorMsg}`, variant: "destructive"});
         });
     } else if (!analysisId && user && !authLoading) { 
         setReportData({
@@ -105,10 +112,15 @@ export default function ReportPage() {
             error: "ID da análise não encontrado na URL.",
         });
     }
-  }, [analysisId, user, authLoading, router]);
+  }, [analysisId, user, authLoading, router, toast]);
 
   const handleSendMessage = useCallback(async () => {
-    if (!userInput.trim() || isAiResponding) return;
+    if (!userInput.trim() || isAiResponding || !user || !reportData.mdxContent || !reportData.fileName) {
+      if (!userInput.trim()) {
+        toast({ title: "Entrada vazia", description: "Por favor, digite sua pergunta.", variant: "destructive"});
+      }
+      return;
+    }
 
     const newUserMessage: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -118,23 +130,52 @@ export default function ReportPage() {
     };
 
     setChatMessages(prev => [...prev, newUserMessage]);
+    const currentInput = userInput.trim();
     setUserInput('');
     setIsAiResponding(true);
 
-    // Placeholder for calling the Orchestrator AI agent
-    // In a real implementation, this would involve a server action calling a Genkit flow
-    setTimeout(() => {
+    try {
+      const result = await askReportOrchestratorAction(
+        user.uid,
+        analysisId,
+        currentInput,
+        reportData.mdxContent,
+        reportData.fileName,
+        currentLanguageCode
+      );
+
+      let aiTextResponse = "Desculpe, não consegui processar sua solicitação no momento.";
+      if (result.error) {
+        console.error("Error from AI orchestrator action:", result.error);
+        toast({ title: "Erro na Resposta da IA", description: result.error, variant: "destructive" });
+        aiTextResponse = `Ocorreu um erro: ${result.error}`;
+      } else if (result.aiResponseText) {
+        aiTextResponse = result.aiResponseText;
+      }
+
       const aiResponse: ChatMessage = {
         id: `ai-${Date.now()}`,
         sender: 'ai',
-        text: `Entendido. Você disse: "${newUserMessage.text}". (Esta é uma resposta simulada. A funcionalidade completa do agente orquestrador ainda será implementada.)`,
+        text: aiTextResponse,
         timestamp: new Date(),
       };
       setChatMessages(prev => [...prev, aiResponse]);
-      setIsAiResponding(false);
-    }, 1500);
 
-  }, [userInput, isAiResponding]);
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      console.error("Failed to send message to orchestrator:", e);
+      toast({ title: "Erro de Comunicação", description: `Não foi possível contatar o assistente: ${errorMsg}`, variant: "destructive" });
+       const aiErrorResponse: ChatMessage = {
+        id: `ai-error-${Date.now()}`,
+        sender: 'ai',
+        text: `Desculpe, ocorreu um erro de comunicação ao tentar processar sua solicitação: ${errorMsg}`,
+        timestamp: new Date(),
+      };
+      setChatMessages(prev => [...prev, aiErrorResponse]);
+    } finally {
+      setIsAiResponding(false);
+    }
+  }, [userInput, isAiResponding, user, analysisId, reportData.mdxContent, reportData.fileName, currentLanguageCode, toast]);
 
 
   if (authLoading || reportData.isLoading) {
@@ -224,7 +265,6 @@ export default function ReportPage() {
           </Suspense>
         </article>
 
-        {/* Conversational UI Section */}
         <section className="mt-12 p-6 bg-card rounded-lg shadow-lg">
           <h2 className="text-2xl font-semibold mb-4 text-primary flex items-center">
             <Sparkles className="mr-3 h-7 w-7 text-accent" /> Interagir com o Relatório
@@ -236,17 +276,19 @@ export default function ReportPage() {
                 key={msg.id}
                 className={cn(
                   "mb-3 flex items-start gap-3 p-3 rounded-lg max-w-[85%]",
-                  msg.sender === 'user' ? "ml-auto bg-primary/10 text-primary-foreground flex-row-reverse" : "mr-auto bg-muted/70 text-foreground"
+                  msg.sender === 'user' 
+                    ? "ml-auto bg-primary/80 text-primary-foreground flex-row-reverse shadow-md" 
+                    : "mr-auto bg-muted text-foreground shadow"
                 )}
               >
-                <Avatar className="h-8 w-8 border">
+                <Avatar className="h-8 w-8 border border-border/50">
                   <AvatarImage src={msg.sender === 'user' ? user?.photoURL ?? undefined : undefined} />
-                  <AvatarFallback className={cn(msg.sender === 'user' ? 'bg-primary/20' : 'bg-accent/20')}>
-                    {msg.sender === 'user' ? <UserCircle /> : <Sparkles className="text-accent" />}
+                  <AvatarFallback className={cn(msg.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-accent text-accent-foreground')}>
+                    {msg.sender === 'user' ? (user?.displayName?.charAt(0)?.toUpperCase() || <UserCircle/>) : <Sparkles/>}
                   </AvatarFallback>
                 </Avatar>
                 <div className={cn("flex flex-col", msg.sender === 'user' ? 'items-end' : 'items-start')}>
-                  <p className={cn("text-sm whitespace-pre-wrap", msg.sender === 'user' ? 'text-right text-primary-foreground/90' : 'text-left text-foreground/90')}>{msg.text}</p>
+                  <p className={cn("text-sm whitespace-pre-wrap", msg.sender === 'user' ? 'text-right' : 'text-left')}>{msg.text}</p>
                   <span className="text-xs text-muted-foreground/80 mt-1">
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
@@ -254,11 +296,11 @@ export default function ReportPage() {
               </div>
             ))}
             {isAiResponding && (
-              <div className="mb-3 flex items-start gap-3 p-3 rounded-lg max-w-[85%] mr-auto bg-muted/70 text-foreground">
-                 <Avatar className="h-8 w-8 border">
-                   <AvatarFallback className='bg-accent/20'><Sparkles className="text-accent" /></AvatarFallback>
+              <div className="mb-3 flex items-start gap-3 p-3 rounded-lg max-w-[85%] mr-auto bg-muted text-foreground">
+                 <Avatar className="h-8 w-8 border border-border/50">
+                   <AvatarFallback className='bg-accent text-accent-foreground'><Sparkles/></AvatarFallback>
                  </Avatar>
-                 <div>
+                 <div className="pt-1">
                     <Loader2 className="h-5 w-5 animate-spin text-accent" />
                  </div>
               </div>
@@ -268,7 +310,7 @@ export default function ReportPage() {
           <div className="flex items-start gap-2">
             <Textarea
               placeholder="Pergunte sobre o relatório, peça esclarecimentos ou solicite alterações..."
-              className="flex-1 min-h-[60px] resize-none"
+              className="flex-1 min-h-[60px] resize-none shadow-sm focus:ring-2 focus:ring-primary"
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
               onKeyDown={(e) => {
@@ -280,7 +322,7 @@ export default function ReportPage() {
               disabled={isAiResponding}
               aria-label="Caixa de texto para interagir com o relatório"
             />
-            <Button onClick={handleSendMessage} disabled={!userInput.trim() || isAiResponding} size="lg">
+            <Button onClick={handleSendMessage} disabled={!userInput.trim() || isAiResponding} size="lg" className="shadow-md">
               <Send className="mr-0 sm:mr-2 h-5 w-5" />
               <span className="hidden sm:inline">Enviar</span>
             </Button>
