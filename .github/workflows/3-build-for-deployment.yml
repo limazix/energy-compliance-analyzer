@@ -72,15 +72,30 @@ jobs:
         run: npm run build:shared --prefix functions
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
+      
+      - name: Prepare Functions deployment artifact
+        run: |
+          mkdir -p functions_artifact_staging_deploy/lib
+          mkdir -p functions_artifact_staging_deploy/node_modules # Ensure node_modules dir exists for copying
+          cp -r functions/src/* functions_artifact_staging_deploy/src/
+          if [ -d "functions/lib/shared" ]; then
+            cp -r functions/lib/shared/* functions_artifact_staging_deploy/lib/shared/
+          else
+            echo "Error: functions/lib/shared not found after build:shared. Cannot prepare deploy artifact."
+            exit 1
+          fi
+          cp functions/package.json functions_artifact_staging_deploy/
+          cp functions/package-lock.json functions_artifact_staging_deploy/
+          # Copy node_modules; ensure it exists, handle if it doesn't (though `npm ci` should create it)
+          if [ -d "functions/node_modules" ]; then
+            cp -r functions/node_modules/* functions_artifact_staging_deploy/node_modules/
+          else
+            echo "Warning: functions/node_modules not found. This might be an issue for deployment if dependencies are expected."
+          fi
 
-      - name: Upload Functions deployment artifact (includes src, lib/shared, package.json, node_modules)
+      - name: Upload Functions deployment artifact
         uses: actions/upload-artifact@v4
         with:
           name: functions-prod-build
-          path: |
-            functions/src
-            functions/lib/shared
-            functions/package.json
-            functions/package-lock.json
-            functions/node_modules 
+          path: functions_artifact_staging_deploy/ # Upload content of staging directory
           retention-days: 1

@@ -37,13 +37,22 @@ jobs:
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
 
+      - name: Prepare Functions artifact for testing
+        run: |
+          mkdir -p functions_artifact_staging_test/lib
+          cp -r functions/src/* functions_artifact_staging_test/src/
+          if [ -d "functions/lib/shared" ]; then
+            cp -r functions/lib/shared/* functions_artifact_staging_test/lib/shared/
+          else
+            echo "Error: functions/lib/shared not found after build:shared. Cannot prepare artifact."
+            exit 1
+          fi
+          cp functions/package.json functions_artifact_staging_test/
+          cp functions/package-lock.json functions_artifact_staging_test/
+
       - name: Upload Functions source and shared build artifact (for test workflow)
         uses: actions/upload-artifact@v4
         with:
           name: functions-src-and-shared-for-test
-          path: |
-            functions/src
-            functions/lib/shared 
-            functions/package.json
-            functions/package-lock.json
+          path: functions_artifact_staging_test/ # Upload content of staging directory
           retention-days: 1
