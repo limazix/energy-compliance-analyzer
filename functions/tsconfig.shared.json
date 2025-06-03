@@ -5,6 +5,10 @@
     "module": "commonjs",
     "outDir": "./lib/shared", // Output para os arquivos JS compartilhados
     "rootDir": "../src",     // Raiz dos arquivos TS compartilhados
+    "baseUrl": "..",         // Base para resolução de caminhos (raiz do projeto)
+    "paths": {
+      "@/*": ["src/*"]     // Mapeia @/* para a pasta src na raiz do projeto
+    },
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
