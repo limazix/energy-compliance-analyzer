@@ -4,22 +4,26 @@
     "module": "commonjs",
     "noImplicitReturns": true,
     "noUnusedLocals": true,
-    "outDir": "lib",
+    "outDir": "lib",                       // O diretório de saída permanece functions/lib
+    "rootDir": "..",                       // Define a raiz do projeto como rootDir (um nível acima de functions/)
     "sourceMap": true,
     "strict": true,
     "target": "es2021",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "baseUrl": ".", // Added to help with path resolution if needed later
-    "paths": {
-      // Example of how you could alias if direct relative paths become problematic
-      // "@/src/*": ["../src/*"] 
-    }
+    "resolveJsonModule": true
+    // "baseUrl": ".", // Não é estritamente necessário com rootDir ajustado
+    // "paths": {} // Não é estritamente necessário com rootDir ajustado
   },
-  "compileOnSave": true,
   "include": [
-    "src", // Default include for functions source
-    "../src/ai/prompt-configs" // Allow importing from the shared prompt configurations
-  ]
+    "functions/src",                // Caminho relativo ao rootDir: PROJECT_ROOT/functions/src
+    "src/ai/prompt-configs"         // Caminho relativo ao rootDir: PROJECT_ROOT/src/ai/prompt-configs
+  ],
+  "exclude": [
+    "node_modules",                 // Exclui functions/node_modules
+    "../node_modules",              // Exclui PROJECT_ROOT/node_modules
+    "lib"                           // Exclui o próprio diretório de saída
+  ],
+  "compileOnSave": true
 }
+
