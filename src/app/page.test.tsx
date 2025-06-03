@@ -1,17 +1,16 @@
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import HomePage from './page';
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
 import { useAnalysisManager as originalUseAnalysisManager } from '@/hooks/useAnalysisManager';
 import { useFileUploadManager as originalUseFileUploadManager } from '@/features/file-upload/hooks/useFileUploadManager';
-import { getPastAnalysesAction } from '@/app/actions';
-import { Timestamp } from 'firebase/firestore'; // Import Timestamp
 import type { Analysis } from '@/types/analysis';
+import { Timestamp } from 'firebase/firestore';
 
-// Mock dependencies
+// Mocks
 jest.mock('@/contexts/auth-context', () => ({
-  __esModule: true, // This is important for ESM modules
-  ...jest.requireActual('@/contexts/auth-context'), // Keep original AuthProvider
+  __esModule: true,
+  ...jest.requireActual('@/contexts/auth-context'),
   useAuth: jest.fn(),
 }));
 const useAuth = originalUseAuth as jest.Mock;
@@ -22,52 +21,66 @@ const useAnalysisManager = originalUseAnalysisManager as jest.Mock;
 jest.mock('@/features/file-upload/hooks/useFileUploadManager');
 const useFileUploadManager = originalUseFileUploadManager as jest.Mock;
 
-jest.mock('@/app/actions');
-const mockGetPastAnalysesAction = getPastAnalysesAction as jest.Mock;
+// Server action mocks are in jest.setup.js
 
-const mockRouterReplace = jest.fn();
-const mockRouterPush = jest.fn(); // Though AppHeader might use Link not router.push directly for tabs
-
-jest.mock('next/navigation', () => ({
-  ...jest.requireActual('next/navigation'),
-  useRouter: () => ({
-    push: mockRouterPush,
-    replace: mockRouterReplace,
-    back: jest.fn(),
-    prefetch: jest.fn(),
-    pathname: '/',
-    route: '/',
-    query: {},
-    asPath: '/',
-  }),
-  usePathname: jest.fn(() => '/'),
-}));
+const mockRouterReplace = jest.requireMock('next/navigation').useRouter().replace;
+const mockRouterPush = jest.requireMock('next/navigation').useRouter().push;
 
 const mockUser = {
   uid: 'test-user-id',
-  displayName: 'Test User',
+  displayName: 'Dr. Test User',
   email: 'test@example.com',
+  photoURL: 'https://placehold.co/100x100.png'
 };
 
-const mockAnalysisItem: Analysis = {
-  id: 'analysis1',
-  userId: 'test-user-id',
-  fileName: 'test-file.csv',
+const mockAnalysisItemCompleted: Analysis = {
+  id: 'analysis-completed-1',
+  userId: mockUser.uid,
+  fileName: 'completed-data.csv',
+  title: 'Completed Analysis Sample',
   status: 'completed',
   progress: 100,
-  tags: ['important'],
-  createdAt: new Date().toISOString(),
-  summary: 'Test summary',
-  complianceReport: 'Test report',
+  tags: ['important', 'prodist'],
+  createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
+  completedAt: new Date(Date.now() - 86400000 * 1).toISOString(), // 1 day ago
+  summary: 'This is a summary of the completed analysis.',
+  structuredReport: {
+    reportMetadata: { title: 'Completed Report', author: 'AI', generatedDate: new Date().toISOString().split('T')[0], subtitle: 'Mock Subtitle' },
+    introduction: { objective: 'Test obj', overallResultsSummary: 'All good', usedNormsOverview: 'ANEEL XYZ' },
+    analysisSections: [],
+    finalConsiderations: 'None',
+    bibliography: [],
+    tableOfContents: [],
+  },
+  mdxReportStoragePath: `user_reports/${mockUser.uid}/analysis-completed-1/report.mdx`,
 };
 
-describe('HomePage Navigation and Views', () => {
+const mockAnalysisItemInProgress: Analysis = {
+  id: 'analysis-inprogress-1',
+  userId: mockUser.uid,
+  fileName: 'inprogress-data.csv',
+  title: 'Analysis In Progress',
+  status: 'summarizing_data',
+  progress: 30,
+  tags: ['realtime'],
+  createdAt: new Date().toISOString(),
+};
+
+
+describe('HomePage - Navigation and Views', () => {
   let mockSetCurrentAnalysis: jest.Mock;
   let mockFetchPastAnalyses: jest.Mock;
   let mockStartAiProcessing: jest.Mock;
   let mockUploadFileAndCreateRecord: jest.Mock;
+  let mockHandleDeleteAnalysis: jest.Mock;
+  let mockHandleCancelAnalysis: jest.Mock;
 
   beforeEach(() => {
+    // Reset all navigation mocks
+    mockRouterPush.mockClear();
+    mockRouterReplace.mockClear();
+
+    // Setup hook mocks
     mockSetCurrentAnalysis = jest.fn();
     mockFetchPastAnalyses = jest.fn().mockResolvedValue(undefined);
     mockStartAiProcessing = jest.fn().mockResolvedValue(undefined);
@@ -76,9 +89,13 @@ describe('HomePage Navigation and Views', () => {
       fileName: 'new-file.csv',
       error: null,
     });
+    mockHandleDeleteAnalysis = jest.fn((id, cb) => { cb?.(); return Promise.resolve(); });
+    mockHandleCancelAnalysis = jest.fn().mockResolvedValue(undefined);
 
     useAuth.mockReturnValue({ user: mockUser, loading: false });
-    useAnalysisManager.mockReturnValue({
+    
+    // Use a fresh mock object for each test to avoid interference
+    const currentMockAnalysisManagerValue = {
       currentAnalysis: null,
       setCurrentAnalysis: mockSetCurrentAnalysis,
       pastAnalyses: [],
@@ -89,10 +106,13 @@ describe('HomePage Navigation and Views', () => {
       startAiProcessing: mockStartAiProcessing,
       handleAddTag: jest.fn(),
       handleRemoveTag: jest.fn(),
-      handleDeleteAnalysis: jest.fn((id, cb) => { cb?.(); return Promise.resolve(); }),
+      handleDeleteAnalysis: mockHandleDeleteAnalysis,
+      handleCancelAnalysis: mockHandleCancelAnalysis,
       downloadReportAsTxt: jest.fn(),
       displayedAnalysisSteps: [],
-    });
+    };
+    useAnalysisManager.mockReturnValue(currentMockAnalysisManagerValue);
+
     useFileUploadManager.mockReturnValue({
       fileToUpload: null,
       isUploading: false,
@@ -101,18 +121,18 @@ describe('HomePage Navigation and Views', () => {
       handleFileSelection: jest.fn(),
       uploadFileAndCreateRecord: mockUploadFileAndCreateRecord,
     });
-    mockGetPastAnalysesAction.mockResolvedValue([]);
 
-    // Mock getDoc from Firestore
-    const mockFirestore = require('firebase/firestore');
-    mockFirestore.getDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ ...mockAnalysisItem, createdAt: Timestamp.now(), completedAt: Timestamp.now() }),
-        id: 'new-analysis-id'
+    // Mock Firestore interaction via server actions if needed (already in jest.setup.js)
+    const getPastAnalysesActionMock = jest.requireMock('@/features/analysis-listing/actions/analysisListingActions').getPastAnalysesAction;
+    getPastAnalysesActionMock.mockResolvedValue([]);
+
+    const { getAnalysisReportAction } = jest.requireMock('@/features/report-viewing/actions/reportViewingActions');
+    getAnalysisReportAction.mockResolvedValue({
+        mdxContent: `# Test Report for ${mockAnalysisItemCompleted.id}`,
+        fileName: mockAnalysisItemCompleted.fileName,
+        analysisId: mockAnalysisItemCompleted.id,
+        error: null,
     });
-
-    mockRouterReplace.mockClear();
-    mockRouterPush.mockClear();
   });
 
   test('redirects to /login if user is not authenticated', async () => {
@@ -123,224 +143,258 @@ describe('HomePage Navigation and Views', () => {
     });
   });
 
-  test('renders DashboardView by default for authenticated user', () => {
+  test('renders default view (Past Analyses Accordion) for authenticated user', () => {
     render(<HomePage />);
-    expect(screen.getByText(`Bem-vindo(a), ${mockUser.displayName}!`)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Iniciar Nova Análise/i })).toBeInTheDocument();
+    expect(screen.getByText(`Suas Análises Anteriores`)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Nova Análise/i })).toBeInTheDocument();
   });
 
-  test('navigates to NewAnalysisForm and back to Dashboard', () => {
+  test('navigates to NewAnalysisForm when "Nova Análise" is clicked and back to Dashboard on cancel', () => {
     render(<HomePage />);
-    // Go to New Analysis
-    fireEvent.click(screen.getByRole('button', { name: /Iniciar Nova Análise/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Nova Análise/i }));
     expect(screen.getByText('Nova Análise de Conformidade')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Enviar e Iniciar Análise/i})).toBeInTheDocument();
 
-    // Go back to Dashboard by cancelling
     fireEvent.click(screen.getByRole('button', { name: /Cancelar/i }));
-    expect(screen.getByText(`Bem-vindo(a), ${mockUser.displayName}!`)).toBeInTheDocument();
+    expect(screen.getByText('Suas Análises Anteriores')).toBeInTheDocument();
   });
 
-  test('navigates to PastAnalysesView via header tab and back to Dashboard via breadcrumb', async () => {
-    mockGetPastAnalysesAction.mockResolvedValueOnce([mockAnalysisItem]);
-     useAnalysisManager.mockReturnValue({
-      ...global.mockUseAnalysisManagerReturnValue, // from jest.setup.js
-      pastAnalyses: [mockAnalysisItem],
-      fetchPastAnalyses: mockFetchPastAnalyses.mockResolvedValueOnce(undefined), // Ensure it's the specific mock for this test run
-    });
-
-    render(<HomePage />);
-
-    // Navigate to Past Analyses via tab
-    const pastAnalysesTab = screen.getByRole('tab', { name: /Análises Anteriores/i });
-    fireEvent.click(pastAnalysesTab);
-
-    await waitFor(() => {
-      expect(mockFetchPastAnalyses).toHaveBeenCalledTimes(1);
-    });
-    await waitFor(() => {
-        expect(screen.getByText('Análises Anteriores')).toBeInTheDocument();
-    });
-    expect(screen.getByText(mockAnalysisItem.fileName)).toBeInTheDocument();
-
-    // Navigate back to Dashboard via breadcrumb
-    const dashboardBreadcrumb = screen.getByRole('button', { name: 'Dashboard' });
-    fireEvent.click(dashboardBreadcrumb);
-    await waitFor(() => {
-        expect(screen.getByText(`Bem-vindo(a), ${mockUser.displayName}!`)).toBeInTheDocument();
-    });
-  });
-
-  test('navigates from PastAnalysesView to AnalysisView and uses breadcrumbs', async () => {
-     mockGetPastAnalysesAction.mockResolvedValueOnce([mockAnalysisItem]);
-     const analysisManagerMockValues = {
-      ...global.mockUseAnalysisManagerReturnValue,
-      pastAnalyses: [mockAnalysisItem],
+  test('displays past analyses in accordion and expands to show AnalysisView', async () => {
+    const mockPastAnalyses = [mockAnalysisItemCompleted, mockAnalysisItemInProgress];
+    // Update the mock return value for useAnalysisManager for this specific test
+    useAnalysisManager.mockReturnValue({
+      ...global.mockUseAnalysisManagerReturnValue, // Use the base from jest.setup.js
       setCurrentAnalysis: mockSetCurrentAnalysis,
-      fetchPastAnalyses: mockFetchPastAnalyses.mockResolvedValueOnce(undefined),
-    };
-    useAnalysisManager.mockReturnValue(analysisManagerMockValues);
-
-
+      pastAnalyses: mockPastAnalyses,
+      fetchPastAnalyses: mockFetchPastAnalyses.mockResolvedValue(undefined),
+    });
+    
     render(<HomePage />);
 
-    // Go to Past Analyses
-    fireEvent.click(screen.getByRole('tab', { name: /Análises Anteriores/i }));
-    await waitFor(() => expect(screen.getByText('Análises Anteriores')).toBeInTheDocument());
-    expect(screen.getByText(mockAnalysisItem.fileName)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(mockAnalysisItemCompleted.title!)).toBeInTheDocument();
+      expect(screen.getByText(mockAnalysisItemInProgress.title!)).toBeInTheDocument();
+    });
 
+    const completedAnalysisAccordionTrigger = screen.getByText(mockAnalysisItemCompleted.title!);
+    fireEvent.click(completedAnalysisAccordionTrigger);
 
-    // Click "Ver Detalhes"
-    fireEvent.click(screen.getByRole('button', { name: /Ver Detalhes/i }));
+    await waitFor(() => {
+      expect(mockSetCurrentAnalysis).toHaveBeenCalledWith(mockAnalysisItemCompleted);
+    });
     
-    // This will update currentAnalysis in useAnalysisManager's state.
-    // We need to re-render with the updated mock or ensure the component reacts.
-    // The component re-renders because setCurrentAnalysis is called.
-    // The crucial part is that useAnalysisManager's mock returns the new currentAnalysis.
-    analysisManagerMockValues.currentAnalysis = mockAnalysisItem; // Simulate state update
-    useAnalysisManager.mockReturnValue(analysisManagerMockValues); // Re-apply mock with updated state
-
-    await waitFor(() => {
-      expect(mockSetCurrentAnalysis).toHaveBeenCalledWith(mockAnalysisItem);
+    // Simulate that currentAnalysis is now set in the hook's return value
+    useAnalysisManager.mockReturnValueOnce({
+      ...global.mockUseAnalysisManagerReturnValue,
+      currentAnalysis: mockAnalysisItemCompleted, // IMPORTANT: set currentAnalysis
+      setCurrentAnalysis: mockSetCurrentAnalysis,
+      pastAnalyses: mockPastAnalyses,
+      fetchPastAnalyses: mockFetchPastAnalyses,
+      displayedAnalysisSteps: [{name: "Upload do Arquivo e Preparação", status: "completed", progress: 100}], // Mock steps for completed
     });
-
-    // Manually trigger re-render if needed, or rely on component's useEffect reacting to setCurrentAnalysis
-    // Forcing re-render to ensure the view updates based on mocked `currentAnalysis`
-    // This is often tricky in tests. The component's internal useEffect should handle it.
-    // Let's assume setCurrentAnalysis triggers the view change.
-
+    
+    // Re-render or wait for component to update with new currentAnalysis
+    // Since the component re-renders internally when state changes, we just need to wait for assertions.
     await waitFor(() => {
-        expect(screen.getByText(/Resultados da Análise|Análise em Andamento|Erro na Análise/)).toBeInTheDocument(); // General title
-        expect(screen.getByText(new RegExp(`Arquivo: ${mockAnalysisItem.fileName}`))).toBeInTheDocument();
-        expect(screen.getByText(mockAnalysisItem.summary!)).toBeInTheDocument(); // Assuming status is 'completed'
+        const analysisViewTitle = screen.getByText(new RegExp(mockAnalysisItemCompleted.title!, 'i'));
+        expect(analysisViewTitle).toBeInTheDocument();
+        // Check for elements specific to AnalysisView for a 'completed' analysis
+        expect(screen.getByText(/Análise Concluída com Sucesso!/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Visualizar Relatório Detalhado/i})).toBeInTheDocument();
     });
-
-
-    // Breadcrumb back to Past Analyses
-    const pastAnalysesBreadcrumb = screen.getByRole('button', { name: 'Análises Anteriores' });
-    fireEvent.click(pastAnalysesBreadcrumb);
-    await waitFor(() => {
-        // We need to reset currentAnalysis for PastAnalysesView to show list again
-        analysisManagerMockValues.currentAnalysis = null;
-        useAnalysisManager.mockReturnValue(analysisManagerMockValues);
-    });
-    await waitFor(() => expect(screen.getByText('Análises Anteriores')).toBeInTheDocument());
-     // Ensure past analyses are re-fetched or list is shown
-    expect(screen.getByText(mockAnalysisItem.fileName)).toBeInTheDocument();
-
-
-    // Go back to Analysis View for dashboard breadcrumb test
-    fireEvent.click(screen.getByRole('button', { name: /Ver Detalhes/i }));
-    analysisManagerMockValues.currentAnalysis = mockAnalysisItem;
-    useAnalysisManager.mockReturnValue(analysisManagerMockValues);
-    await waitFor(() => expect(screen.getByText(new RegExp(`Arquivo: ${mockAnalysisItem.fileName}`))).toBeInTheDocument());
-
-    // Breadcrumb back to Dashboard
-    const dashboardBreadcrumbFromAnalysisView = screen.getAllByRole('button', { name: 'Dashboard' })[0]; // first one is in breadcrumbs
-    fireEvent.click(dashboardBreadcrumbFromAnalysisView);
-    await waitFor(() => {
-        analysisManagerMockValues.currentAnalysis = null;
-        useAnalysisManager.mockReturnValue(analysisManagerMockValues);
-    });
-    await waitFor(() => expect(screen.getByText(`Bem-vindo(a), ${mockUser.displayName}!`)).toBeInTheDocument());
   });
 
+  test('navigates to ReportPage when "Visualizar Relatório Detalhado" is clicked', async () => {
+     useAnalysisManager.mockReturnValue({
+      ...global.mockUseAnalysisManagerReturnValue,
+      currentAnalysis: mockAnalysisItemCompleted,
+      setCurrentAnalysis: mockSetCurrentAnalysis,
+      pastAnalyses: [mockAnalysisItemCompleted],
+      displayedAnalysisSteps: [{name: "Upload", status: "completed", progress: 100}],
+    });
 
-  test('navigates to AnalysisView after simulated file upload', async () => {
-    const newFileName = 'uploaded-file.csv';
+    render(<HomePage />);
+    
+    // Expand the accordion for the completed analysis
+    const completedAnalysisAccordionTrigger = screen.getByText(mockAnalysisItemCompleted.title!);
+    fireEvent.click(completedAnalysisAccordionTrigger);
+
+    await waitFor(() => {
+        expect(screen.getByText(/Análise Concluída com Sucesso!/i)).toBeInTheDocument();
+    });
+
+    const viewReportButton = screen.getByRole('button', { name: /Visualizar Relatório Detalhado/i });
+    fireEvent.click(viewReportButton);
+
+    await waitFor(() => {
+      expect(mockRouterPush).toHaveBeenCalledWith(`/report/${mockAnalysisItemCompleted.id}`);
+    });
+  });
+
+  test('simulates file upload and navigates to AnalysisView for the new analysis', async () => {
+    const newFileName = 'uploaded-test-file.csv';
     const newAnalysisId = `mock-analysis-id-for-${newFileName}`;
-    const uploadedAnalysisData = {
-        ...mockAnalysisItem,
-        id: newAnalysisId,
-        fileName: newFileName,
-        status: 'identifying_regulations', // Initial status after successful upload & record finalization
-        createdAt: Timestamp.now(),
-    };
+    const newAnalysisTitle = 'Freshly Uploaded Analysis';
 
+    const mockNewAnalysisData: Analysis = {
+      id: newAnalysisId,
+      userId: mockUser.uid,
+      fileName: newFileName,
+      title: newAnalysisTitle,
+      status: 'summarizing_data', // Initial status after finalizeFileUploadRecordAction
+      progress: 10,
+      uploadProgress: 100,
+      createdAt: new Date().toISOString(),
+      tags: [],
+    };
+    
+    // Mock for useFileUploadManager
+    const handleFileSelectionMock = jest.fn();
     useFileUploadManager.mockReturnValue({
-      ...global.mockUseFileUploadManagerReturnValue,
-      fileToUpload: new File(['content'], newFileName, { type: 'text/csv' }), // Simulate a file is selected
+      fileToUpload: new File(['col1,col2\nval1,val2'], newFileName, { type: 'text/csv' }),
+      isUploading: false,
+      uploadProgress: 0,
+      uploadError: null,
+      handleFileSelection: handleFileSelectionMock,
       uploadFileAndCreateRecord: mockUploadFileAndCreateRecord.mockResolvedValue({
         analysisId: newAnalysisId,
         fileName: newFileName,
+        title: newAnalysisTitle,
         error: null,
       }),
     });
 
-    // Mock getDoc to return the new analysis data when HomePage tries to fetch it
-     const mockFirestore = require('firebase/firestore');
-     mockFirestore.getDoc.mockImplementation(async (docRef) => {
-        // Assuming docRef.id or some property can identify it's the new analysis
-        // For simplicity, let's assume any getDoc call after upload is for the new one in this test
-        if (docRef?.id === newAnalysisId || docRef?._key?.path?.segments?.includes(newAnalysisId) ) {
-             return Promise.resolve({
-                exists: () => true,
-                data: () => ({ ...uploadedAnalysisData, createdAt: Timestamp.now() }), // Ensure Timestamps
-                id: newAnalysisId
-            });
-        }
-        return Promise.resolve({ exists: () => false, data: () => ({}), id: 'other-doc' });
-    });
-    
-    const analysisManagerMockValues = {
-      ...global.mockUseAnalysisManagerReturnValue,
-      setCurrentAnalysis: mockSetCurrentAnalysis,
-      startAiProcessing: mockStartAiProcessing.mockResolvedValue(undefined), // Ensure it's the specific mock for this test run
-    };
-    useAnalysisManager.mockReturnValue(analysisManagerMockValues);
+    // Mock for useAnalysisManager (specifically after upload)
+     const setCurrentAnalysisForUpload = jest.fn();
+     const startAiProcessingForUpload = jest.fn().mockResolvedValue(undefined);
+     useAnalysisManager.mockReturnValue({
+        ...global.mockUseAnalysisManagerReturnValue,
+        setCurrentAnalysis: setCurrentAnalysisForUpload,
+        startAiProcessing: startAiProcessingForUpload,
+        fetchPastAnalyses: mockFetchPastAnalyses.mockResolvedValue(undefined), // To avoid errors on refetch
+     });
+
+    // Mock the server action that getDoc relies on inside handleUploadResult
+    // If HomePage directly calls getDoc, that needs to be handled for emulators or specifically mocked.
+    // For now, assuming handleUploadResult in HomePage can fetch the new analysis record after creation.
+    // The crucial part is that createInitialAnalysisRecordAction and finalizeFileUploadRecordAction are mocked.
+    // The HomePage's handleUploadResult calls setCurrentAnalysis, which we can spy on.
 
 
     render(<HomePage />);
 
-    // Start new analysis
-    fireEvent.click(screen.getByRole('button', { name: /Iniciar Nova Análise/i }));
-    expect(screen.getByText('Nova Análise de Conformidade')).toBeInTheDocument();
+    // 1. Open the New Analysis Form
+    fireEvent.click(screen.getByRole('button', { name: /Nova Análise/i }));
+    await screen.findByText('Nova Análise de Conformidade');
 
-    // Simulate file input if necessary (though useFileUploadManager handles selection)
-    // const fileInput = screen.getByLabelText(/selecione o arquivo/i) or similar, then fireEvent.change
-
-    // Click upload and analyze
-    const uploadButton = screen.getByRole('button', { name: /Enviar e Iniciar Análise/i });
+    // 2. Simulate file input (already handled by useFileUploadManager mock having a file)
+    // If a real input field was used:
+    // const fileInput = screen.getByLabelText(/Arquivo CSV de Dados/i);
+    // fireEvent.change(fileInput, { target: { files: [new File(['content'], newFileName, { type: 'text/csv' })] } });
     
-    // Use act for state updates from async operations
+    // 3. Fill in title (optional, as filename is default)
+    const titleInput = screen.getByLabelText(/Título da Análise/i);
+    fireEvent.change(titleInput, { target: { value: newAnalysisTitle } });
+
+
+    // 4. Click "Enviar e Iniciar Análise"
+    const submitButton = screen.getByRole('button', { name: /Enviar e Iniciar Análise/i });
+    
     await act(async () => {
-        fireEvent.click(uploadButton);
-        // Wait for promises in uploadFileAndCreateRecord and handleUploadResult to resolve
-        await mockUploadFileAndCreateRecord; 
-    });
-
-    // Check that setCurrentAnalysis was called with the new analysis data
-    // This requires that handleUploadResult correctly fetches and sets the analysis
-    await waitFor(() => {
-      expect(mockSetCurrentAnalysis).toHaveBeenCalledWith(expect.objectContaining({
-        id: newAnalysisId,
-        fileName: newFileName,
-        status: 'identifying_regulations',
-      }));
+      fireEvent.click(submitButton);
     });
     
-    // And that AI processing was started
+    // 5. Assertions
     await waitFor(() => {
-        expect(mockStartAiProcessing).toHaveBeenCalledWith(newAnalysisId, mockUser.uid);
+      expect(mockUploadFileAndCreateRecord).toHaveBeenCalledWith(
+        mockUser, // user object
+        newAnalysisTitle, // title
+        '', // description (empty in this test)
+        expect.any(String) // languageCode
+      );
+    });
+    
+    // The handleUploadResult in HomePage will call setCurrentAnalysis and startAiProcessing
+    // We need to ensure that setCurrentAnalysis is called with an object matching mockNewAnalysisData
+    await waitFor(() => {
+      expect(setCurrentAnalysisForUpload).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: newAnalysisId,
+          fileName: newFileName,
+          title: newAnalysisTitle,
+          // status: 'summarizing_data', // This status is set by finalizeFileUploadRecordAction
+        })
+      );
     });
 
-    // Simulate the state update for currentAnalysis in the hook
-    analysisManagerMockValues.currentAnalysis = {
-      ...uploadedAnalysisData,
-      createdAt: uploadedAnalysisData.createdAt.toDate().toISOString() // Convert Timestamp to ISO string
-    };
-    useAnalysisManager.mockReturnValue(analysisManagerMockValues);
-
-    // Check if AnalysisView is rendered
     await waitFor(() => {
-        expect(screen.getByText(/Análise em Andamento/)).toBeInTheDocument(); // Title for 'identifying_regulations'
-        expect(screen.getByText(new RegExp(`Arquivo: ${newFileName}`))).toBeInTheDocument();
+        expect(startAiProcessingForUpload).toHaveBeenCalledWith(newAnalysisId, mockUser.uid);
+    });
+    
+    // Simulate that currentAnalysis is now set by the setCurrentAnalysisForUpload call
+    useAnalysisManager.mockReturnValueOnce({
+      ...global.mockUseAnalysisManagerReturnValue,
+      currentAnalysis: { // Provide the structure of the analysis object
+          ...mockNewAnalysisData,
+          // Ensure date fields are strings if that's what AnalysisView expects from currentAnalysis
+          createdAt: new Date(mockNewAnalysisData.createdAt).toISOString(), 
+      },
+      setCurrentAnalysis: setCurrentAnalysisForUpload,
+      startAiProcessing: startAiProcessingForUpload,
+      displayedAnalysisSteps: [{name: 'Upload do Arquivo e Preparação', status: 'completed', progress:100}, {name: 'Sumarizando Dados...', status: 'in_progress', progress: 30}],
+      fetchPastAnalyses: mockFetchPastAnalyses.mockResolvedValue(undefined),
+    });
+
+    // Check if AnalysisView is rendered for the new analysis
+    // This requires the accordion to expand for the new item, or for the view to change directly
+    // Based on current HomePage logic, new uploads become the `currentAnalysis` and expand.
+    await waitFor(() => {
+      const analysisViewForNew = screen.getByText(new RegExp(newAnalysisTitle, "i"));
+      expect(analysisViewForNew).toBeInTheDocument();
+      // Check for a status indicator of an in-progress analysis
+      expect(screen.getByText(/Sumarizando Dados da Qualidade de Energia/i)).toBeInTheDocument(); // From displayedAnalysisSteps
     });
   });
-});
 
-// Helper to reset specific mock implementations if needed between describe blocks or tests
-// Currently handled in beforeEach
-afterEach(() => {
-  jest.clearAllMocks();
+  test('can delete an analysis from the AnalysisView', async () => {
+    useAnalysisManager.mockReturnValue({
+      ...global.mockUseAnalysisManagerReturnValue,
+      currentAnalysis: mockAnalysisItemCompleted,
+      setCurrentAnalysis: mockSetCurrentAnalysis,
+      pastAnalyses: [mockAnalysisItemCompleted],
+      fetchPastAnalyses: mockFetchPastAnalyses,
+      handleDeleteAnalysis: mockHandleDeleteAnalysis, // Use the specific mock for this test
+    });
+
+    render(<HomePage />);
+
+    // Expand the accordion for the completed analysis
+    const accordionTrigger = screen.getByText(mockAnalysisItemCompleted.title!);
+    fireEvent.click(accordionTrigger);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Excluir Análise/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Excluir Análise/i }));
+
+    // Confirm deletion in AlertDialog
+    await waitFor(() => {
+      expect(screen.getByText('Confirmar Exclusão')).toBeInTheDocument();
+    });
+    const confirmButton = screen.getByRole('button', { name: 'Confirmar Exclusão' });
+    
+    await act(async () => {
+      fireEvent.click(confirmButton);
+    });
+
+    await waitFor(() => {
+      expect(mockHandleDeleteAnalysis).toHaveBeenCalledWith(mockAnalysisItemCompleted.id, expect.any(Function));
+    });
+    // Check if fetchPastAnalyses was called after deletion (part of afterDeleteAnalysis -> handleDeleteAnalysis mock)
+    await waitFor(() => {
+        expect(mockFetchPastAnalyses).toHaveBeenCalled();
+    });
+  });
+
 });

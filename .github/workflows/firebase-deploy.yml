@@ -5,13 +5,65 @@ on:
   push:
     branches:
       - main # Ou a branch que você usa para produção
+  pull_request: # Adicionado para rodar testes em PRs para a main
+    branches:
+      - main
 
 jobs:
+  test: # Novo job para testes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read' # Testes não precisam de write-access para o repo
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' 
+
+      - name: Install Next.js app dependencies
+        run: npm ci
+      
+      - name: Install Firebase Functions dependencies
+        run: npm ci --prefix functions
+
+      - name: Build Firebase Functions (necessário para emuladores se functions são parte do teste)
+        run: npm run build --prefix functions
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Run tests with Firebase Emulators
+        run: npm test # Este script já usa firebase emulators:exec
+        env:
+          # Configurar variáveis de ambiente para testes, se necessário
+          # Ex: Se o app espera chaves específicas no ambiente de teste
+          # FIREBASE_AUTH_EMULATOR_HOST: "localhost:9099" # `firebase emulators:exec` já faz isso
+          # FIRESTORE_EMULATOR_HOST: "localhost:8080"
+          # FIREBASE_STORAGE_EMULATOR_HOST: "localhost:9199"
+          # FIREBASE_DATABASE_EMULATOR_HOST: "localhost:9000"
+          CI: true # Muitas bibliotecas de teste usam CI=true para otimizar logs, etc.
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: "electric-magnitudes-analizer" # Necessário para SDK init
+          # Outras NEXT_PUBLIC_FIREBASE_* vars podem ser "dummy" para testes se não forem críticas
+          # ou se os emuladores não as exigirem estritamente (o SDK geralmente lida bem com emuladores)
+          NEXT_PUBLIC_FIREBASE_API_KEY: "test-api-key"
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "localhost"
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "default-bucket"
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "test-sender-id"
+          NEXT_PUBLIC_FIREBASE_APP_ID: "test-app-id"
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: "http://localhost:9000?ns=electric-magnitudes-analizer"
+
+
   build_and_deploy:
+    needs: test # Garante que o job de teste passe antes de tentar o deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' # Só faz deploy em push para main
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
-      id-token: 'write' # Necessário para autenticação com Google Cloud via Workload Identity Federation
+      id-token: 'write' 
 
     steps:
       - name: Checkout repository
@@ -20,7 +72,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Atualizado para Node 20 (usado nas Functions)
+          node-version: '20' 
 
       - name: Install Next.js app dependencies
         run: npm ci
@@ -28,16 +80,14 @@ jobs:
       - name: Build Next.js application
         run: npm run build
         env:
-          # As variáveis NEXT_PUBLIC_* são usadas no runtime do cliente e devem ser
-          # configuradas no ambiente do App Hosting. Para o build, placeholders podem ser usados
-          # se o build falhar sem elas, mas o runtime usará as do App Hosting.
           NEXT_PUBLIC_FIREBASE_API_KEY: "dummy"
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "dummy"
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: "electric-magnitudes-analizer"
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "dummy"
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "dummy"
           NEXT_PUBLIC_FIREBASE_APP_ID: "dummy"
-          NEXT_PUBLIC_GEMINI_API_KEY: "dummy" # Usado pelas Functions, configure nos secrets do App Hosting/Functions
+          NEXT_PUBLIC_GEMINI_API_KEY: "dummy" 
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: "dummy"
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
@@ -57,7 +107,7 @@ jobs:
             --region us-central1 # Exemplo de região, ajuste se necessário
             --non-interactive
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_path }} # Necessário se Workload Identity usou impersonation
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_path }} 
 
       - name: Install Firebase Functions dependencies
         run: npm ci --prefix functions
@@ -73,9 +123,9 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_path }}
 
-      - name: Deploy Firebase Rules (Firestore & Storage)
+      - name: Deploy Firebase Rules (Firestore, Storage, RTDB)
         run: |
-          firebase deploy --only firestore:rules,storage:rules \
+          firebase deploy --only firestore:rules,storage:rules,database:rules \
             --project electric-magnitudes-analizer \
             --non-interactive
         env:
@@ -84,13 +134,12 @@ jobs:
     # Segredos necessários no GitHub Actions:
     # GCP_PROJECT_NUMBER: Número do seu projeto Google Cloud.
     # GCP_WORKLOAD_IDENTITY_POOL_ID: ID do seu Workload Identity Pool.
-    # GCP_WORKLOAD_IDENTITY_PROVIDER_ID: ID do seu Workload Identity Provider.
+    # GCP_WORKLOAD_IDENTITY_PROVIDER_ID: ID do seu Provider dentro do pool.
     # GCP_SERVICE_ACCOUNT_EMAIL: Email da conta de serviço do GCP com permissões:
     #    - Firebase App Hosting Admin (roles/firebaseapphosting.admin)
     #    - Firebase Functions Developer (roles/cloudfunctions.developer) ou Admin
     #    - Firebase Rules System (roles/firebaserules.system)
-    #    - Service Account User (roles/iam.serviceAccountUser) - para a conta de serviço das Functions
-    #    - Service Account Token Creator (roles/iam.serviceAccountTokenCreator) - para impersonate
-    #    - Cloud Build Editor (roles/cloudbuild.builds.editor) - Functions usam Cloud Build
+    #    - Service Account User (roles/iam.serviceAccountUser) 
+    #    - Service Account Token Creator (roles/iam.serviceAccountTokenCreator)
+    #    - Cloud Build Editor (roles/cloudbuild.builds.editor) 
     # IMPORTANTE: Substitua 'YOUR_APP_HOSTING_BACKEND_ID' no passo de deploy do App Hosting.
-```

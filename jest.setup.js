@@ -23,6 +23,7 @@ jest.mock('next/navigation', () => ({
   }),
   usePathname: jest.fn(() => '/'),
   useSearchParams: jest.fn(() => new URLSearchParams()),
+  useParams: jest.fn(() => ({})), // Mock useParams, useful for dynamic routes like report/[analysisId]
 }));
 
 // Mock lucide-react icons
@@ -33,9 +34,10 @@ jest.mock('lucide-react', () => {
             if (prop === '__esModule') return true;
             // Return a mock component for any icon name
             return (props) => {
-              // Ensure props is always an object
               const { children, ...restProps } = props || {};
-              return <svg data-lucide-mock={String(prop)} {...restProps}>{children}</svg>;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const Tag:any = 'svg'; // Avoid JSX type errors in JS file
+              return <Tag data-lucide-mock={String(prop)} {...restProps}>{children}</Tag>;
             }
         }
     };
@@ -50,62 +52,45 @@ jest.mock('@/hooks/use-toast', () => ({
   }),
 }));
 
-// Mock Firebase services (basic stubs)
-jest.mock('@/lib/firebase', () => ({
-  auth: {
-    onAuthStateChanged: jest.fn((auth, callback) => {
-      const unsubscribe = jest.fn();
-      // Simulate no user initially or pass a mock user if needed by default
-      callback(null);
-      return unsubscribe;
-    }),
-    signInWithPopup: jest.fn(() => Promise.resolve({ user: { uid: 'mock-uid' }})),
-    signOut: jest.fn(() => Promise.resolve()),
-  },
-  db: {}, // Firestore instance mock for server actions
-  storage: {}, // Storage instance mock for server actions
-  googleProvider: {},
-  initializeApp: jest.fn(),
-  getApps: jest.fn(() => []),
-  getApp: jest.fn(),
-  getAuth: jest.fn(() => ({
-     onAuthStateChanged: jest.fn((auth, callback) => {
-      const unsubscribe = jest.fn();
-      callback(null);
-      return unsubscribe;
-    }),
-    signInWithPopup: jest.fn(() => Promise.resolve({ user: { uid: 'mock-uid' }})),
-    signOut: jest.fn(() => Promise.resolve()),
-  })),
-  getFirestore: jest.fn(() => ({})), // Mock for client-side direct Firestore usage if any
-  getStorage: jest.fn(),
-  connectAuthEmulator: jest.fn(),
-  connectFirestoreEmulator: jest.fn(),
-  connectStorageEmulator: jest.fn(),
-}));
+// Firebase SDKs will auto-connect to emulators when tests are run via `firebase emulators:exec`.
+// So, we typically DON'T mock the core SDK methods (getDoc, addDoc, onValue, push, etc.) here.
+// We let src/lib/firebase.ts initialize and connect to emulators.
 
-
-// Mock Server Actions
-jest.mock('@/app/actions', () => ({
-  processAnalysisFile: jest.fn(() => Promise.resolve()),
+// Server Actions Mocks (kept for isolating component logic if needed, or can be unmocked for full integration tests)
+jest.mock('@/features/analysis-listing/actions/analysisListingActions', () => ({
   getPastAnalysesAction: jest.fn(() => Promise.resolve([])),
-  addTagToAction: jest.fn(() => Promise.resolve()),
-  removeTagAction: jest.fn(() => Promise.resolve()),
-  deleteAnalysisAction: jest.fn((userId, analysisId) => Promise.resolve()),
 }));
-
+jest.mock('@/features/analysis-management/actions/analysisManagementActions', () => ({
+  deleteAnalysisAction: jest.fn((userId, analysisId) => Promise.resolve()),
+  cancelAnalysisAction: jest.fn((userId, analysisId) => Promise.resolve({ success: true })),
+}));
+jest.mock('@/features/analysis-processing/actions/analysisProcessingActions', () => ({
+  processAnalysisFile: jest.fn(() => Promise.resolve({ success: true, analysisId: 'mock-analysis-id' })),
+}));
 jest.mock('@/features/file-upload/actions/fileUploadActions', () => ({
-  createInitialAnalysisRecordAction: jest.fn((userId, fileName) => Promise.resolve({ analysisId: `mock-analysis-id-for-${fileName}` })),
+  createInitialAnalysisRecordAction: jest.fn((userId, fileName, title, description, lang) => Promise.resolve({ analysisId: `mock-analysis-id-for-${fileName}` })),
   updateAnalysisUploadProgressAction: jest.fn(() => Promise.resolve({ success: true })),
   finalizeFileUploadRecordAction: jest.fn(() => Promise.resolve({ success: true })),
   markUploadAsFailedAction: jest.fn(() => Promise.resolve({ success: true })),
 }));
+jest.mock('@/features/report-chat/actions/reportChatActions', () => ({
+  askReportOrchestratorAction: jest.fn(() => Promise.resolve({ success: true, aiMessageRtdbKey: 'mock-ai-key' })),
+}));
+jest.mock('@/features/report-viewing/actions/reportViewingActions', () => ({
+  getAnalysisReportAction: jest.fn(() => Promise.resolve({ mdxContent: '# Mock Report', fileName: 'mock-report.csv', analysisId: 'mock-analysis-id', error: null })),
+}));
+jest.mock('@/features/tag-management/actions/tagActions', () => ({
+    addTagToAction: jest.fn(() => Promise.resolve()),
+    removeTagAction: jest.fn(() => Promise.resolve()),
+}));
+
 
 // Mock useAnalysisManager
 const mockSetCurrentAnalysis = jest.fn();
 const mockFetchPastAnalyses = jest.fn(() => Promise.resolve());
 const mockStartAiProcessing = jest.fn(() => Promise.resolve());
 const mockHandleDeleteAnalysis = jest.fn((id, cb) => { cb?.(); return Promise.resolve(); });
+const mockHandleCancelAnalysis = jest.fn(() => Promise.resolve());
 
 global.mockUseAnalysisManagerReturnValue = {
   currentAnalysis: null,
@@ -119,6 +104,7 @@ global.mockUseAnalysisManagerReturnValue = {
   handleAddTag: jest.fn(() => Promise.resolve()),
   handleRemoveTag: jest.fn(() => Promise.resolve()),
   handleDeleteAnalysis: mockHandleDeleteAnalysis,
+  handleCancelAnalysis: mockHandleCancelAnalysis,
   downloadReportAsTxt: jest.fn(),
   displayedAnalysisSteps: [],
 };
@@ -142,30 +128,20 @@ jest.mock('@/features/file-upload/hooks/useFileUploadManager', () => ({
   useFileUploadManager: jest.fn(() => global.mockUseFileUploadManagerReturnValue),
 }));
 
-// Mock firebase/firestore functions used directly in components if any (like page.tsx for getDoc)
-const mockActualFirestore = jest.requireActual('firebase/firestore');
-global.mockFirestoreGetDoc = jest.fn(() => Promise.resolve({
-  exists: () => false,
-  data: () => ({}),
-  id: 'mock-doc-id'
-}));
-global.mockFirestoreDoc = jest.fn();
+// Firebase/Firestore direct usage mocks (like in page.tsx for getDoc, or ReportPage for RTDB)
+// These are now commented out or removed to allow emulators to be hit by the actual SDK.
+// If specific components directly use SDK methods AND you don't want them to hit emulators in certain tests,
+// you might mock them on a per-test-suite basis.
 
-jest.mock('firebase/firestore', () => ({
-  ...mockActualFirestore,
-  getDoc: global.mockFirestoreGetDoc,
-  doc: global.mockFirestoreDoc,
-  Timestamp: mockActualFirestore.Timestamp, // Keep actual Timestamp
-  serverTimestamp: mockActualFirestore.serverTimestamp,
-  collection: mockActualFirestore.collection,
-  query: mockActualFirestore.query,
-  orderBy: mockActualFirestore.orderBy,
-  where: mockActualFirestore.where,
-  getDocs: jest.fn(() => Promise.resolve({ docs: [] })), // For getPastAnalyses if it were client-side
-  addDoc: jest.fn(),
-  updateDoc: jest.fn(),
-  onSnapshot: jest.fn(() => jest.fn()), // Returns an unsubscribe function
-}));
+// Example: If you still needed to mock getDoc for a specific test file, you could do:
+// jest.mock('firebase/firestore', () => ({
+//   ...jest.requireActual('firebase/firestore'), // Import and retain default behavior
+//   getDoc: jest.fn(() => Promise.resolve({ exists: () => false, data: () => ({}), id: 'mock-doc-id' })),
+//   doc: jest.fn(),
+// }));
+// However, for emulator testing, we want the real getDoc.
+
+global.Timestamp = Timestamp; // Make Firebase Timestamp globally available if needed
 
 
 // Clear all mocks before each test
@@ -177,12 +153,11 @@ beforeEach(() => {
   mockFetchPastAnalyses.mockClear();
   mockStartAiProcessing.mockClear();
   mockHandleDeleteAnalysis.mockClear();
+  mockHandleCancelAnalysis.mockClear();
   mockUploadFileAndCreateRecord.mockClear();
-  global.mockFirestoreGetDoc.mockClear().mockResolvedValue({ exists: () => false, data: () => ({}), id: 'mock-doc-id' });
-  global.mockFirestoreDoc.mockClear();
 
-  // Reset return values for hooks if they were changed in a test
-    global.mockUseAnalysisManagerReturnValue = {
+  // Reset return values for custom hooks
+  global.mockUseAnalysisManagerReturnValue = {
     currentAnalysis: null,
     setCurrentAnalysis: mockSetCurrentAnalysis,
     pastAnalyses: [],
@@ -194,10 +169,11 @@ beforeEach(() => {
     handleAddTag: jest.fn(() => Promise.resolve()),
     handleRemoveTag: jest.fn(() => Promise.resolve()),
     handleDeleteAnalysis: mockHandleDeleteAnalysis,
+    handleCancelAnalysis: mockHandleCancelAnalysis,
     downloadReportAsTxt: jest.fn(),
     displayedAnalysisSteps: [],
   };
-   global.mockUseFileUploadManagerReturnValue = {
+  global.mockUseFileUploadManagerReturnValue = {
     fileToUpload: null,
     isUploading: false,
     uploadProgress: 0,
@@ -207,10 +183,16 @@ beforeEach(() => {
   };
 
   // Reset server action mocks
-  jest.requireMock('@/app/actions').getPastAnalysesAction.mockResolvedValue([]);
+  jest.requireMock('@/features/analysis-listing/actions/analysisListingActions').getPastAnalysesAction.mockResolvedValue([]);
   jest.requireMock('@/features/file-upload/actions/fileUploadActions').createInitialAnalysisRecordAction.mockImplementation(
     (userId, fileName) => Promise.resolve({ analysisId: `mock-analysis-id-for-${fileName}` })
   );
+   jest.requireMock('@/features/report-viewing/actions/reportViewingActions').getAnalysisReportAction.mockResolvedValue(
+     { mdxContent: '# Mock Report Default', fileName: 'mock-report-default.csv', analysisId: 'default-mock-analysis-id', error: null }
+   );
+   jest.requireMock('@/features/report-chat/actions/reportChatActions').askReportOrchestratorAction.mockResolvedValue(
+     { success: true, aiMessageRtdbKey: 'mock-ai-key-default' }
+   );
 
 
 });
@@ -224,3 +206,49 @@ export const mockAuthContext = (user, loading = false) => {
   jest.spyOn(useAuthActual, 'useAuth').mockReturnValue({ user, loading });
   return useAuthActual;
 };
+
+// Global flag to indicate if emulators are connected (tests can check this)
+// This would typically be set by an environment variable via firebase emulators:exec
+global.EMULATORS_CONNECTED = !!process.env.FIRESTORE_EMULATOR_HOST;
+
+// Mock for RTDB `onValue` and `push` if needed for tests not hitting emulators,
+// but for emulator tests, we want the real SDK.
+// jest.mock('firebase/database', () => {
+//   const actualDb = jest.requireActual('firebase/database');
+//   return {
+//     ...actualDb,
+//     ref: jest.fn(),
+//     onValue: jest.fn((ref, callback) => {
+//       // Simulate initial data or no data
+//       // callback({ exists: () => false, val: () => null });
+//       return jest.fn(); // unsubscribe function
+//     }),
+//     push: jest.fn(() => Promise.resolve({ key: 'mock-pushed-key' })),
+//     serverTimestamp: jest.fn(() => Date.now()),
+//     off: jest.fn(),
+//   };
+// });
+
+console.log(`EMULATORS_CONNECTED: ${global.EMULATORS_CONNECTED}`);
+if (global.EMULATORS_CONNECTED) {
+  console.log('Jest setup: Firebase SDKs should connect to emulators.');
+} else {
+  console.warn('Jest setup: Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail.');
+}
+
+// To deal with "Could not parse CSS stylesheet" from Radix UI in tests
+// See: https://github.com/radix-ui/primitives/issues/2269
+if (typeof window !== 'undefined') {
+  const originalGetComputedStyle = window.getComputedStyle;
+  window.getComputedStyle = (elt, pseudoElt) => {
+    try {
+      return originalGetComputedStyle(elt, pseudoElt);
+    } catch (error) {
+      // Fallback for environments where getComputedStyle might fail with certain elements
+      console.warn('jsdom.getComputedStyle failed, returning empty CSSStyleDeclaration', error);
+      const style = {} as CSSStyleDeclaration;
+      // Populate with some common properties if necessary, or just return empty
+      return style;
+    }
+  };
+}
