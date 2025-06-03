@@ -44,6 +44,8 @@ jobs:
           NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
           NEXT_PUBLIC_FIREBASE_DATABASE_URL: ${{ secrets.NEXT_PUBLIC_FIREBASE_DATABASE_URL }}
           NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
 
       - name: Prepare Next.js deployment artifact
         run: |
@@ -66,15 +68,19 @@ jobs:
       - name: Install Firebase Functions dependencies
         run: npm ci --prefix functions
 
-      # Etapa de build das functions removida
-      # - name: Build Firebase Functions
-      #  run: npm run build --prefix functions
-      #  env:
-      #    NODE_OPTIONS: "--max-old-space-size=4096"
+      - name: Build Firebase Functions Shared Files
+        run: npm run build:shared --prefix functions
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
 
-      - name: Upload Functions deployment artifact (includes src, package.json, node_modules)
+      - name: Upload Functions deployment artifact (includes src, lib/shared, package.json, node_modules)
         uses: actions/upload-artifact@v4
         with:
           name: functions-prod-build
-          path: functions/ # Agora faz upload de toda a pasta functions
+          path: |
+            functions/src
+            functions/lib/shared
+            functions/package.json
+            functions/package-lock.json
+            functions/node_modules 
           retention-days: 1

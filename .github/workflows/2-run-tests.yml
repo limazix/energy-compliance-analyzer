@@ -24,11 +24,11 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Download Functions source artifact
+      - name: Download Functions source and shared build artifact
         uses: actions/download-artifact@v4
         with:
-          name: functions-src-for-test # Nome do artefato atualizado
-          path: functions/src # Baixa para functions/src
+          name: functions-src-and-shared-for-test
+          path: functions 
 
       - name: Install Next.js app dependencies
         run: npm ci

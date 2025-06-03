@@ -1,9 +1,9 @@
 
 import type { 
   AnalyzeComplianceReportOutput, 
-  ReportSection as ReportSectionType, // Renomeado para evitar conflito com o nome da constante
-  BibliographyItem as BibliographyItemType // Renomeado para evitar conflito com o nome da constante
-} from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
+  ReportSection as ReportSectionType,
+  BibliographyItem as BibliographyItemType
+} from '@/ai/prompt-configs/analyze-compliance-report-prompt-config'; // Corrigido o caminho da importação
 
 function sanitizeForMdx(text: string | undefined): string {
   if (!text) return '';
@@ -27,7 +27,7 @@ export function convertStructuredReportToMdx(
     const intro = introduction || { objective: 'Não disponível.', overallResultsSummary: 'Não disponível.', usedNormsOverview: 'Não disponível.' };
     const sections = analysisSections || [];
     const biblio = bibliography || [];
-    const toc = tableOfContents || [];
+    const tocFromReport = tableOfContents || []; // Renomeado para evitar conflito com a variável 'toc' abaixo
 
     let mdx = `---
 title: "${sanitizeForMdx(meta.title)}"
@@ -45,9 +45,9 @@ fileName: "${sanitizeForMdx(fileName)}"
 **Arquivo Analisado:** ${sanitizeForMdx(fileName)}
 `;
 
-    if (toc.length > 0) {
+    if (tocFromReport.length > 0) {
       mdx += `\n## Sumário\n`;
-      toc.forEach((item: string) => { // Adicionado tipo explícito
+      tocFromReport.forEach((item: string) => { 
         mdx += `- ${sanitizeForMdx(item)}\n`;
       });
     }
@@ -58,7 +58,7 @@ fileName: "${sanitizeForMdx(fileName)}"
     mdx += `**Visão Geral das Normas Utilizadas:** ${sanitizeForMdx(intro.usedNormsOverview)}\n`;
 
     if (sections.length > 0) {
-      sections.forEach((section: ReportSectionType) => { // Adicionado tipo explícito
+      sections.forEach((section: ReportSectionType) => { 
         const sec = section || { title: 'Seção Sem Título', content: 'Conteúdo não disponível.', insights: [], relevantNormsCited: [] }; 
         mdx += `\n## ${sanitizeForMdx(sec.title)}\n`;
         mdx += `${sanitizeForMdx(sec.content)}\n`;
@@ -66,13 +66,13 @@ fileName: "${sanitizeForMdx(fileName)}"
         const insights = sec.insights || [];
         if (insights.length > 0) {
           mdx += `\n**Insights Chave:**\n`;
-          insights.forEach((insight: string) => mdx += `- ${sanitizeForMdx(insight)}\n`); // Adicionado tipo explícito
+          insights.forEach((insight: string) => mdx += `- ${sanitizeForMdx(insight)}\n`); 
         }
         
         const normsCited = sec.relevantNormsCited || [];
         if (normsCited.length > 0) {
           mdx += `\n**Normas Citadas nesta Seção:**\n`;
-          normsCited.forEach((norm: string) => mdx += `- ${sanitizeForMdx(norm)}\n`); // Adicionado tipo explícito
+          normsCited.forEach((norm: string) => mdx += `- ${sanitizeForMdx(norm)}\n`); 
         }
         
         if (sec.chartOrImageSuggestion) {
@@ -90,7 +90,7 @@ fileName: "${sanitizeForMdx(fileName)}"
 
     if (biblio.length > 0) {
       mdx += `\n## Referências Bibliográficas\n`;
-      biblio.forEach((refItem: BibliographyItemType) => { // Adicionado tipo explícito
+      biblio.forEach((refItem: BibliographyItemType) => { 
         const item = refItem || { text: 'Referência não disponível' }; 
         mdx += `- ${sanitizeForMdx(item.text)}`;
         if (item.link) mdx += ` ([link](${sanitizeForMdx(item.link)}))`;
@@ -121,7 +121,7 @@ export function formatStructuredReportToTxt(
   const intro = introduction || { objective: 'Não disponível.', overallResultsSummary: 'Não disponível.', usedNormsOverview: 'Não disponível.' };
   const sections = analysisSections || [];
   const biblio = bibliography || [];
-  // const toc = tableOfContents || []; // TOC is less useful in plain text without links, removi a declaração de 'toc'
+  const toc = tableOfContents || []; // Variável 'toc' não estava sendo usada, mas pode ser útil aqui
 
   let txt = `RELATÓRIO DE CONFORMIDADE\n`;
   txt += `==================================================\n\n`;
@@ -132,6 +132,16 @@ export function formatStructuredReportToTxt(
   txt += `Data de Geração: ${meta.generatedDate}\n`;
   txt += `Arquivo Analisado: ${fileName}\n\n`;
 
+  if (toc.length > 0) { // Adicionando TOC ao TXT se disponível
+    txt += `--------------------------------------------------\n`;
+    txt += `SUMÁRIO\n`;
+    txt += `--------------------------------------------------\n`;
+    toc.forEach((item: string) => {
+        txt += `- ${item}\n`;
+    });
+    txt += `\n`;
+  }
+
   txt += `--------------------------------------------------\n`;
   txt += `INTRODUÇÃO\n`;
   txt += `--------------------------------------------------\n`;
@@ -140,7 +150,7 @@ export function formatStructuredReportToTxt(
   txt += `Visão Geral das Normas Utilizadas: ${intro.usedNormsOverview}\n\n`;
 
   if (sections.length > 0) {
-    sections.forEach((section: ReportSectionType, index: number) => { // Adicionado tipo explícito
+    sections.forEach((section: ReportSectionType, index: number) => { 
       const sec = section || { title: 'Seção Sem Título', content: 'Não disponível.', insights: [], relevantNormsCited: [] };
       txt += `--------------------------------------------------\n`;
       txt += `SEÇÃO ${index + 1}: ${sec.title}\n`;
@@ -150,14 +160,14 @@ export function formatStructuredReportToTxt(
       const insights = sec.insights || [];
       if (insights.length > 0) {
         txt += `Insights Chave:\n`;
-        insights.forEach((insight: string) => txt += `  - ${insight}\n`); // Adicionado tipo explícito
+        insights.forEach((insight: string) => txt += `  - ${insight}\n`); 
         txt += `\n`;
       }
 
       const normsCited = sec.relevantNormsCited || [];
       if (normsCited.length > 0) {
         txt += `Normas Citadas nesta Seção:\n`;
-        normsCited.forEach((norm: string) => txt += `  - ${norm}\n`); // Adicionado tipo explícito
+        normsCited.forEach((norm: string) => txt += `  - ${norm}\n`); 
         txt += `\n`;
       }
 
@@ -182,7 +192,7 @@ export function formatStructuredReportToTxt(
     txt += `--------------------------------------------------\n`;
     txt += `REFERÊNCIAS BIBLIOGRÁFICAS\n`;
     txt += `--------------------------------------------------\n`;
-    biblio.forEach((refItem: BibliographyItemType) => { // Adicionado tipo explícito
+    biblio.forEach((refItem: BibliographyItemType) => { 
       const item = refItem || { text: 'Referência não disponível' };
       txt += `- ${item.text}`;
       if (item.link) txt += ` (Disponível em: ${item.link})`;

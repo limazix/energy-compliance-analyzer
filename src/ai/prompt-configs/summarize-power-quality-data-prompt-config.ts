@@ -20,7 +20,7 @@ export const SummarizePowerQualityDataOutputSchema = z.object({
 export type SummarizePowerQualityDataOutput = z.infer<typeof SummarizePowerQualityDataOutputSchema>;
 
 export const summarizePowerQualityDataPromptConfig = {
-  name: 'summarizePowerQualityDataChunkShared', // Name can remain for compatibility
+  name: 'summarizePowerQualityDataChunkShared', 
   input: { schema: SummarizePowerQualityDataInputSchema },
   output: { schema: SummarizePowerQualityDataOutputSchema },
   prompt: `You are a Senior Data Analyst specializing in electrical power quality data from devices like PowerNET PQ-600 G4. You will be provided with a CHUNK of power quality data in CSV format. This is one segment of a potentially larger dataset.

@@ -4,7 +4,8 @@
   "description": "Cloud Functions for Firebase",
   "scripts": {
     "lint": "eslint --ext .js .",
-    "build": "echo \"No build step required for JavaScript functions\"",
+    "build:shared": "tsc -p tsconfig.shared.json",
+    "build": "npm run build:shared",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
     "start": "npm run shell",
@@ -25,7 +26,8 @@
   "devDependencies": {
     "eslint": "^8.57.0",
     "eslint-plugin-import": "^2.29.1",
-    "firebase-functions-test": "^3.1.0"
+    "firebase-functions-test": "^3.1.0",
+    "typescript": "^5"
   },
   "private": true
 }

@@ -2,29 +2,27 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "noImplicitReturns": false, // Ajustado para JS, pode ser mais flexível
-    "noUnusedLocals": false,    // Ajustado para JS
-    "outDir": "lib",            // Mantido, mas não usado ativamente pelo build
+    "noImplicitReturns": false,
+    "noUnusedLocals": false,
+    "outDir": "lib", 
     "sourceMap": true,
-    "strict": false,            // Ajustado para JS, menos rigoroso
+    "strict": false,
     "target": "es2021",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "allowJs": true,            // Permite arquivos JS
-    "checkJs": true,            // Habilita verificação de JS com // @ts-check
-    "baseUrl": ".",
+    "allowJs": true,
+    "checkJs": true, 
+    "baseUrl": ".", 
     "paths": {
-      "@/*": ["../src/*"]
+      "@/*": ["../src/*"] 
     }
   },
   "include": [
-    "src/**/*.js",              // Inclui arquivos JS em src
-    "../src/ai/prompt-configs/**/*.ts", // Permite referenciar .ts para tipos se necessário com JSDoc
-    "../src/lib/**/*.ts"              // Permite referenciar .ts para tipos se necessário com JSDoc
+    "src/**/*.js" 
   ],
   "exclude": [
     "node_modules",
-    "lib"                       // Diretório de saída não deve ser incluído
+    "lib" 
   ]
 }

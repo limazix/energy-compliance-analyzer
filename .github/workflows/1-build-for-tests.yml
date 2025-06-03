@@ -32,16 +32,18 @@ jobs:
       - name: Install Firebase Functions dependencies
         run: npm ci --prefix functions
 
-      # Etapa de build das functions removida pois agora são JS
-      # - name: Build Firebase Functions for Emulators
-      #   run: npm run build --prefix functions
-      #   env:
-      #     NODE_OPTIONS: "--max-old-space-size=4096"
+      - name: Build Firebase Functions Shared Files (for Emulators)
+        run: npm run build:shared --prefix functions
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
 
-      # Upload do diretório src das functions, já que não há mais 'lib'
-      - name: Upload Functions source artifact (for test workflow)
+      - name: Upload Functions source and shared build artifact (for test workflow)
         uses: actions/upload-artifact@v4
         with:
-          name: functions-src-for-test # Mudou o nome do artefato
-          path: functions/src # Faz upload do código fonte JS
+          name: functions-src-and-shared-for-test
+          path: |
+            functions/src
+            functions/lib/shared 
+            functions/package.json
+            functions/package-lock.json
           retention-days: 1

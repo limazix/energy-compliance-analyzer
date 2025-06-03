@@ -1,11 +1,11 @@
 
 import { z } from 'zod';
-import { AnalyzeComplianceReportOutputSchema } from './analyze-compliance-report-prompt-config'; // Importar para currentStructuredReport
+import { AnalyzeComplianceReportOutputSchema } from './analyze-compliance-report-prompt-config'; 
 
 export const OrchestrateReportInteractionInputSchema = z.object({
   userInputText: z.string().describe("The user's question or request regarding the compliance report."),
   currentReportMdx: z.string().describe("The full MDX content of the current compliance report being viewed."),
-  currentStructuredReport: AnalyzeComplianceReportOutputSchema.describe("The current full structured (JSON) compliance report object."), // Adicionado
+  currentStructuredReport: AnalyzeComplianceReportOutputSchema.describe("The current full structured (JSON) compliance report object."), 
   analysisFileName: z.string().describe("The original filename of the analyzed data, for context."),
   powerQualityDataSummary: z.string().optional().describe("The aggregated summary of the power quality data that was used to generate the report. This provides deeper context if the user asks about data specifics."),
   languageCode: z.string().optional().default('pt-BR').describe("The BCP-47 language code for the conversation (e.g., 'en-US', 'pt-BR'). Defaults to 'pt-BR'."),

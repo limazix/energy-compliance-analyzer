@@ -1,36 +1,33 @@
 
-// @ts-check Convertido de TypeScript para JavaScript
+// @ts-check
 'use strict';
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { genkit } = require('genkit');
-const { googleAI } = require('@genkit-ai/googleai'); // Ajustado para importação JS
+const { googleAI } = require('@genkit-ai/googleai');
 
-// Importar configurações de prompt - assumindo que elas exportam objetos JS válidos
-// ou que o Node.js consegue lidar com a importação de .ts se configurado corretamente
-// (pode precisar de ajustes se os arquivos .ts não forem transpilados para JS em outro lugar)
+// Importar configurações de prompt da pasta 'lib/shared' (onde serão compilados os .ts)
 const {
   summarizePowerQualityDataPromptConfig,
-} = require('../../src/ai/prompt-configs/summarize-power-quality-data-prompt-config');
+} = require('./lib/shared/ai/prompt-configs/summarize-power-quality-data-prompt-config.js'); // Adicionado .js
 const {
   identifyAEEEResolutionsPromptConfig,
-} = require('../../src/ai/prompt-configs/identify-aneel-resolutions-prompt-config');
+} = require('./lib/shared/ai/prompt-configs/identify-aneel-resolutions-prompt-config.js'); // Adicionado .js
 const {
   analyzeComplianceReportPromptConfig,
-} = require('../../src/ai/prompt-configs/analyze-compliance-report-prompt-config');
+} = require('./lib/shared/ai/prompt-configs/analyze-compliance-report-prompt-config.js'); // Adicionado .js
 const {
   reviewComplianceReportPromptConfig,
-} = require('../../src/ai/prompt-configs/review-compliance-report-prompt-config');
+} = require('./lib/shared/ai/prompt-configs/review-compliance-report-prompt-config.js'); // Adicionado .js
 
-const { convertStructuredReportToMdx } = require('../../src/lib/reportUtils');
+const { convertStructuredReportToMdx } = require('./lib/shared/lib/reportUtils.js'); // Adicionado .js
 
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-// Tenta obter a API key de várias fontes
 const geminiApiKey = process.env.GEMINI_API_KEY || 
                      (functions.config().gemini ? functions.config().gemini.apikey : undefined) || 
                      process.env.NEXT_PUBLIC_GEMINI_API_KEY;
@@ -57,10 +54,10 @@ const OVERLAP_SIZE = 10000;
 
 const PROGRESS_FILE_READ = 10;
 const PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE = 15;
-const PROGRESS_SUMMARIZATION_TOTAL_SPAN = 30;
-const PROGRESS_IDENTIFY_REGULATIONS_COMPLETE = PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE + PROGRESS_SUMMARIZATION_TOTAL_SPAN + 15; // 60
-const PROGRESS_ANALYZE_COMPLIANCE_COMPLETE = PROGRESS_IDENTIFY_REGULATIONS_COMPLETE + 15; // 75
-const PROGRESS_REVIEW_REPORT_COMPLETE = PROGRESS_ANALYZE_COMPLIANCE_COMPLETE + 15; // 90
+const PROGRESS_SUMMARIZATION_TOTAL_SPAN = 30; // 15 + 30 = 45
+const PROGRESS_IDENTIFY_REGULATIONS_COMPLETE = PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE + PROGRESS_SUMMARIZATION_TOTAL_SPAN + 15; // 45 + 15 = 60
+const PROGRESS_ANALYZE_COMPLIANCE_COMPLETE = PROGRESS_IDENTIFY_REGULATIONS_COMPLETE + 15; // 60 + 15 = 75
+const PROGRESS_REVIEW_REPORT_COMPLETE = PROGRESS_ANALYZE_COMPLIANCE_COMPLETE + 15; // 75 + 15 = 90
 const PROGRESS_FINAL_COMPLETE = 100;
 
 const MAX_ERROR_MSG_LENGTH = 1000;
@@ -99,7 +96,7 @@ exports.processAnalysisOnUpdate = functions
   .region('southamerica-east1')
   .runWith({
     timeoutSeconds: 540,
-    memory: '1GB',
+    memory: '1GB', // Pode ser ajustado conforme necessário
   })
   .firestore.document('users/{userId}/analyses/{analysisId}')
   .onUpdate(async (change, context) => {
@@ -271,9 +268,8 @@ exports.processAnalysisOnUpdate = functions
     } catch (error) {
       console.error(`[Function_processAnalysis] Error processing analysis ${analysisId}:`, error);
       let errorMessage = 'Erro desconhecido no processamento em segundo plano.';
-      // Check if it's a GenkitError (property access)
-      if (error && typeof error === 'object' && error.isGenerativeAIError) {
-        errorMessage = `AI Error: ${error.message} (Status: ${error.status}, Code: ${error.code || 'N/A'})`;
+      if (error && typeof error === 'object' && 'isGenerativeAIError' in error && error.isGenerativeAIError) {
+        errorMessage = `AI Error: ${(error as any).message} (Status: ${(error as any).status}, Code: ${(error as any).code || 'N/A'})`;
       } else if (error instanceof functions.https.HttpsError) {
         errorMessage = `Function Error: ${error.code} - ${error.message}`;
       } else if (error instanceof Error) {
@@ -297,3 +293,4 @@ exports.processAnalysisOnUpdate = functions
     }
     return null;
   });
+
