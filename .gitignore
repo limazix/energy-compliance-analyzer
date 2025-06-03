@@ -46,3 +46,4 @@ next-env.d.ts
 firebase-debug.log
 firebase-emulator-data/
 *.firebase.*.log
+firestore-debug.log

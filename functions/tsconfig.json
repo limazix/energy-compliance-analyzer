@@ -1,3 +1,4 @@
+
 {
   "compilerOptions": {
     "module": "commonjs",
@@ -9,10 +10,16 @@
     "target": "es2021",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".", // Added to help with path resolution if needed later
+    "paths": {
+      // Example of how you could alias if direct relative paths become problematic
+      // "@/src/*": ["../src/*"] 
+    }
   },
   "compileOnSave": true,
   "include": [
-    "src"
+    "src", // Default include for functions source
+    "../src/ai/prompt-configs" // Allow importing from the shared prompt configurations
   ]
 }

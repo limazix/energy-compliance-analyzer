@@ -1,88 +1,66 @@
+
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { genkit, type GenerativeAIError } from 'genkit';
 import { googleAI } from '@genkit-ai/googleai';
-import { z } from 'genkit/zod';
+// Import Zod from genkit/zod for consistency if using genkit's Zod, or directly from 'zod'
+import { z } from 'genkit/zod'; 
+
+// Import prompt configurations and types from the shared location
+import { 
+  summarizePowerQualityDataPromptConfig, 
+  SummarizePowerQualityDataInputSchema, 
+  SummarizePowerQualityDataOutputSchema,
+  type SummarizePowerQualityDataInput
+} from '../../src/ai/prompt-configs/summarize-power-quality-data-prompt-config';
+import { 
+  identifyAEEEResolutionsPromptConfig, 
+  IdentifyAEEEResolutionsInputSchema, 
+  IdentifyAEEEResolutionsOutputSchema,
+  type IdentifyAEEEResolutionsInput
+} from '../../src/ai/prompt-configs/identify-aneel-resolutions-prompt-config';
+import { 
+  analyzeComplianceReportPromptConfig, 
+  AnalyzeComplianceReportInputSchema, 
+  AnalyzeComplianceReportOutputSchema,
+  type AnalyzeComplianceReportInput
+} from '../../src/ai/prompt-configs/analyze-compliance-report-prompt-config';
+
+// Import MDX conversion utility from the shared location
+import { convertStructuredReportToMdx } from '../../src/lib/reportUtils';
+
 
 // Ensure admin is initialized (idempotent)
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-// Configure Genkit (IMPORTANT: API Key should be from Firebase Functions secrets/env vars)
-// Example: const geminiApiKey = functions.config().gemini?.apikey;
-// For local testing, you might use process.env.NEXT_PUBLIC_GEMINI_API_KEY if also set in .env for functions
-const geminiApiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+const geminiApiKey = process.env.GEMINI_API_KEY || functions.config().gemini?.apikey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
 if (!geminiApiKey) {
-  console.warn("GEMINI_API_KEY not found in environment variables for Firebase Functions. Genkit AI calls will likely fail.");
+  console.warn("CRITICAL: GEMINI_API_KEY not found in environment variables for Firebase Functions. Genkit AI calls WILL FAIL. Configure it in Firebase Function secrets/environment variables (e.g., GEMINI_API_KEY).");
 }
 
+// Configure Genkit for Firebase Functions environment
 const ai = genkit({
   plugins: [googleAI({ apiKey: geminiApiKey })],
 });
 
-// Schemas (should match those in your Next.js app)
-const SummarizePowerQualityDataInputSchema = z.object({
-  powerQualityDataCsv: z.string().describe('CSV chunk'),
-  languageCode: z.string().optional().default('pt-BR'),
-});
-const SummarizePowerQualityDataOutputSchema = z.object({
-  dataSummary: z.string().describe('Summary of the chunk'),
-});
-
-const IdentifyAEEEResolutionsInputSchema = z.object({
-  powerQualityDataSummary: z.string().describe('Summary of power quality data'),
-  languageCode: z.string().optional().default('pt-BR'),
-});
-const IdentifyAEEEResolutionsOutputSchema = z.object({
-  relevantResolutions: z.array(z.string()).describe('List of relevant ANEEL resolutions'),
-});
-
-const AnalyzeComplianceReportInputSchema = z.object({
-  powerQualityDataSummary: z.string().describe('Summary of power quality data'),
-  identifiedRegulations: z.string().describe('Identified ANEEL regulations'),
-  fileName: z.string().describe('Original file name'),
-  languageCode: z.string().optional().default('pt-BR'),
-});
-const AnalyzeComplianceReportOutputSchema = z.object({
-  reportMetadata: z.object({
-    title: z.string(),
-    subtitle: z.string().optional(),
-    author: z.string(),
-    generatedDate: z.string(),
-  }),
-  tableOfContents: z.array(z.string()).optional(),
-  introduction: z.object({
-    objective: z.string(),
-    overallResultsSummary: z.string(),
-    usedNormsOverview: z.string(),
-  }),
-  analysisSections: z.array(z.object({
-    title: z.string(),
-    content: z.string(),
-    insights: z.array(z.string()),
-    relevantNormsCited: z.array(z.string()),
-    chartOrImageSuggestion: z.string().optional(),
-  })),
-  finalConsiderations: z.string(),
-  bibliography: z.array(z.object({
-    text: z.string(),
-    link: z.string().url().optional(),
-  })).optional(),
-});
+// Define prompts using the imported configurations and the local 'ai' instance for Functions
+const summarizeDataChunkFlow = ai.definePrompt(summarizePowerQualityDataPromptConfig);
+const identifyResolutionsFlow = ai.definePrompt(identifyAEEEResolutionsPromptConfig);
+const analyzeReportFlow = ai.definePrompt(analyzeComplianceReportPromptConfig);
 
 
 const db = admin.firestore();
 const storage = admin.storage();
 
-const CHUNK_SIZE = 100000; // 100KB per chunk for summarization
-const OVERLAP_SIZE = 10000; // 10KB overlap
+const CHUNK_SIZE = 100000; 
+const OVERLAP_SIZE = 10000; 
 
-// Progress constants (relative to function steps, not overall client view)
 const PROGRESS_FILE_READ = 10;
-const PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE = 15; // Base after first chunk setup
-const PROGRESS_SUMMARIZATION_TOTAL_SPAN = 35; // Summarization takes 35% (from 15 to 50)
+const PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE = 15; 
+const PROGRESS_SUMMARIZATION_TOTAL_SPAN = 35; 
 const PROGRESS_IDENTIFY_REGULATIONS_COMPLETE = 65;
 const PROGRESS_ANALYZE_COMPLIANCE_COMPLETE = 90;
 const PROGRESS_FINAL_COMPLETE = 100;
@@ -91,7 +69,7 @@ const MAX_ERROR_MSG_LENGTH = 1000;
 
 
 async function getFileContentFromStorage(filePath: string): Promise<string> {
-  const bucketName = storage.bucket().name; // Or your specific bucket name if not default
+  const bucketName = storage.bucket().name; 
   console.log(`[Function_getFileContent] Reading from bucket: ${bucketName}, path: ${filePath}`);
   const file = storage.bucket(bucketName).file(filePath);
   
@@ -119,104 +97,11 @@ async function checkCancellation(analysisRef: admin.firestore.DocumentReference)
   return false;
 }
 
-// Define Genkit Prompts/Flows conceptually here or invoke deployed flows
-// For simplicity, we'll simulate direct ai.generate calls
-const summarizeDataChunkFlow = ai.definePrompt({
-  name: 'summarizePowerQualityDataChunkInFunction',
-  input: { schema: SummarizePowerQualityDataInputSchema },
-  output: { schema: SummarizePowerQualityDataOutputSchema },
-  prompt: `You are an expert power systems analyst. You will be provided with a CHUNK of power quality data in CSV format from a PowerNET PQ-600 G4 device. This is one segment of a potentially larger dataset. Your task is to:
-1. Analyze THIS CHUNK of data.
-2. Generate a CONCISE TEXTUAL SUMMARY that captures the most critical information *within this chunk* relevant for a subsequent ANEEL regulatory compliance assessment.
-3. The summary for THIS CHUNK should highlight:
-    - Key voltage, current, power factor, and frequency statistics (e.g., min, max, average, significant deviations) *observed in this chunk*.
-    - Presence of any notable events or anomalies (e.g., sags, swells, interruptions, harmonic distortions exceeding typical thresholds) *visible in this chunk*.
-    - General stability and quality trends *observed in this chunk*.
-4. DO NOT add any introductory or concluding phrases like "This chunk covers..." or "In summary, this segment shows...". Provide only the direct factual summary of the data in this specific chunk.
-5. The output summary for THIS CHUNK MUST be significantly smaller than the input data to be suitable for aggregation and further processing. Focus on information density and relevance for regulatory checks. Do not include raw data rows.
-
-Power Quality CSV Data CHUNK:
-{{powerQualityDataCsv}}
-`,
-});
-
-const identifyResolutionsFlow = ai.definePrompt({
-  name: 'identifyAEEEResolutionsInFunction',
-  input: {schema: IdentifyAEEEResolutionsInputSchema},
-  output: {schema: IdentifyAEEEResolutionsOutputSchema},
-  prompt: `You are an expert in Brazilian electrical regulations, specifically ANEEL Normative Resolutions.
-  Based on the provided summary of power quality data, identify the relevant ANEEL Normative Resolutions that apply.
-  Return a list of the relevant resolutions.
-
-  Power Quality Data Summary:
-  {{powerQualityDataSummary}}`,
-});
-
-const analyzeReportFlow = ai.definePrompt({
-  name: 'generateStructuredComplianceReportInFunction',
-  input: {schema: AnalyzeComplianceReportInputSchema},
-  output: {schema: AnalyzeComplianceReportOutputSchema},
-  prompt: `
-Você é um especialista em engenharia elétrica e regulamentações da ANEEL, encarregado de gerar um relatório técnico de conformidade detalhado e bem estruturado.
-
-**Contexto da Análise:**
-- Arquivo de Dados Analisado: {{fileName}}
-- Sumário dos Dados de Qualidade de Energia: {{powerQualityDataSummary}}
-- Resoluções ANEEL Identificadas como Pertinentes: {{identifiedRegulations}}
-
-**Sua Tarefa:**
-Gerar um relatório de conformidade completo, seguindo RIGOROSAMENTE a estrutura de saída JSON definida. O relatório deve ser técnico, claro, objetivo e pronto para ser a base de um documento PDF profissional.
-
-**Diretrizes Detalhadas para Cada Parte do Relatório:**
-
-1.  **reportMetadata:**
-    *   \`title\`: Crie um título formal, como "Relatório de Análise de Conformidade da Qualidade de Energia Elétrica".
-    *   \`subtitle\`: Opcional. Pode incluir o nome do arquivo: "Análise referente ao arquivo '{{fileName}}'".
-    *   \`author\`: Use "Energy Compliance Analyzer".
-    *   \`generatedDate\`: Use a data atual no formato YYYY-MM-DD.
-
-2.  **tableOfContents:**
-    *   Liste os títulos das seções principais que você criará: "Introdução", todos os títulos de \`analysisSections\`, "Considerações Finais", "Referências Bibliográficas".
-
-3.  **introduction:**
-    *   \`objective\`: Descreva o propósito do relatório (ex: analisar a conformidade dos dados de '{{fileName}}' com as resoluções ANEEL).
-    *   \`overallResultsSummary\`: Forneça um breve panorama dos achados (ex: se a maioria dos parâmetros está conforme, ou se há violações significativas).
-    *   \`usedNormsOverview\`: Mencione de forma geral as principais resoluções ANEEL (da lista {{identifiedRegulations}}) que fundamentaram a análise.
-
-4.  **analysisSections (Array):** Esta é a parte principal. Crie múltiplas seções.
-    *   **Ordenação:** Organize as seções por temas comuns (ex: "Análise de Tensão", "Análise de Frequência", "Desequilíbrio de Tensão", "Harmônicos") e, dentro dos temas, se possível, de forma cronológica caso os dados no sumário permitam identificar eventos com data/hora.
-    *   Para cada \`ReportSectionSchema\` no array:
-        *   \`title\`: Um título claro e descritivo para a seção (ex: "Análise dos Níveis de Tensão em Regime Permanente").
-        *   \`content\`: Detalhe a análise dos parâmetros relevantes para esta seção, baseado no \`powerQualityDataSummary\`. Seja técnico, mas claro. Compare os valores observados com os limites regulatórios.
-        *   \`insights\`: Liste os principais insights, observações ou problemas detectados nesta seção específica. Cada insight deve ser uma frase concisa.
-        *   \`relevantNormsCited\`: Para cada insight ou problema, **explicite a norma ANEEL e o artigo/item específico** que o respalda (ex: "Resolução XXX/YYYY, Art. Z, Inciso W", ou "PRODIST Módulo 8, item 3.2.1"). Seja preciso.
-        *   \`chartOrImageSuggestion\`: (OPCIONAL, MAS RECOMENDADO) Descreva verbalmente um gráfico ou imagem que poderia ilustrar os achados da seção. Ex: "Sugestão de Gráfico: Histograma das medições de tensão eficaz versus os limites de tensão adequada e precária definidos pela REN XXX/YYYY." ou "Sugestão de Imagem: Forma de onda do evento de afundamento de tensão ocorrido em [data/hora, se disponível no sumário]."
-
-5.  **finalConsiderations:**
-    *   Resuma as principais conclusões da análise.
-    *   Destaque os pontos mais críticos de não conformidade, se houver.
-    *   Pode incluir recomendações gerais (se o sumário de dados permitir inferi-las).
-
-6.  **bibliography (Array):**
-    *   Para cada norma ANEEL que foi CITADA em \`relevantNormsCited\` em qualquer \`analysisSections\`:
-        *   Crie um item \`BibliographyItemSchema\`.
-        *   \`text\`: Forneça a referência completa da norma (ex: "Agência Nacional de Energia Elétrica (ANEEL). Resolução Normativa nº 956, de 7 de dezembro de 2021. Estabelece os Procedimentos de Distribuição de Energia Elétrica no Sistema Elétrico Nacional – PRODIST."). Se for um módulo específico, cite-o (ex: "ANEEL. PRODIST Módulo 8 - Qualidade da Energia Elétrica. Revisão 2023.").
-        *   \`link\`: Se você souber de um link oficial para a norma, inclua-o. Caso contrário, pode omitir.
-
-**Importante:**
-*   Seja o mais detalhado e preciso possível, baseando-se estritamente nas informações do \`powerQualityDataSummary\` e nas \`identifiedRegulations\`.
-*   Se o sumário for limitado, reconheça isso em suas análises (ex: "Com base nos dados sumarizados, não foi possível avaliar X em detalhe...").
-*   A qualidade da estruturação e a precisão das referências às normas são cruciais.
-*   Garanta que a saída seja um JSON válido que corresponda ao schema \`AnalyzeComplianceReportOutputSchema\`.
-`,
-});
-
-
 export const processAnalysisOnUpdate = functions
-  .region('southamerica-east1') // Example region
+  .region('southamerica-east1') 
   .runWith({
-    timeoutSeconds: 540, // Max for gen1 HTTP, background can be longer
-    memory: '1GB',    // Adjust as needed
+    timeoutSeconds: 540, 
+    memory: '1GB',    
   })
   .firestore.document('users/{userId}/analyses/{analysisId}')
   .onUpdate(async (change, context) => {
@@ -230,16 +115,13 @@ export const processAnalysisOnUpdate = functions
     console.log(`[Function_processAnalysis] Status Before: ${analysisDataBefore?.status}, Status After: ${analysisDataAfter?.status}`);
     console.log(`[Function_processAnalysis] Progress Before: ${analysisDataBefore?.progress}, Progress After: ${analysisDataAfter?.progress}`);
 
-
     if (
         analysisDataAfter?.status !== 'summarizing_data' ||
         (analysisDataBefore?.status !== 'uploading' && analysisDataBefore?.status !== 'error')
     ) {
-        // Allow if status is 'summarizing_data' and it's a legitimate progress update by this function itself
         if (analysisDataAfter?.status === 'summarizing_data' &&
             analysisDataBefore?.status === 'summarizing_data' &&
             analysisDataBefore?.progress < analysisDataAfter?.progress) {
-             // This is a continuation of processing by this function, allow it.
         } else {
             console.log(`[Function_processAnalysis] No action needed for status change from ${analysisDataBefore?.status} to ${analysisDataAfter?.status}. Exiting.`);
             return null;
@@ -253,16 +135,12 @@ export const processAnalysisOnUpdate = functions
         return null;
     }
 
-
-    // Ensure no processing occurs if already in a terminal state from this function's perspective
     if (['completed', 'error', 'cancelled'].includes(analysisDataBefore?.status || '')) {
-        // If it was reset to 'summarizing_data' from 'error', allow reprocessing.
         if (!(analysisDataBefore?.status === 'error' && analysisDataAfter?.status === 'summarizing_data')) {
             console.log(`[Function_processAnalysis] Analysis ${analysisId} was in a terminal state '${analysisDataBefore?.status}' and not reset from error. Exiting.`);
             return null;
         }
     }
-
 
     try {
       const filePath = analysisDataAfter.powerQualityDataUrl;
@@ -277,11 +155,10 @@ export const processAnalysisOnUpdate = functions
       if (await checkCancellation(analysisRef)) return null;
 
       console.log(`[Function_processAnalysis] Reading file: ${filePath}`);
-      await analysisRef.update({ progress: 5 }); // Indicate start of file reading
+      await analysisRef.update({ progress: 5 }); 
       const powerQualityDataCsv = await getFileContentFromStorage(filePath);
       console.log(`[Function_processAnalysis] File content read. Size: ${powerQualityDataCsv.length}.`);
       await analysisRef.update({ progress: PROGRESS_FILE_READ });
-
 
       if (await checkCancellation(analysisRef)) return null;
       const chunks: string[] = [];
@@ -303,8 +180,8 @@ export const processAnalysisOnUpdate = functions
         if (chunk.trim() === "") {
             console.warn(`[Function_processAnalysis] Chunk ${i + 1} for ${analysisId} is empty. Skipping.`);
         } else {
-            const summarizeInput = { powerQualityDataCsv: chunk, languageCode };
-            const { output } = await summarizeDataChunkFlow(summarizeInput);
+            const summarizeInput: SummarizePowerQualityDataInput = { powerQualityDataCsv: chunk, languageCode };
+            const { output } = await summarizeDataChunkFlow(summarizeInput); // Using the prompt defined with local 'ai'
             if (!output?.dataSummary) throw new Error(`AI failed to summarize chunk ${i+1}.`);
             aggregatedSummary += (output.dataSummary || "") + "\n\n";
         }
@@ -322,8 +199,8 @@ export const processAnalysisOnUpdate = functions
       if (await checkCancellation(analysisRef)) return null;
 
       console.log(`[Function_processAnalysis] Identifying regulations.`);
-      const identifyInput = { powerQualityDataSummary: finalPowerQualityDataSummary, languageCode };
-      const { output: resolutionsOutput } = await identifyResolutionsFlow(identifyInput);
+      const identifyInput: IdentifyAEEEResolutionsInput = { powerQualityDataSummary: finalPowerQualityDataSummary, languageCode };
+      const { output: resolutionsOutput } = await identifyResolutionsFlow(identifyInput); // Using the prompt defined with local 'ai'
       if (!resolutionsOutput?.relevantResolutions) throw new Error("AI failed to identify resolutions.");
       const identifiedRegulations = resolutionsOutput.relevantResolutions;
       await analysisRef.update({
@@ -336,13 +213,13 @@ export const processAnalysisOnUpdate = functions
       if (await checkCancellation(analysisRef)) return null;
 
       console.log(`[Function_processAnalysis] Analyzing compliance.`);
-      const reportInput = {
+      const reportInput: AnalyzeComplianceReportInput = {
         powerQualityDataSummary: finalPowerQualityDataSummary,
         identifiedRegulations: identifiedRegulations.join(', '),
         fileName: originalFileName,
         languageCode
       };
-      const { output: structuredReportOutput } = await analyzeReportFlow(reportInput);
+      const { output: structuredReportOutput } = await analyzeReportFlow(reportInput); // Using the prompt defined with local 'ai'
       if (!structuredReportOutput) throw new Error("AI failed to generate compliance report.");
 
       await analysisRef.update({
@@ -354,9 +231,7 @@ export const processAnalysisOnUpdate = functions
       
       if (await checkCancellation(analysisRef)) return null;
 
-      // MDX generation and upload (placeholder, you might do this in Next.js or here)
-      // For now, we'll skip direct MDX generation in the function to simplify
-      const mdxContent = convertStructuredReportToMdx(structuredReportOutput, originalFileName); // If you move this util
+      const mdxContent = convertStructuredReportToMdx(structuredReportOutput, originalFileName);
       const mdxFilePath = `user_reports/${userId}/${analysisId}/report.mdx`;
       await storage.bucket().file(mdxFilePath).save(mdxContent, { contentType: 'text/markdown' });
       await analysisRef.update({ mdxReportStoragePath: mdxFilePath });
@@ -374,7 +249,7 @@ export const processAnalysisOnUpdate = functions
       let errorMessage = 'Erro desconhecido no processamento em segundo plano.';
       if (error instanceof functions.https.HttpsError) {
         errorMessage = `Function Error: ${error.code} - ${error.message}`;
-      } else if (error.isGenerativeAIError) { // Check if it's a Genkit error
+      } else if (error.isGenerativeAIError) { 
         const genkitError = error as GenerativeAIError;
         errorMessage = `AI Error: ${genkitError.message} (Status: ${genkitError.status}, Code: ${genkitError.code || 'N/A'})`;
       } else if (error instanceof Error) {
@@ -385,12 +260,10 @@ export const processAnalysisOnUpdate = functions
         const currentSnap = await analysisRef.get();
         if (currentSnap.exists()) {
           const data = currentSnap.data();
-          // Only update to error if not already cancelled or cancelling
           if (data?.status !== 'cancelling' && data?.status !== 'cancelled') {
             await analysisRef.update({
                 status: 'error',
                 errorMessage: `Falha (Function): ${errorMessage.substring(0, MAX_ERROR_MSG_LENGTH)}`,
-                // progress: analysisDataAfter?.progress || 0 // Keep current progress or reset
             });
           }
         }
