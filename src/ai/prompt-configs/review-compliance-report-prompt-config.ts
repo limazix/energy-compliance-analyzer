@@ -1,5 +1,5 @@
 
-import { z } from 'genkit/zod';
+import { z } from 'zod';
 import { AnalyzeComplianceReportOutputSchema } from './analyze-compliance-report-prompt-config';
 
 export const ReviewComplianceReportInputSchema = z.object({
@@ -53,4 +53,3 @@ Sua tarefa é revisar o relatório estruturado fornecido (em formato JSON) e ret
 **Foco Principal:** Qualidade, precisão e profissionalismo do relatório final.
 `,
 };
-

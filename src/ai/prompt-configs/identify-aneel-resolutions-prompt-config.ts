@@ -1,5 +1,5 @@
 
-import { z } from 'genkit/zod';
+import { z } from 'zod';
 
 export const IdentifyAEEEResolutionsInputSchema = z.object({
   powerQualityDataSummary: z

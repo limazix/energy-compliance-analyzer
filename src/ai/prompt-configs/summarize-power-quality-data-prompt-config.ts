@@ -1,5 +1,5 @@
 
-import { z } from 'genkit/zod';
+import { z } from 'zod';
 
 export const SummarizePowerQualityDataInputSchema = z.object({
   powerQualityDataCsv: z
@@ -48,4 +48,3 @@ Power Quality CSV Data CHUNK:
 Output Language: {{languageCode}}
 `,
 };
-

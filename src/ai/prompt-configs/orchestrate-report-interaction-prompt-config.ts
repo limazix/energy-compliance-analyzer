@@ -1,9 +1,11 @@
 
-import { z } from 'genkit/zod';
+import { z } from 'zod';
+import { AnalyzeComplianceReportOutputSchema } from './analyze-compliance-report-prompt-config'; // Importar para currentStructuredReport
 
 export const OrchestrateReportInteractionInputSchema = z.object({
   userInputText: z.string().describe("The user's question or request regarding the compliance report."),
   currentReportMdx: z.string().describe("The full MDX content of the current compliance report being viewed."),
+  currentStructuredReport: AnalyzeComplianceReportOutputSchema.describe("The current full structured (JSON) compliance report object."), // Adicionado
   analysisFileName: z.string().describe("The original filename of the analyzed data, for context."),
   powerQualityDataSummary: z.string().optional().describe("The aggregated summary of the power quality data that was used to generate the report. This provides deeper context if the user asks about data specifics."),
   languageCode: z.string().optional().default('pt-BR').describe("The BCP-47 language code for the conversation (e.g., 'en-US', 'pt-BR'). Defaults to 'pt-BR'."),
@@ -12,7 +14,7 @@ export type OrchestrateReportInteractionInput = z.infer<typeof OrchestrateReport
 
 export const OrchestrateReportInteractionOutputSchema = z.object({
   aiResponseText: z.string().describe("The AI agent's textual response to the user's query. This could be an explanation, a clarification, or a suggestion for how the report could be changed."),
-  // suggestedReportChangesMdx: z.string().optional().describe("If the AI suggests direct modifications to the report, this field might contain the new MDX for a section or the whole report. For now, this is less likely to be populated directly.")
+  revisedStructuredReport: AnalyzeComplianceReportOutputSchema.optional().describe("If the 'callRevisorTool' was successfully used and made changes, this field will contain the entire new structured report object. Otherwise, it will be absent.")
 });
 export type OrchestrateReportInteractionOutput = z.infer<typeof OrchestrateReportInteractionOutputSchema>;
 
@@ -23,11 +25,13 @@ export const orchestrateReportInteractionPromptConfig = {
   prompt: `
 Você é um Agente Orquestrador especialista em interagir com relatórios de conformidade de qualidade de energia elétrica e seus usuários.
 Seu objetivo é ajudar o usuário a entender, refinar ou obter mais detalhes sobre o relatório fornecido.
-O relatório está em formato MDX. A conversa deve ser no idioma especificado por '{{languageCode}}'.
+O relatório está em formato MDX, mas as modificações estruturais (se solicitadas) devem ser feitas através da ferramenta 'callRevisorTool' no relatório JSON estruturado fornecido em 'currentStructuredReport'.
+A conversa deve ser no idioma especificado por '{{languageCode}}'.
 
 **Contexto Disponível:**
 - **Consulta do Usuário:** {{userInputText}}
 - **Conteúdo Atual do Relatório (MDX):** {{currentReportMdx}}
+- **Conteúdo Estruturado Atual do Relatório (JSON):** {{currentStructuredReport}}
 - **Nome do Arquivo Original Analisado:** {{analysisFileName}}
 - **Idioma da Conversa:** {{languageCode}}
 {{#if powerQualityDataSummary}}
@@ -36,7 +40,7 @@ O relatório está em formato MDX. A conversa deve ser no idioma especificado po
 
 **Suas Tarefas e Capacidades:**
 
-1.  **Compreensão da Consulta:** Analise a \`userInputText\` para entender o que o usuário deseja (esclarecimento, aprofundamento, sugestão de alteração, etc.).
+1.  **Compreensão da Consulta:** Analise a \`userInputText\` para entender o que o usuário deseja (esclarecimento, aprofundamento, sugestão de alteração, revisão, etc.).
 
 2.  **Respostas Diretas e Esclarecimentos:**
     *   Se o usuário pedir um esclarecimento sobre uma seção ou termo no \`currentReportMdx\`, forneça uma explicação clara e concisa no idioma \`{{languageCode}}\`.
@@ -45,27 +49,23 @@ O relatório está em formato MDX. A conversa deve ser no idioma especificado po
 3.  **Aprofundamento de Informações:**
     *   Se o usuário pedir mais detalhes sobre um tópico mencionado no relatório, elabore com base no conteúdo do relatório e, se relevante, no \`powerQualityDataSummary\`.
 
-4.  **Sugestões de Alteração (Formato Textual):**
-    *   Se o usuário sugerir uma alteração (ex: "Você pode reformular a conclusão?" ou "Adicione mais detalhes sobre os harmônicos na Seção X."), sua \`aiResponseText\` deve:
-        *   Reconhecer o pedido.
-        *   Explicar como essa alteração poderia ser feita ou o que implicaria.
-        *   **NÃO** modifique o \`currentReportMdx\` diretamente nesta etapa. Em vez disso, descreva a alteração textualmente.
-        *   Exemplo de resposta: "Entendido. Para reformular a conclusão, poderíamos focar mais em [aspecto Y] e usar uma linguagem mais [direta/cautelosa]. A nova conclusão poderia ser algo como: '[exemplo de nova conclusão]'."
-        *   Outro exemplo: "Para adicionar mais detalhes sobre harmônicos na Seção X, eu precisaria de informações mais específicas do \`powerQualityDataSummary\` sobre as medições de THD. Se essa informação estiver lá, poderíamos adicionar um parágrafo como: '[exemplo de parágrafo adicional]'."
+4.  **Solicitações de Revisão ou Modificação Estrutural (Usar Ferramenta 'callRevisorTool'):**
+    *   Se a consulta do usuário implicar uma revisão gramatical, rephrasing, ajuste estrutural, ou melhoria geral do conteúdo do relatório (ex: "Pode reformular a conclusão?", "Verifique a gramática da seção X.", "Acho que a estrutura poderia ser melhorada."), você DEVE usar a ferramenta 'callRevisorTool'.
+    *   Instrua a ferramenta com o que precisa ser feito, baseado na consulta do usuário.
+    *   A ferramenta 'callRevisorTool' receberá o \`currentStructuredReport\` e o \`languageCode\`.
+    *   Sua resposta em \`aiResponseText\` deve indicar que você está acionando o Revisor. Ex: "Entendido. Vou pedir ao agente Revisor para [ação solicitada pelo usuário, ex: 'reformular a conclusão com foco em X']. Um momento..."
+    *   O resultado da ferramenta (o relatório estruturado revisado) será automaticamente incluído no campo \`revisedStructuredReport\` da sua saída final, se a ferramenta for chamada e retornar um resultado. NÃO tente preencher \`revisedStructuredReport\` manualmente.
 
-5.  **Interação com Outros Agentes (Conceitual):**
-    *   Embora você não chame outros agentes diretamente agora, aja como se pudesse. Se a consulta do usuário claramente se beneficiaria de uma revisão (gramatical, formatação), você pode mencionar: "Para uma revisão completa de formatação e gramática, eu normalmente acionaria o agente Revisor. Ele garantiria que o documento segue os padrões e está impecável."
-
-6.  **Tom e Linguagem:**
+5.  **Tom e Linguagem:**
     *   Mantenha um tom profissional, prestativo e colaborativo.
-    *   Use o idioma \`{{languageCode}}\` consistentemente em suas respostas.
+    *   Use o idioma \`{{languageCode}}\` consistentemente em suas respostas textuais.
 
 **Importante - Saída:**
 *   Sua resposta principal deve estar no campo \`aiResponseText\`.
+*   Se a ferramenta 'callRevisorTool' for usada, o campo \`revisedStructuredReport\` será preenchido com o novo relatório estruturado. Você NÃO precisa duplicar o conteúdo do relatório revisado em \`aiResponseText\`. Apenas confirme que a revisão foi feita.
 *   Seja específico e referencie partes do \`currentReportMdx\` quando apropriado (ex: "Na seção 'Análise de Tensão', o relatório menciona...").
 *   Se o \`powerQualityDataSummary\` não for fornecido ou não contiver a informação necessária para uma pergunta específica sobre os dados, indique isso educadamente.
 
-Gere uma resposta útil e contextualmente relevante para o usuário.
+Gere uma resposta útil e contextualmente relevante para o usuário, utilizando as ferramentas disponíveis quando apropriado.
 `,
 };
-

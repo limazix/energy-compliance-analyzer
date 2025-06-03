@@ -2,28 +2,27 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { genkit, type GenerativeAIError } from 'genkit';
-import { googleAI } from '@genkit-ai/googleai';
-import { z } from 'genkit/zod'; 
+// import { z } from 'zod'; // z não é usado diretamente neste arquivo
 
 import { 
   summarizePowerQualityDataPromptConfig, 
-  SummarizePowerQualityDataInputSchema, 
+  // SummarizePowerQualityDataInputSchema, // Schema object não é usado diretamente
   type SummarizePowerQualityDataInput
 } from '@/ai/prompt-configs/summarize-power-quality-data-prompt-config';
 import { 
   identifyAEEEResolutionsPromptConfig, 
-  IdentifyAEEEResolutionsInputSchema, 
+  // IdentifyAEEEResolutionsInputSchema, // Schema object não é usado diretamente
   type IdentifyAEEEResolutionsInput
 } from '@/ai/prompt-configs/identify-aneel-resolutions-prompt-config';
 import { 
   analyzeComplianceReportPromptConfig, 
-  AnalyzeComplianceReportInputSchema, 
+  // AnalyzeComplianceReportInputSchema, // Schema object não é usado diretamente
   type AnalyzeComplianceReportInput,
-  type AnalyzeComplianceReportOutput
+  // type AnalyzeComplianceReportOutput // Tipo não usado diretamente, mas o schema é usado pelo prompt
 } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
 import {
   reviewComplianceReportPromptConfig,
-  ReviewComplianceReportInputSchema,
+  // ReviewComplianceReportInputSchema, // Schema object não é usado diretamente
   type ReviewComplianceReportInput
 } from '@/ai/prompt-configs/review-compliance-report-prompt-config';
 
@@ -275,11 +274,12 @@ export const processAnalysisOnUpdate = functions
     } catch (error: any) {
       console.error(`[Function_processAnalysis] Error processing analysis ${analysisId}:`, error);
       let errorMessage = 'Erro desconhecido no processamento em segundo plano.';
-      if (error instanceof functions.https.HttpsError) {
-        errorMessage = `Function Error: ${error.code} - ${error.message}`;
-      } else if (error.isGenerativeAIError) { 
-        const genkitError = error as GenerativeAIError;
+      // Check if it's a GenkitError by looking for a specific property
+      if (error && typeof error === 'object' && 'isGenerativeAIError' in error && error.isGenerativeAIError) { 
+        const genkitError = error as GenerativeAIError; // Cast to type after check
         errorMessage = `AI Error: ${genkitError.message} (Status: ${genkitError.status}, Code: ${genkitError.code || 'N/A'})`;
+      } else if (error instanceof functions.https.HttpsError) {
+        errorMessage = `Function Error: ${error.code} - ${error.message}`;
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }

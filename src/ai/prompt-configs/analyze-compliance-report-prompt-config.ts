@@ -1,5 +1,5 @@
 
-import { z } from 'genkit/zod';
+import { z } from 'zod';
 
 export const AnalyzeComplianceReportInputSchema = z.object({
   powerQualityDataSummary: z
@@ -21,11 +21,14 @@ export const ReportSectionSchema = z.object({
   relevantNormsCited: z.array(z.string()).describe("Normas ANEEL (ex: 'Resolução XXX/YYYY, Art. Z') especificamente citadas e usadas como base para os insights desta seção. These should be cited in their original Portuguese form."),
   chartOrImageSuggestion: z.string().optional().describe("Descrição textual de uma imagem ou gráfico que seria útil para ilustrar esta seção, e os dados que ele representaria. Ex: 'Um gráfico de barras mostrando a variação da tensão média diária vs. limites PRODIST' ou 'Imagem ilustrando o afundamento de tensão detectado em dd/mm/aaaa HH:MM:SS'.")
 });
+export type ReportSection = z.infer<typeof ReportSectionSchema>;
+
 
 export const BibliographyItemSchema = z.object({
   text: z.string().describe("Texto completo da referência bibliográfica (ex: ANEEL - Agência Nacional de Energia Elétrica. Resolução Normativa nº 956/2021. Estabelece os Procedimentos de Distribuição de Energia Elétrica no Sistema Elétrico Nacional – PRODIST – Módulo 8 – Qualidade da Energia Elétrica.). This should be in its original Portuguese form."),
   link: z.string().url().optional().describe("Link para a norma ou documento, se disponível publicamente."),
 });
+export type BibliographyItem = z.infer<typeof BibliographyItemSchema>;
 
 export const AnalyzeComplianceReportOutputSchema = z.object({
   reportMetadata: z.object({

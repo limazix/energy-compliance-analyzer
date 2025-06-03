@@ -4,25 +4,42 @@
     "module": "commonjs",
     "noImplicitReturns": true,
     "noUnusedLocals": true,
-    "outDir": "lib",                       // Output relative to tsconfig.json, so functions/lib
-    "rootDir": "src",                      // Root of the functions source files is functions/src
+    "outDir": "lib",          // Saída relativa a functions/tsconfig.json, então functions/lib
+    // "rootDir": "src", // Removido em favor de rootDirs
+    "rootDirs": ["src", "../src"], // Permite que tsc busque arquivos em functions/src e ../src (raiz do projeto/src)
     "sourceMap": true,
     "strict": true,
     "target": "es2021",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "baseUrl": ".",                        // Base for path resolution is the functions/ directory
+    "baseUrl": ".",           // Base para resolução de caminhos é o diretório functions/
     "paths": {
-      "@/*": ["../src/*"]                // Maps @/* to PROJECT_ROOT/src/*
-    }
+      "@/*": ["../src/*"]     // Mapeia @/* para PROJECT_ROOT/src/*
+    },
+    "declaration": false,     // Pode ser true se você estiver criando um pacote, mas false é ok para deploy de functions
+    "composite": false        // Pode ser true se usando project references, false para simplificar por agora
   },
   "include": [
-    "src/**/*"                         // Include all files within functions/src/
+    "src/**/*.ts"             // Inclui todos os arquivos TypeScript dentro de functions/src/
   ],
   "exclude": [
-    "node_modules",                    // Exclude functions/node_modules
-    "lib"                              // Exclude functions/lib (output directory)
+    "node_modules",           // Exclui functions/node_modules
+    "lib",                    // Exclui functions/lib (diretório de saída)
+    // Exclui partes específicas do Next.js de ../src para evitar conflitos/processamento desnecessário
+    "../src/app",
+    "../src/components/features", // Se os componentes UI não são usados nas functions
+    "../src/components/ui",     // Se os componentes UI não são usados nas functions
+    "../src/contexts",
+    "../src/hooks",
+    // Mantém tipos e libs que podem ser compartilhados
+    // "../src/types", // Se os tipos são usados, devem ser incluídos implicitamente ou explicitamente
+    // "../src/lib",   // Se libs são usadas, devem ser incluídas implicitamente ou explicitamente
+    // Os arquivos em "../src/ai" e "../src/lib/reportUtils.ts" serão incluídos por serem importados por arquivos em "src/**/*.ts"
+    // e estarem dentro de um dos rootDirs
+    "../node_modules",        // Exclui node_modules da raiz do projeto
+    "../.next",               // Exclui diretório de build do Next.js
+    "../out"                  // Exclui diretório de export do Next.js
   ],
   "compileOnSave": true
 }
