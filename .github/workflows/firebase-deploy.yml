@@ -41,10 +41,6 @@ jobs:
         env:
           # Configurar variáveis de ambiente para testes, se necessário
           # Ex: Se o app espera chaves específicas no ambiente de teste
-          # FIREBASE_AUTH_EMULATOR_HOST: "localhost:9099" # `firebase emulators:exec` já faz isso
-          # FIRESTORE_EMULATOR_HOST: "localhost:8080"
-          # FIREBASE_STORAGE_EMULATOR_HOST: "localhost:9199"
-          # FIREBASE_DATABASE_EMULATOR_HOST: "localhost:9000"
           CI: true # Muitas bibliotecas de teste usam CI=true para otimizar logs, etc.
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: "electric-magnitudes-analizer" # Necessário para SDK init
           # Outras NEXT_PUBLIC_FIREBASE_* vars podem ser "dummy" para testes se não forem críticas
@@ -80,19 +76,23 @@ jobs:
       - name: Build Next.js application
         run: npm run build
         env:
-          NEXT_PUBLIC_FIREBASE_API_KEY: "dummy"
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "dummy"
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: "electric-magnitudes-analizer"
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "dummy"
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "dummy"
-          NEXT_PUBLIC_FIREBASE_APP_ID: "dummy"
-          NEXT_PUBLIC_GEMINI_API_KEY: "dummy" 
-          NEXT_PUBLIC_FIREBASE_DATABASE_URL: "dummy"
+          # Estes secrets são usados durante o build do Next.js
+          # Certifique-se de configurá-los no seu repositório GitHub: Settings > Secrets and variables > Actions
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: "electric-magnitudes-analizer" # Pode ser fixo se for sempre este
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }} # Usado pelo client Next.js
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: ${{ secrets.NEXT_PUBLIC_FIREBASE_DATABASE_URL }}
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }} # Opcional
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
       - name: Authenticate to Google Cloud (Workload Identity Federation)
+        id: auth # Adicionado id para referenciar o output
         uses: 'google-github-actions/auth@v2'
         with:
           workload_identity_provider: 'projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ secrets.GCP_WORKLOAD_IDENTITY_POOL_ID }}/providers/${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER_ID }}'
@@ -102,9 +102,10 @@ jobs:
         run: |
           # IMPORTANTE: Substitua YOUR_APP_HOSTING_BACKEND_ID pelo ID real do seu backend do App Hosting.
           # Você pode encontrá-lo no Firebase Console após o primeiro deploy manual ou criação do backend.
+          # Exemplo de ID: energy-compliance-analyzer-backend (mas verifique o seu)
           firebase apphosting:backends:deploy YOUR_APP_HOSTING_BACKEND_ID \
             --project electric-magnitudes-analizer \
-            --region us-central1 # Exemplo de região, ajuste se necessário
+            --region us-central1 # Ajuste a região se necessário
             --non-interactive
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_path }} 
@@ -117,6 +118,8 @@ jobs:
 
       - name: Deploy Firebase Functions
         run: |
+          # A API Key do Gemini para as Functions deve ser configurada como secret no GCP
+          # e acessada via process.env.GEMINI_API_KEY ou functions.config().gemini.apikey
           firebase deploy --only functions \
             --project electric-magnitudes-analizer \
             --non-interactive
@@ -131,15 +134,24 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_path }}
 
-    # Segredos necessários no GitHub Actions:
-    # GCP_PROJECT_NUMBER: Número do seu projeto Google Cloud.
-    # GCP_WORKLOAD_IDENTITY_POOL_ID: ID do seu Workload Identity Pool.
-    # GCP_WORKLOAD_IDENTITY_PROVIDER_ID: ID do seu Provider dentro do pool.
-    # GCP_SERVICE_ACCOUNT_EMAIL: Email da conta de serviço do GCP com permissões:
-    #    - Firebase App Hosting Admin (roles/firebaseapphosting.admin)
-    #    - Firebase Functions Developer (roles/cloudfunctions.developer) ou Admin
-    #    - Firebase Rules System (roles/firebaserules.system)
-    #    - Service Account User (roles/iam.serviceAccountUser) 
-    #    - Service Account Token Creator (roles/iam.serviceAccountTokenCreator)
-    #    - Cloud Build Editor (roles/cloudbuild.builds.editor) 
-    # IMPORTANTE: Substitua 'YOUR_APP_HOSTING_BACKEND_ID' no passo de deploy do App Hosting.
+    # Segredos do GitHub Actions NECESSÁRIOS para o job build_and_deploy:
+    # 1. Para autenticação GCP (Workload Identity Federation):
+    #    - GCP_PROJECT_NUMBER: Número do seu projeto Google Cloud.
+    #    - GCP_WORKLOAD_IDENTITY_POOL_ID: ID do seu Workload Identity Pool no GCP.
+    #    - GCP_WORKLOAD_IDENTITY_PROVIDER_ID: ID do seu Provider dentro do pool.
+    #    - GCP_SERVICE_ACCOUNT_EMAIL: Email da conta de serviço do GCP com permissões adequadas.
+    # 2. Para o build do Next.js (variáveis NEXT_PUBLIC_*):
+    #    - NEXT_PUBLIC_FIREBASE_API_KEY
+    #    - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    #    - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    #    - NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    #    - NEXT_PUBLIC_FIREBASE_APP_ID
+    #    - NEXT_PUBLIC_GEMINI_API_KEY (se usado pelo cliente Next.js)
+    #    - NEXT_PUBLIC_FIREBASE_DATABASE_URL
+    #    - NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID (opcional)
+    # 3. IMPORTANTE: Substitua 'YOUR_APP_HOSTING_BACKEND_ID' no passo de deploy do App Hosting.
+    # 4. Para Firebase Functions: A API Key do Gemini (GEMINI_API_KEY) deve ser configurada
+    #    como um secret no ambiente de runtime das suas Firebase Functions no Google Cloud Console
+    #    (ex: via Secret Manager ou variáveis de ambiente da função).
+    #    O workflow NÃO passa este secret para o runtime das functions.
+```
