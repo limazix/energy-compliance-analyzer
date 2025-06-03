@@ -1,0 +1,84 @@
+
+name: 3. Build for Deployment
+
+on:
+  workflow_run:
+    workflows: ["2. Run Integration Tests"] # Aciona quando o workflow "2. Run Integration Tests" completar
+    types:
+      - completed
+
+jobs:
+  build_production_package:
+    runs-on: ubuntu-latest
+    # Só executa se os testes passaram E o evento que acionou é da branch 'main'
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.pull_requests[0].base.ref == 'main')
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Garante que estamos fazendo checkout do commit correto que disparou a cadeia de workflows
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Next.js app dependencies
+        run: npm ci
+
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          # Segredos para o build do Next.js
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: ${{ secrets.NEXT_PUBLIC_FIREBASE_DATABASE_URL }}
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
+
+      - name: Prepare Next.js deployment artifact
+        run: |
+          mkdir -p nextjs-deploy-artifact
+          cp -r .next nextjs-deploy-artifact/
+          cp -r public nextjs-deploy-artifact/
+          cp package.json nextjs-deploy-artifact/
+          cp package-lock.json nextjs-deploy-artifact/ # ou yarn.lock
+          cp next.config.mjs nextjs-deploy-artifact/ # ou .ts
+          cp apphosting.yaml nextjs-deploy-artifact/
+          # Adicione outros arquivos/pastas da raiz necessários para App Hosting
+          # Ex: tsconfig.json (se referenciado pelo next.config.mjs)
+          if [ -f "tsconfig.json" ]; then cp tsconfig.json nextjs-deploy-artifact/; fi
+
+
+      - name: Upload Next.js deployment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-prod-build
+          path: nextjs-deploy-artifact/
+          retention-days: 1
+
+      - name: Install Firebase Functions dependencies
+        run: npm ci --prefix functions
+
+      - name: Build Firebase Functions
+        run: npm run build --prefix functions
+
+      - name: Upload Functions deployment artifact
+        # Inclui package.json, node_modules, e o diretório lib construído
+        uses: actions/upload-artifact@v4
+        with:
+          name: functions-prod-build
+          path: functions/
+          retention-days: 1
