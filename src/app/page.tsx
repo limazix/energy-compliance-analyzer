@@ -33,6 +33,7 @@ const getStatusBadgeVariant = (status: Analysis['status']) => {
     case 'error': return 'destructive';
     case 'cancelled': return 'outline';
     case 'cancelling': return 'outline';
+    case 'reviewing_report': return 'secondary';
     default: return 'secondary';
   }
 };
@@ -43,6 +44,7 @@ const getStatusLabel = (status: Analysis['status']) => {
     case 'summarizing_data': return 'Sumarizando Dados';
     case 'identifying_regulations': return 'Identificando Resoluções';
     case 'assessing_compliance': return 'Analisando Conformidade';
+    case 'reviewing_report': return 'Revisando Relatório';
     case 'completed': return 'Concluída';
     case 'error': return 'Erro';
     case 'deleted': return 'Excluída';
@@ -130,7 +132,7 @@ export default function HomePage() {
           setExpandedAnalysisId(fetchedAnalysis.id); 
           setShowNewAnalysisForm(false); 
           await fetchPastAnalyses(); 
-          if (fetchedAnalysis.status === 'summarizing_data' || fetchedAnalysis.status === 'identifying_regulations') {
+          if (fetchedAnalysis.status === 'summarizing_data' || fetchedAnalysis.status === 'identifying_regulations' || fetchedAnalysis.status === 'assessing_compliance' || fetchedAnalysis.status === 'reviewing_report') {
              await startAiProcessing(result.analysisId, user.uid);
           }
         } else {
@@ -289,7 +291,13 @@ export default function HomePage() {
                             </span>
                             <Badge 
                               variant={getStatusBadgeVariant(analysisItem.status)}
-                              className={`${analysisItem.status === 'completed' ? 'bg-green-600 text-white' : ''} ${analysisItem.status === 'cancelled' ? 'bg-yellow-500 text-white' : ''} ${analysisItem.status === 'cancelling' ? 'bg-yellow-400 text-yellow-900' : ''}`}
+                              className={`
+                                ${analysisItem.status === 'completed' ? 'bg-green-600 text-white' : ''} 
+                                ${analysisItem.status === 'error' ? 'bg-red-600 text-white' : ''} 
+                                ${analysisItem.status === 'cancelled' ? 'bg-yellow-500 text-white' : ''} 
+                                ${analysisItem.status === 'cancelling' ? 'bg-yellow-400 text-yellow-900' : ''}
+                                ${analysisItem.status === 'reviewing_report' ? 'bg-blue-500 text-white' : ''}
+                              `}
                             >
                               {getStatusLabel(analysisItem.status)}
                             </Badge>
@@ -335,3 +343,4 @@ export default function HomePage() {
     </div>
   );
 }
+

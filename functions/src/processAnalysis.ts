@@ -3,34 +3,33 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { genkit, type GenerativeAIError } from 'genkit';
 import { googleAI } from '@genkit-ai/googleai';
-// Import Zod from genkit/zod for consistency if using genkit's Zod, or directly from 'zod'
 import { z } from 'genkit/zod'; 
 
-// Import prompt configurations and types from the shared location
 import { 
   summarizePowerQualityDataPromptConfig, 
   SummarizePowerQualityDataInputSchema, 
-  SummarizePowerQualityDataOutputSchema,
   type SummarizePowerQualityDataInput
 } from '../../src/ai/prompt-configs/summarize-power-quality-data-prompt-config';
 import { 
   identifyAEEEResolutionsPromptConfig, 
   IdentifyAEEEResolutionsInputSchema, 
-  IdentifyAEEEResolutionsOutputSchema,
   type IdentifyAEEEResolutionsInput
 } from '../../src/ai/prompt-configs/identify-aneel-resolutions-prompt-config';
 import { 
   analyzeComplianceReportPromptConfig, 
   AnalyzeComplianceReportInputSchema, 
-  AnalyzeComplianceReportOutputSchema,
-  type AnalyzeComplianceReportInput
+  type AnalyzeComplianceReportInput,
+  type AnalyzeComplianceReportOutput
 } from '../../src/ai/prompt-configs/analyze-compliance-report-prompt-config';
+import {
+  reviewComplianceReportPromptConfig,
+  ReviewComplianceReportInputSchema,
+  type ReviewComplianceReportInput
+} from '../../src/ai/prompt-configs/review-compliance-report-prompt-config';
 
-// Import MDX conversion utility from the shared location
 import { convertStructuredReportToMdx } from '../../src/lib/reportUtils';
 
 
-// Ensure admin is initialized (idempotent)
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
@@ -41,15 +40,14 @@ if (!geminiApiKey) {
   console.warn("CRITICAL: GEMINI_API_KEY not found in environment variables for Firebase Functions. Genkit AI calls WILL FAIL. Configure it in Firebase Function secrets/environment variables (e.g., GEMINI_API_KEY).");
 }
 
-// Configure Genkit for Firebase Functions environment
 const ai = genkit({
   plugins: [googleAI({ apiKey: geminiApiKey })],
 });
 
-// Define prompts using the imported configurations and the local 'ai' instance for Functions
 const summarizeDataChunkFlow = ai.definePrompt(summarizePowerQualityDataPromptConfig);
 const identifyResolutionsFlow = ai.definePrompt(identifyAEEEResolutionsPromptConfig);
 const analyzeReportFlow = ai.definePrompt(analyzeComplianceReportPromptConfig);
+const reviewReportFlow = ai.definePrompt(reviewComplianceReportPromptConfig);
 
 
 const db = admin.firestore();
@@ -60,9 +58,10 @@ const OVERLAP_SIZE = 10000;
 
 const PROGRESS_FILE_READ = 10;
 const PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE = 15; 
-const PROGRESS_SUMMARIZATION_TOTAL_SPAN = 35; 
-const PROGRESS_IDENTIFY_REGULATIONS_COMPLETE = 65;
-const PROGRESS_ANALYZE_COMPLIANCE_COMPLETE = 90;
+const PROGRESS_SUMMARIZATION_TOTAL_SPAN = 30; // Adjusted from 35
+const PROGRESS_IDENTIFY_REGULATIONS_COMPLETE = SUMMARIZATION_CHUNK_COMPLETE_BASE + PROGRESS_SUMMARIZATION_TOTAL_SPAN + 15; // Should be 60
+const PROGRESS_ANALYZE_COMPLIANCE_COMPLETE = PROGRESS_IDENTIFY_REGULATIONS_COMPLETE + 15; // Should be 75
+const PROGRESS_REVIEW_REPORT_COMPLETE = PROGRESS_ANALYZE_COMPLIANCE_COMPLETE + 15; // Should be 90
 const PROGRESS_FINAL_COMPLETE = 100;
 
 const MAX_ERROR_MSG_LENGTH = 1000;
@@ -181,7 +180,7 @@ export const processAnalysisOnUpdate = functions
             console.warn(`[Function_processAnalysis] Chunk ${i + 1} for ${analysisId} is empty. Skipping.`);
         } else {
             const summarizeInput: SummarizePowerQualityDataInput = { powerQualityDataCsv: chunk, languageCode };
-            const { output } = await summarizeDataChunkFlow(summarizeInput); // Using the prompt defined with local 'ai'
+            const { output } = await summarizeDataChunkFlow(summarizeInput);
             if (!output?.dataSummary) throw new Error(`AI failed to summarize chunk ${i+1}.`);
             aggregatedSummary += (output.dataSummary || "") + "\n\n";
         }
@@ -200,7 +199,7 @@ export const processAnalysisOnUpdate = functions
 
       console.log(`[Function_processAnalysis] Identifying regulations.`);
       const identifyInput: IdentifyAEEEResolutionsInput = { powerQualityDataSummary: finalPowerQualityDataSummary, languageCode };
-      const { output: resolutionsOutput } = await identifyResolutionsFlow(identifyInput); // Using the prompt defined with local 'ai'
+      const { output: resolutionsOutput } = await identifyResolutionsFlow(identifyInput);
       if (!resolutionsOutput?.relevantResolutions) throw new Error("AI failed to identify resolutions.");
       const identifiedRegulations = resolutionsOutput.relevantResolutions;
       await analysisRef.update({
@@ -219,19 +218,48 @@ export const processAnalysisOnUpdate = functions
         fileName: originalFileName,
         languageCode
       };
-      const { output: structuredReportOutput } = await analyzeReportFlow(reportInput); // Using the prompt defined with local 'ai'
-      if (!structuredReportOutput) throw new Error("AI failed to generate compliance report.");
+      const { output: initialStructuredReport } = await analyzeReportFlow(reportInput);
+      if (!initialStructuredReport) throw new Error("AI failed to generate initial compliance report.");
 
       await analysisRef.update({
-        structuredReport: structuredReportOutput,
-        summary: structuredReportOutput.introduction?.overallResultsSummary,
+        // structuredReport is not saved yet, will be saved after review
+        status: 'reviewing_report', // New status
         progress: PROGRESS_ANALYZE_COMPLIANCE_COMPLETE,
       });
-      console.log(`[Function_processAnalysis] Compliance analysis complete.`);
+      console.log(`[Function_processAnalysis] Initial compliance analysis complete. Report ready for review.`);
       
       if (await checkCancellation(analysisRef)) return null;
 
-      const mdxContent = convertStructuredReportToMdx(structuredReportOutput, originalFileName);
+      // New Step: Review Report
+      console.log(`[Function_processAnalysis] Reviewing structured report.`);
+      const reviewInput: ReviewComplianceReportInput = {
+        structuredReportToReview: initialStructuredReport,
+        languageCode: languageCode,
+      };
+      const { output: reviewedStructuredReport } = await reviewReportFlow(reviewInput);
+      if (!reviewedStructuredReport) {
+        console.warn(`[Function_processAnalysis] AI review failed. Using pre-review report for ${analysisId}.`);
+        // Fallback to pre-review report if review fails
+        await analysisRef.update({
+            structuredReport: initialStructuredReport,
+            summary: initialStructuredReport.introduction?.overallResultsSummary,
+            progress: PROGRESS_REVIEW_REPORT_COMPLETE, // Still mark progress as if review happened
+        });
+      } else {
+        await analysisRef.update({
+            structuredReport: reviewedStructuredReport,
+            summary: reviewedStructuredReport.introduction?.overallResultsSummary,
+            progress: PROGRESS_REVIEW_REPORT_COMPLETE,
+        });
+      }
+      console.log(`[Function_processAnalysis] Report review complete.`);
+
+      if (await checkCancellation(analysisRef)) return null;
+      
+      // Use the (potentially reviewed) structured report for MDX generation
+      const finalReportForMdx = reviewedStructuredReport || initialStructuredReport;
+
+      const mdxContent = convertStructuredReportToMdx(finalReportForMdx, originalFileName);
       const mdxFilePath = `user_reports/${userId}/${analysisId}/report.mdx`;
       await storage.bucket().file(mdxFilePath).save(mdxContent, { contentType: 'text/markdown' });
       await analysisRef.update({ mdxReportStoragePath: mdxFilePath });
@@ -273,3 +301,4 @@ export const processAnalysisOnUpdate = functions
     }
     return null;
   });
+
