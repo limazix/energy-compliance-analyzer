@@ -118,4 +118,3 @@ jobs:
           path: functions_artifact_staging_deploy/ # Upload content of staging directory
           retention-days: 1
           if-no-files-found: error
-```
