@@ -268,8 +268,11 @@ exports.processAnalysisOnUpdate = functions
     } catch (error) {
       console.error(`[Function_processAnalysis] Error processing analysis ${analysisId}:`, error);
       let errorMessage = 'Erro desconhecido no processamento em segundo plano.';
-      if (error && typeof error === 'object' && 'isGenerativeAIError' in error && error.isGenerativeAIError) {
-        errorMessage = `AI Error: ${(error as any).message} (Status: ${(error as any).status}, Code: ${(error as any).code || 'N/A'})`;
+      // Check if 'error' is an object and has 'isGenerativeAIError' property
+      if (error && typeof error === 'object' && 'isGenerativeAIError' in error && (error as { isGenerativeAIError?: boolean }).isGenerativeAIError) {
+        // Access properties directly, assuming they exist based on the check
+        const aiError = error as { message?: string; status?: string; code?: string };
+        errorMessage = `AI Error: ${aiError.message} (Status: ${aiError.status}, Code: ${aiError.code || 'N/A'})`;
       } else if (error instanceof functions.https.HttpsError) {
         errorMessage = `Function Error: ${error.code} - ${error.message}`;
       } else if (error instanceof Error) {
