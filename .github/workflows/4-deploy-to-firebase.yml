@@ -66,12 +66,13 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_path }}
 
+      - name: Checkout repository for rule files
+        uses: actions/checkout@v4 # Ensures rule files are present in the workspace
+
       - name: Deploy Firebase Rules (Firestore, Storage, RTDB)
         run: |
-          actions/checkout@v4 # Ensure rule files are present
           firebase deploy --only firestore:rules,storage:rules,database:rules \
             --project ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} \
             --non-interactive
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_path }}
-```
