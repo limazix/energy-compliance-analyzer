@@ -36,7 +36,7 @@ jest.mock('lucide-react', () => {
             return (props) => {
               const { children, ...restProps } = props || {};
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const Tag:any = 'svg'; // Avoid JSX type errors in JS file
+              const Tag = 'svg'; // Removed :any type annotation
               return <Tag data-lucide-mock={String(prop)} {...restProps}>{children}</Tag>;
             }
         }
@@ -246,9 +246,9 @@ if (typeof window !== 'undefined') {
     } catch (error) {
       // Fallback for environments where getComputedStyle might fail with certain elements
       console.warn('jsdom.getComputedStyle failed, returning empty CSSStyleDeclaration', error);
-      const style = {} as CSSStyleDeclaration;
+      const style = {}; // Removed 'as CSSStyleDeclaration'
       // Populate with some common properties if necessary, or just return empty
-      return style;
+      return style as CSSStyleDeclaration; // Keep cast for return type if needed by TS, but JS object is plain
     }
   };
 }
