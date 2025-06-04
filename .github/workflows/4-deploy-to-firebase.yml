@@ -55,8 +55,8 @@ jobs:
         with:
           # token: ${{ secrets.FIREBASE_TOKEN }} # Automatically used by the action
           projectId: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }}
-          backendId: ema-backend # CONFIRM THIS ID
-          region: us-central1 
+          backendId: ${{ secrets.FIREBASE_BACKEND_ID }}
+          region: ${{ secrets.GCP_REGION }} 
         env:
            FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }} 
 
@@ -78,4 +78,3 @@ jobs:
             --non-interactive
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_path }}
-```
