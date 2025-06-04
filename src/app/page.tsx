@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link'; // Import Link
 import { Loader2, Inbox, AlertTriangle } from 'lucide-react';
 
 import { AppHeader } from '@/components/app-header';
@@ -337,10 +338,14 @@ export default function HomePage() {
           </Card>
         )}
       </main>
-      <footer className="py-6 text-center text-sm text-muted-foreground border-t">
+      <footer className="py-6 text-center text-sm text-muted-foreground border-t border-border/50 bg-muted/20">
         © {new Date().getFullYear()} EMA - Electric Magnitudes Analizer. Todos os direitos reservados.
+        <div className="mt-1">
+          <Link href="/privacy-policy" className="hover:underline">Política de Privacidade</Link>
+          {' | '}
+          <Link href="/terms-of-service" className="hover:underline">Termos de Serviço</Link>
+        </div>
       </footer>
     </div>
   );
 }
-

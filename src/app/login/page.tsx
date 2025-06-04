@@ -1,6 +1,8 @@
+
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link'; // Import Link
 import { useRouter } from 'next/navigation';
 import { signInWithPopup } from 'firebase/auth';
 import { LogIn } from 'lucide-react';
@@ -61,7 +63,15 @@ export default function LoginPage() {
             Entrar com Google
           </Button>
           <p className="px-8 text-center text-sm text-muted-foreground">
-            Ao continuar, você concorda com nossos Termos de Serviço e Política de Privacidade.
+            Ao continuar, você concorda com nossos{' '}
+            <Link href="/terms-of-service" className="underline hover:text-primary">
+              Termos de Serviço
+            </Link>{' '}
+            e{' '}
+            <Link href="/privacy-policy" className="underline hover:text-primary">
+              Política de Privacidade
+            </Link>
+            .
           </p>
         </CardContent>
       </Card>
