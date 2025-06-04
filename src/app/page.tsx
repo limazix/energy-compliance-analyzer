@@ -338,7 +338,7 @@ export default function HomePage() {
         )}
       </main>
       <footer className="py-6 text-center text-sm text-muted-foreground border-t">
-        © {new Date().getFullYear()} Energy Compliance Analyzer. Todos os direitos reservados.
+        © {new Date().getFullYear()} EMA - Electric Magnitudes Analizer. Todos os direitos reservados.
       </footer>
     </div>
   );

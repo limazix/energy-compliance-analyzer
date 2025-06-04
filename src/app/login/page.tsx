@@ -50,7 +50,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="items-center text-center">
           <Logo className="mb-4 h-12 w-auto" />
-          <CardTitle className="text-3xl font-bold font-headline">Energy Compliance Analyzer</CardTitle>
+          <CardTitle className="text-3xl font-bold font-headline">EMA - Electric Magnitudes Analizer</CardTitle>
           <CardDescription className="text-md">
             Acesse para analisar dados de qualidade de energia e verificar conformidade com as normas ANEEL.
           </CardDescription>

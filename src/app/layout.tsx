@@ -5,7 +5,7 @@ import { QueryProvider } from '@/contexts/query-provider';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'Energy Compliance Analyzer',
+  title: 'EMA - Electric Magnitudes Analizer',
   description: 'Analise a conformidade energética com base nas resoluções da ANEEL.',
 };
 
