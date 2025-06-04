@@ -16,23 +16,44 @@ export function calculateDisplayedAnalysisSteps(currentAnalysis: Analysis | null
   if (!currentAnalysis || currentAnalysis.id.startsWith('error-')) {
     const errorMsg = currentAnalysis?.errorMessage || 'Aguardando início da análise ou configuração inicial.';
     const uploadProg = Math.max(0, Math.min(100, currentAnalysis?.uploadProgress ?? 0));
-    steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: currentAnalysis?.errorMessage ? 'error': 'pending', details: errorMsg, progress: uploadProg};
+    
+    // Ensure the first step reflects upload progress if available, even in error/pending states.
+    steps[0] = { 
+        ...BASE_ANALYSIS_STEPS[0], 
+        status: currentAnalysis?.status === 'error' && !powerQualityDataUrl ? 'error' : (uploadProg === 100 ? 'completed' : (uploadProg > 0 ? 'in_progress' : 'pending')), 
+        details: currentAnalysis?.status === 'error' ? errorMsg : (uploadProg < 100 && uploadProg > 0 ? 'Enviando...' : undefined), 
+        progress: uploadProg
+    };
+    
     for (let i = 1; i < steps.length; i++) {
-        steps[i] = { ...BASE_ANALYSIS_STEPS[i], status: 'pending', progress: 0 };
+        // If upload errored or never completed, subsequent steps are pending.
+        if (steps[0].status === 'error' || steps[0].status === 'pending' || steps[0].status === 'in_progress') {
+            steps[i] = { ...BASE_ANALYSIS_STEPS[i], status: 'pending', progress: 0 };
+        }
     }
+     if (currentAnalysis?.status === 'error' && currentAnalysis?.errorMessage && steps[0].status !== 'error') {
+        // If a later stage error occurred, mark the current step as error.
+        // This logic might need refinement based on how overallProgress maps to steps in error state.
+        const errorStepIndex = steps.findIndex(s => s.status === 'in_progress' || s.status === 'pending');
+        if (errorStepIndex !== -1) {
+            steps[errorStepIndex] = { ...steps[errorStepIndex], status: 'error', details: errorMsg };
+        } else { // If all seem complete but overall status is error
+            steps[steps.length-1] = {...steps[steps.length-1], status: 'error', details: errorMsg }
+        }
+    }
+
     return steps;
   }
 
   const { status, progress, errorMessage, powerQualityDataUrl, powerQualityDataSummary, identifiedRegulations, structuredReport, uploadProgress } = currentAnalysis;
   const overallProgress = typeof progress === 'number' ? Math.min(100, Math.max(0, progress)) : 0;
   
-  // Progress milestones (approximate, adjust if Firebase Function progress constants change)
-  // Based on: FILE_READ=10, SUM_BASE=15, SUM_SPAN=30, IDENTIFY_REG=60, ANALYZE_COMP=75, REVIEW_REP=90, FINAL=100
   const UPLOAD_COMPLETE_PROGRESS = 10;
-  const SUMMARIZATION_COMPLETE_PROGRESS = 15 + 30; // 45
+  const SUMMARIZATION_COMPLETE_PROGRESS = 45; 
   const IDENTIFY_REG_COMPLETE_PROGRESS = 60;
   const ANALYZE_COMPLIANCE_COMPLETE_PROGRESS = 75;
   const REVIEW_REPORT_COMPLETE_PROGRESS = 90;
+  const FINAL_GENERATION_COMPLETE_PROGRESS = 100;
 
 
   const markPreviousStepsCompleted = (currentIndex: number) => {
@@ -47,89 +68,100 @@ export function calculateDisplayedAnalysisSteps(currentAnalysis: Analysis | null
   };
   
   const markAllStepsCancelled = (details?: string) => {
+    let cancellationPointReached = false;
     steps.forEach((step, i) => {
-      if (steps[i].status === 'completed') return; 
-      steps[i] = { ...steps[i], status: 'cancelled', details: i === 0 ? details : undefined, progress: steps[i].progress ?? 0 };
+      if (steps[i].status === 'completed' && !cancellationPointReached) return; 
+      cancellationPointReached = true;
+      steps[i] = { ...steps[i], status: 'cancelled', details: i === steps.findIndex(s => s.status !== 'completed') ? details : undefined, progress: steps[i].progress ?? 0 };
     });
   }
 
+  // Handle Upload Step explicitly first
+  if (status === 'uploading' || (status !== 'completed' && !powerQualityDataUrl && status !== 'error' && status !== 'cancelled' && status !== 'cancelling')) {
+     steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'in_progress', progress: Math.max(0, Math.min(100, uploadProgress ?? 0)) };
+     markFollowingStepsPending(0);
+     return steps;
+  } else if (powerQualityDataUrl || overallProgress >= UPLOAD_COMPLETE_PROGRESS) {
+      steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'completed', progress: 100 };
+  }
+
+
   if (status === 'cancelled') {
     markAllStepsCancelled(errorMessage || 'Análise cancelada.');
+    // Ensure upload step reflects actual completion if it happened before cancellation
+    if(powerQualityDataUrl) steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'completed', progress: 100 };
     return steps;
   }
   if (status === 'cancelling') {
     steps.forEach((step, i) => {
-       if (steps[i].status === 'completed') return;
+       if (steps[i].status === 'completed') return; // Don't change already completed steps
        steps[i] = { ...steps[i], status: 'pending', details: 'Cancelamento em andamento...', progress: steps[i].progress ?? 0 };
     });
-    // Crude attempt to show where cancellation might be happening based on status
-    if (steps[0].status !== 'completed' && (currentAnalysis.status === 'uploading' || (powerQualityDataUrl && (currentAnalysis.status === 'summarizing_data' || currentAnalysis.status === 'identifying_regulations' || currentAnalysis.status === 'assessing_compliance' || currentAnalysis.status === 'reviewing_report')) )) steps[0].details = 'Cancelando...';
-    else if (steps[1].status !== 'completed' && currentAnalysis.status === 'summarizing_data') steps[1].details = 'Cancelando...';
-    else if (steps[2].status !== 'completed' && currentAnalysis.status === 'identifying_regulations') steps[2].details = 'Cancelando...';
-    else if (steps[3].status !== 'completed' && currentAnalysis.status === 'assessing_compliance') steps[3].details = 'Cancelando...'; 
-    else if (steps[4].status !== 'completed' && currentAnalysis.status === 'reviewing_report') steps[4].details = 'Cancelando...';
-    else if (steps[5].status !== 'completed' && currentAnalysis.status === 'reviewing_report') steps[5].details = 'Cancelando...'; // Or last step
+    // Try to mark the "current" step more accurately if possible
+    const currentActiveStepIndex = steps.findIndex(s => s.status !== 'completed' && s.status !== 'cancelled');
+    if (currentActiveStepIndex !== -1) {
+        steps[currentActiveStepIndex].details = 'Cancelamento solicitado durante esta etapa...';
+    }
     return steps;
   }
 
   switch (status) {
-      case 'uploading':
-          steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'in_progress', progress: Math.max(0, Math.min(100, uploadProgress ?? 0)) };
-          markFollowingStepsPending(0);
-          break;
+      // 'uploading' is handled above
       case 'summarizing_data':
-          markPreviousStepsCompleted(1);
-          steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'in_progress', progress: Math.max(0, Math.min(100, (overallProgress - UPLOAD_COMPLETE_PROGRESS) / (SUMMARIZATION_COMPLETE_PROGRESS - UPLOAD_COMPLETE_PROGRESS) * 100 )) };
+          markPreviousStepsCompleted(1); // Upload is done
+          steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'in_progress', progress: Math.max(0, Math.min(100, ((overallProgress - UPLOAD_COMPLETE_PROGRESS) / (SUMMARIZATION_COMPLETE_PROGRESS - UPLOAD_COMPLETE_PROGRESS)) * 100 )) };
           markFollowingStepsPending(1);
           break;
       case 'identifying_regulations':
           markPreviousStepsCompleted(2);
-          steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'in_progress', progress: Math.max(0, Math.min(100, (overallProgress - SUMMARIZATION_COMPLETE_PROGRESS) / (IDENTIFY_REG_COMPLETE_PROGRESS - SUMMARIZATION_COMPLETE_PROGRESS) * 100)) };
+          steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'in_progress', progress: Math.max(0, Math.min(100, ((overallProgress - SUMMARIZATION_COMPLETE_PROGRESS) / (IDENTIFY_REG_COMPLETE_PROGRESS - SUMMARIZATION_COMPLETE_PROGRESS)) * 100)) };
           markFollowingStepsPending(2);
           break;
       case 'assessing_compliance': 
           markPreviousStepsCompleted(3); 
-          steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'in_progress', progress: Math.max(0, Math.min(100, (overallProgress - IDENTIFY_REG_COMPLETE_PROGRESS) / (ANALYZE_COMPLIANCE_COMPLETE_PROGRESS - IDENTIFY_REG_COMPLETE_PROGRESS) * 100)) };
+          steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'in_progress', progress: Math.max(0, Math.min(100, ((overallProgress - IDENTIFY_REG_COMPLETE_PROGRESS) / (ANALYZE_COMPLIANCE_COMPLETE_PROGRESS - IDENTIFY_REG_COMPLETE_PROGRESS)) * 100)) };
           markFollowingStepsPending(3);
           break;
       case 'reviewing_report':
           markPreviousStepsCompleted(4);
-          steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'in_progress', progress: Math.max(0, Math.min(100, (overallProgress - ANALYZE_COMPLIANCE_COMPLETE_PROGRESS) / (REVIEW_REPORT_COMPLETE_PROGRESS - ANALYZE_COMPLIANCE_COMPLETE_PROGRESS) * 100)) };
-          steps[5] = { ...BASE_ANALYSIS_STEPS[5], status: 'pending' }; // Final report generation pending
+          steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'in_progress', progress: Math.max(0, Math.min(100, ((overallProgress - ANALYZE_COMPLIANCE_COMPLETE_PROGRESS) / (REVIEW_REPORT_COMPLETE_PROGRESS - ANALYZE_COMPLIANCE_COMPLETE_PROGRESS)) * 100)) };
+          steps[5] = { ...BASE_ANALYSIS_STEPS[5], status: 'pending', progress: 0 }; 
           break;
       case 'completed':
           steps = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'completed', progress: 100 }));
           break;
       case 'error':
-          // Determine which step failed based on progress and existing data
+          // Error handling: mark steps up to the point of failure
           if (overallProgress < UPLOAD_COMPLETE_PROGRESS || !powerQualityDataUrl) { 
               steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, uploadProgress ?? 0))};
               markFollowingStepsPending(0);
           } else if (overallProgress < SUMMARIZATION_COMPLETE_PROGRESS || !powerQualityDataSummary) { 
-              markPreviousStepsCompleted(1);
-              steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, (overallProgress - UPLOAD_COMPLETE_PROGRESS) / (SUMMARIZATION_COMPLETE_PROGRESS - UPLOAD_COMPLETE_PROGRESS) * 100 )) };
+              markPreviousStepsCompleted(1); // Upload completed
+              steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, ((overallProgress - UPLOAD_COMPLETE_PROGRESS) / (SUMMARIZATION_COMPLETE_PROGRESS - UPLOAD_COMPLETE_PROGRESS)) * 100 )) };
               markFollowingStepsPending(1);
           } else if (overallProgress < IDENTIFY_REG_COMPLETE_PROGRESS || !identifiedRegulations) { 
               markPreviousStepsCompleted(2);
-              steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, (overallProgress - SUMMARIZATION_COMPLETE_PROGRESS) / (IDENTIFY_REG_COMPLETE_PROGRESS - SUMMARIZATION_COMPLETE_PROGRESS) * 100)) };
+              steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, ((overallProgress - SUMMARIZATION_COMPLETE_PROGRESS) / (IDENTIFY_REG_COMPLETE_PROGRESS - SUMMARIZATION_COMPLETE_PROGRESS)) * 100)) };
               markFollowingStepsPending(2);
-          } else if (overallProgress < ANALYZE_COMPLIANCE_COMPLETE_PROGRESS) { // Error during initial analysis
+          } else if (overallProgress < ANALYZE_COMPLIANCE_COMPLETE_PROGRESS) { 
               markPreviousStepsCompleted(3);
-              steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, (overallProgress - IDENTIFY_REG_COMPLETE_PROGRESS) / (ANALYZE_COMPLIANCE_COMPLETE_PROGRESS - IDENTIFY_REG_COMPLETE_PROGRESS) * 100)) };
+              steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, ((overallProgress - IDENTIFY_REG_COMPLETE_PROGRESS) / (ANALYZE_COMPLIANCE_COMPLETE_PROGRESS - IDENTIFY_REG_COMPLETE_PROGRESS)) * 100)) };
               markFollowingStepsPending(3);
-          } else if (overallProgress < REVIEW_REPORT_COMPLETE_PROGRESS || !structuredReport) { // Error during review or structured report missing
+          } else if (overallProgress < REVIEW_REPORT_COMPLETE_PROGRESS || !structuredReport) { 
               markPreviousStepsCompleted(4);
-              steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, (overallProgress - ANALYZE_COMPLIANCE_COMPLETE_PROGRESS) / (REVIEW_REPORT_COMPLETE_PROGRESS - ANALYZE_COMPLIANCE_COMPLETE_PROGRESS) * 100)) };
+              steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, ((overallProgress - ANALYZE_COMPLIANCE_COMPLETE_PROGRESS) / (REVIEW_REPORT_COMPLETE_PROGRESS - ANALYZE_COMPLIANCE_COMPLETE_PROGRESS)) * 100)) };
               markFollowingStepsPending(4);
-          } else { // Error during final report generation or unknown
+          } else { // Error during final report generation or if progress implies completion but status is error
               markPreviousStepsCompleted(5);
-              steps[5] = { ...BASE_ANALYSIS_STEPS[5], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, (overallProgress - REVIEW_REPORT_COMPLETE_PROGRESS) / (100 - REVIEW_REPORT_COMPLETE_PROGRESS) * 100)) };
-              markFollowingStepsPending(5);
+              steps[5] = { ...BASE_ANALYSIS_STEPS[5], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, ((overallProgress - REVIEW_REPORT_COMPLETE_PROGRESS) / (FINAL_GENERATION_COMPLETE_PROGRESS - REVIEW_REPORT_COMPLETE_PROGRESS)) * 100)) };
           }
           break;
       default:
-           steps = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'pending', progress: 0, details: 'Status desconhecido' }));
+           steps = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'pending', progress: 0, details: `Status desconhecido: ${status}` }));
+  }
+  // Ensure upload step (step 0) is marked completed if subsequent steps are active or completed
+  if (steps.slice(1).some(s => s.status === 'completed' || s.status === 'in_progress') && steps[0].status !== 'error') {
+    steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'completed', progress: 100 };
   }
   return steps;
 }
-
