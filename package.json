@@ -13,9 +13,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "emulators:start": "firebase emulators:start --import=./firebase-emulator-data --export-on-exit",
-    "emulators:dev": "firebase emulators:exec --import=./firebase-emulator-data 'npm run dev'",
-    "test": "firebase emulators:exec --import=./firebase-emulator-data --export-on-exit jest",
-    "test:watch": "firebase emulators:exec --import=./firebase-emulator-data --export-on-exit 'jest --watch'"
+    "emulators:dev": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data 'npm run dev'",
+    "test": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest",
+    "test:watch": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest --watch"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",
