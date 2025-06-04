@@ -33,6 +33,7 @@ jobs:
           name: functions-src-and-shared-for-test
           path: functions 
           run-id: ${{ github.event.workflow_run.id }} # Specify the run ID of the triggering workflow
+          token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }} # Use PAT for authentication
 
       - name: Install Next.js app dependencies
         run: npm ci
@@ -63,3 +64,5 @@ jobs:
           GCLOUD_PROJECT: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} # For emulators
           FIREBASE_CONFIG: "{}" # For emulators
           FIREBASE_PROJECT_ID_INTERNAL: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} # For emulators
+          NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }} # Add Gemini API Key for tests
+```
