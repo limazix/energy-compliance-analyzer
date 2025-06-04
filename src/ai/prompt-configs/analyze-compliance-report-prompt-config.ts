@@ -19,7 +19,7 @@ export const ReportSectionSchema = z.object({
   content: z.string().describe("Conteúdo principal da seção, descrevendo os dados, análises e observações de forma técnica, clara e objetiva."),
   insights: z.array(z.string()).describe("Lista de insights chave ou problemas específicos detectados e discutidos nesta seção."),
   relevantNormsCited: z.array(z.string()).describe("Normas ANEEL (ex: 'Resolução XXX/YYYY, Art. Z') especificamente citadas e usadas como base para os insights desta seção. These should be cited in their original Portuguese form."),
-  chartOrImageSuggestion: z.string().optional().describe("Descrição textual de uma imagem ou gráfico que seria útil para ilustrar esta seção, e os dados que ele representaria. Ex: 'Um gráfico de barras mostrando a variação da tensão média diária vs. limites PRODIST' ou 'Imagem ilustrando o afundamento de tensão detectado em dd/mm/aaaa HH:MM:SS'.")
+  chartOrImageSuggestion: z.string().optional().describe("Sugestão de diagrama em sintaxe Mermaid para ilustrar esta seção, e os dados que ele representaria. Ex: 'graph TD\\nA[Tensão Média Diária] --> B{Limite PRODIST}; B --> C[Conforme]; B --> D[Não Conforme];'. Consulte a documentação em https://mermaid.js.org/intro/ para referência.")
 });
 export type ReportSection = z.infer<typeof ReportSectionSchema>;
 
@@ -95,7 +95,7 @@ Gerar um relatório de conformidade completo no idioma '{{languageCode}}', segui
         *   \`content\`: Detalhe a análise dos parâmetros relevantes para esta seção, baseado no \`powerQualityDataSummary\`. Seja técnico, mas claro. Compare os valores observados com os limites regulatórios.
         *   \`insights\`: Liste os principais insights, observações ou problemas detectados nesta seção específica. Cada insight deve ser uma frase concisa.
         *   \`relevantNormsCited\`: Para cada insight ou problema, **explicite a norma ANEEL e o artigo/item específico em Português** que o respalda (ex: "Resolução XXX/YYYY, Art. Z, Inciso W", ou "PRODIST Módulo 8, item 3.2.1"). Seja preciso.
-        *   \`chartOrImageSuggestion\`: (OPCIONAL, MAS RECOMENDADO) Descreva verbalmente um gráfico ou imagem que poderia ilustrar os achados da seção. Ex: "Sugestão de Gráfico: Histograma das medições de tensão eficaz versus os limites de tensão adequada e precária definidos pela REN XXX/YYYY." ou "Sugestão de Imagem: Forma de onda do evento de afundamento de tensão ocorrido em [data/hora, se disponível no sumário]."
+        *   \`chartOrImageSuggestion\`: (OPCIONAL, MAS RECOMENDADO) Gere uma sugestão de diagrama visual em **sintaxe Mermaid** que poderia ilustrar os achados da seção. Ex: para um gráfico de pizza, \`pie title Título do Gráfico "Seção A": 30 "Seção B": 70\`; para um gráfico de barras, \`xychart-beta title "Variação da Tensão" x-axis "Tempo" y-axis "Tensão (V)" bar [10, 12, 15, 11]\`. **Consulte a documentação oficial do Mermaid.js em https://mermaid.js.org/intro/ para referência da sintaxe.** A sintaxe Mermaid DEVE ser fornecida diretamente neste campo.
 
 5.  **finalConsiderations:**
     *   Resuma as principais conclusões da análise.
@@ -113,7 +113,8 @@ Gerar um relatório de conformidade completo no idioma '{{languageCode}}', segui
 *   Nomes de resoluções, artigos e textos normativos da ANEEL DEVEM ser mantidos em Português.
 *   Seja o mais detalhado e preciso possível, baseando-se estritamente nas informações do \`powerQualityDataSummary\` e nas \`identifiedRegulations\`.
 *   Se o sumário for limitado, reconheça isso em suas análises (ex: "Com base nos dados sumarizados, não foi possível avaliar X em detalhe...").
-*   A qualidade da estruturação e a precisão das referências às normas são cruciais.
+*   A qualidade da estruturação, a precisão das referências às normas e a validade da sintaxe Mermaid são cruciais.
 *   Garanta que a saída seja um JSON válido que corresponda ao schema \`AnalyzeComplianceReportOutputSchema\`.
 `,
 };
+
