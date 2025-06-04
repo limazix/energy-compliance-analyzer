@@ -42,7 +42,7 @@ jobs:
           set -e # Exit immediately if a command exits with a non-zero status.
           echo "Preparing artifact staging directory..."
           mkdir -p functions_artifact_staging_test/src
-          mkdir -p functions_artifact_staging_test/lib # Ensure lib dir exists before copying into shared
+          mkdir -p functions_artifact_staging_test/lib/shared # Ensure lib/shared dir exists
           
           echo "Copying functions/src..."
           cp -r functions/src/* functions_artifact_staging_test/src/

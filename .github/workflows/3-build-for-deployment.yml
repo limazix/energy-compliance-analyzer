@@ -75,23 +75,38 @@ jobs:
       
       - name: Prepare Functions deployment artifact
         run: |
-          mkdir -p functions_artifact_staging_deploy/lib
+          set -e # Exit immediately if a command exits with a non-zero status.
+          echo "Preparing Functions deployment artifact staging directory..."
+          mkdir -p functions_artifact_staging_deploy/src
+          mkdir -p functions_artifact_staging_deploy/lib/shared # Ensure lib/shared dir exists
           mkdir -p functions_artifact_staging_deploy/node_modules # Ensure node_modules dir exists for copying
+          
+          echo "Copying functions/src..."
           cp -r functions/src/* functions_artifact_staging_deploy/src/
+          
+          echo "Checking for functions/lib/shared..."
           if [ -d "functions/lib/shared" ]; then
+            echo "Copying functions/lib/shared..."
             cp -r functions/lib/shared/* functions_artifact_staging_deploy/lib/shared/
           else
             echo "Error: functions/lib/shared not found after build:shared. Cannot prepare deploy artifact."
             exit 1
           fi
+          
+          echo "Copying functions/package.json and package-lock.json..."
           cp functions/package.json functions_artifact_staging_deploy/
           cp functions/package-lock.json functions_artifact_staging_deploy/
-          # Copy node_modules; ensure it exists, handle if it doesn't (though `npm ci` should create it)
+          
+          echo "Copying functions/node_modules..."
           if [ -d "functions/node_modules" ]; then
             cp -r functions/node_modules/* functions_artifact_staging_deploy/node_modules/
           else
             echo "Warning: functions/node_modules not found. This might be an issue for deployment if dependencies are expected."
           fi
+          
+          echo "Listing contents of Functions deployment staging directory:"
+          ls -R functions_artifact_staging_deploy
+        shell: bash
 
       - name: Upload Functions deployment artifact
         uses: actions/upload-artifact@v4
@@ -99,3 +114,4 @@ jobs:
           name: functions-prod-build
           path: functions_artifact_staging_deploy/ # Upload content of staging directory
           retention-days: 1
+          if-no-files-found: error
