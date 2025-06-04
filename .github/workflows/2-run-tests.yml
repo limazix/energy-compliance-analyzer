@@ -65,4 +65,3 @@ jobs:
           FIREBASE_CONFIG: "{}" # For emulators
           FIREBASE_PROJECT_ID_INTERNAL: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} # For emulators
           NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }} # Add Gemini API Key for tests
-```
