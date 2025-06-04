@@ -10,6 +10,8 @@ on:
 jobs:
   deploy_application:
     runs-on: ubuntu-latest
+    # Define o ambiente para este job
+    environment: production 
     if: github.event.workflow_run.conclusion == 'success' 
     permissions:
       contents: read 
@@ -31,7 +33,7 @@ jobs:
           name: nextjs-prod-build
           path: . 
           run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }} # Use PAT for authentication
+          github-token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }} 
 
       - name: Download Functions build artifact
         uses: actions/download-artifact@v4
@@ -39,7 +41,7 @@ jobs:
           name: functions-prod-build
           path: functions 
           run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }} # Use PAT for authentication
+          github-token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }} 
 
       - name: Authenticate to Google Cloud (WIF for Functions/Rules)
         id: auth
@@ -56,7 +58,7 @@ jobs:
           backendId: ema-backend # CONFIRM THIS ID
           region: us-central1 
         env:
-           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }} # Explicitly pass if needed, though action should pick it up
+           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }} 
 
       - name: Deploy Firebase Functions
         run: |
@@ -76,3 +78,4 @@ jobs:
             --non-interactive
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_path }}
+```

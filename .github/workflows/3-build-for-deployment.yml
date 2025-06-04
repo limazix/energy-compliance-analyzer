@@ -10,6 +10,8 @@ on:
 jobs:
   build_production_package:
     runs-on: ubuntu-latest
+    # Define o ambiente para este job
+    environment: production 
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       (github.event.workflow_run.head_branch == 'main' || (github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.pull_requests[0].base.ref == 'main'))
@@ -35,6 +37,7 @@ jobs:
       - name: Build Next.js application
         run: npm run build
         env:
+          # Estes secrets virão do ambiente 'production' configurado no GitHub
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }}
@@ -115,3 +118,4 @@ jobs:
           path: functions_artifact_staging_deploy/ # Upload content of staging directory
           retention-days: 1
           if-no-files-found: error
+```
