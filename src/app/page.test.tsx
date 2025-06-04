@@ -143,10 +143,12 @@ describe('HomePage - Navigation and Views', () => {
     });
   });
 
-  test('renders default view (Past Analyses Accordion) for authenticated user', () => {
+  test('renders default view (Past Analyses Accordion) for authenticated user, including AppHeader with "Nova Análise" button', () => {
     render(<HomePage />);
+    // Check for AppHeader content specific to authenticated user
+    expect(screen.getByRole('button', { name: /Nova Análise/i })).toBeInTheDocument(); 
+    // Check for HomePage specific content
     expect(screen.getByText(`Suas Análises Anteriores`)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Nova Análise/i })).toBeInTheDocument();
   });
 
   test('navigates to NewAnalysisForm when "Nova Análise" is clicked and back to Dashboard on cancel', () => {
@@ -274,37 +276,24 @@ describe('HomePage - Navigation and Views', () => {
         fetchPastAnalyses: mockFetchPastAnalyses.mockResolvedValue(undefined), // To avoid errors on refetch
      });
 
-    // Mock the server action that getDoc relies on inside handleUploadResult
-    // If HomePage directly calls getDoc, that needs to be handled for emulators or specifically mocked.
-    // For now, assuming handleUploadResult in HomePage can fetch the new analysis record after creation.
-    // The crucial part is that createInitialAnalysisRecordAction and finalizeFileUploadRecordAction are mocked.
-    // The HomePage's handleUploadResult calls setCurrentAnalysis, which we can spy on.
-
-
     render(<HomePage />);
 
     // 1. Open the New Analysis Form
     fireEvent.click(screen.getByRole('button', { name: /Nova Análise/i }));
     await screen.findByText('Nova Análise de Conformidade');
-
-    // 2. Simulate file input (already handled by useFileUploadManager mock having a file)
-    // If a real input field was used:
-    // const fileInput = screen.getByLabelText(/Arquivo CSV de Dados/i);
-    // fireEvent.change(fileInput, { target: { files: [new File(['content'], newFileName, { type: 'text/csv' })] } });
     
-    // 3. Fill in title (optional, as filename is default)
+    // 2. Fill in title (optional, as filename is default)
     const titleInput = screen.getByLabelText(/Título da Análise/i);
     fireEvent.change(titleInput, { target: { value: newAnalysisTitle } });
 
-
-    // 4. Click "Enviar e Iniciar Análise"
+    // 3. Click "Enviar e Iniciar Análise"
     const submitButton = screen.getByRole('button', { name: /Enviar e Iniciar Análise/i });
     
     await act(async () => {
       fireEvent.click(submitButton);
     });
     
-    // 5. Assertions
+    // 4. Assertions
     await waitFor(() => {
       expect(mockUploadFileAndCreateRecord).toHaveBeenCalledWith(
         mockUser, // user object
@@ -314,15 +303,12 @@ describe('HomePage - Navigation and Views', () => {
       );
     });
     
-    // The handleUploadResult in HomePage will call setCurrentAnalysis and startAiProcessing
-    // We need to ensure that setCurrentAnalysis is called with an object matching mockNewAnalysisData
     await waitFor(() => {
       expect(setCurrentAnalysisForUpload).toHaveBeenCalledWith(
         expect.objectContaining({
           id: newAnalysisId,
           fileName: newFileName,
           title: newAnalysisTitle,
-          // status: 'summarizing_data', // This status is set by finalizeFileUploadRecordAction
         })
       );
     });
@@ -331,12 +317,10 @@ describe('HomePage - Navigation and Views', () => {
         expect(startAiProcessingForUpload).toHaveBeenCalledWith(newAnalysisId, mockUser.uid);
     });
     
-    // Simulate that currentAnalysis is now set by the setCurrentAnalysisForUpload call
     useAnalysisManager.mockReturnValueOnce({
       ...global.mockUseAnalysisManagerReturnValue,
-      currentAnalysis: { // Provide the structure of the analysis object
+      currentAnalysis: { 
           ...mockNewAnalysisData,
-          // Ensure date fields are strings if that's what AnalysisView expects from currentAnalysis
           createdAt: new Date(mockNewAnalysisData.createdAt).toISOString(), 
       },
       setCurrentAnalysis: setCurrentAnalysisForUpload,
@@ -345,14 +329,10 @@ describe('HomePage - Navigation and Views', () => {
       fetchPastAnalyses: mockFetchPastAnalyses.mockResolvedValue(undefined),
     });
 
-    // Check if AnalysisView is rendered for the new analysis
-    // This requires the accordion to expand for the new item, or for the view to change directly
-    // Based on current HomePage logic, new uploads become the `currentAnalysis` and expand.
     await waitFor(() => {
       const analysisViewForNew = screen.getByText(new RegExp(newAnalysisTitle, "i"));
       expect(analysisViewForNew).toBeInTheDocument();
-      // Check for a status indicator of an in-progress analysis
-      expect(screen.getByText(/Sumarizando Dados da Qualidade de Energia/i)).toBeInTheDocument(); // From displayedAnalysisSteps
+      expect(screen.getByText(/Sumarizando Dados da Qualidade de Energia/i)).toBeInTheDocument(); 
     });
   });
 
@@ -363,12 +343,11 @@ describe('HomePage - Navigation and Views', () => {
       setCurrentAnalysis: mockSetCurrentAnalysis,
       pastAnalyses: [mockAnalysisItemCompleted],
       fetchPastAnalyses: mockFetchPastAnalyses,
-      handleDeleteAnalysis: mockHandleDeleteAnalysis, // Use the specific mock for this test
+      handleDeleteAnalysis: mockHandleDeleteAnalysis, 
     });
 
     render(<HomePage />);
 
-    // Expand the accordion for the completed analysis
     const accordionTrigger = screen.getByText(mockAnalysisItemCompleted.title!);
     fireEvent.click(accordionTrigger);
 
@@ -378,7 +357,6 @@ describe('HomePage - Navigation and Views', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Excluir Análise/i }));
 
-    // Confirm deletion in AlertDialog
     await waitFor(() => {
       expect(screen.getByText('Confirmar Exclusão')).toBeInTheDocument();
     });
@@ -391,10 +369,10 @@ describe('HomePage - Navigation and Views', () => {
     await waitFor(() => {
       expect(mockHandleDeleteAnalysis).toHaveBeenCalledWith(mockAnalysisItemCompleted.id, expect.any(Function));
     });
-    // Check if fetchPastAnalyses was called after deletion (part of afterDeleteAnalysis -> handleDeleteAnalysis mock)
     await waitFor(() => {
         expect(mockFetchPastAnalyses).toHaveBeenCalled();
     });
   });
 
 });
+
