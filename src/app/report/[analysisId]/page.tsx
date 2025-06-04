@@ -2,7 +2,9 @@
 'use client'; 
 
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
-import { MDXRemote, type MDXRemoteProps } from 'next-mdx-remote/rsc'; 
+import { MDXRemote } from 'next-mdx-remote/rsc'; 
+import remarkGfm from 'remark-gfm';
+import remarkMermaid from 'remark-mermaidjs';
 import { getAnalysisReportAction } from '@/features/report-viewing/actions/reportViewingActions';
 import { askReportOrchestratorAction } from '@/features/report-chat/actions/reportChatActions';
 import { Button } from '@/components/ui/button';
@@ -37,8 +39,6 @@ interface ChatMessage {
   sender: 'user' | 'ai';
   text: string;
   timestamp: number; 
-  revisedStructuredReport?: AnalyzeComplianceReportOutput; // No longer stored in chat message
-  suggestedMdxChanges?: string; // No longer stored in chat message
   isError?: boolean; // Custom flag for AI error messages in chat
 }
 
@@ -62,7 +62,7 @@ export default function ReportPage() {
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [userInput, setUserInput] = useState('');
-  const [isAiResponding, setIsAiResponding] = useState(false); // To disable input while AI "thinks" before streaming
+  const [isAiResponding, setIsAiResponding] = useState(false); 
   const [currentLanguageCode, setCurrentLanguageCode] = useState('pt-BR');
 
   const fetchReportAndInitialStructuredData = useCallback(async (currentAnalysisId: string, currentUserId: string) => {
@@ -80,7 +80,6 @@ export default function ReportPage() {
         });
         toast({ title: "Erro ao Carregar Relatório", description: data.error, variant: "destructive"});
       } else {
-        // Fetch initial structured report from Firestore
         const analysisDocRef = doc(db, 'users', currentUserId, 'analyses', currentAnalysisId);
         const analysisSnap = await getDoc(analysisDocRef);
         let initialStructuredReport: AnalyzeComplianceReportOutput | null = null;
@@ -112,7 +111,6 @@ export default function ReportPage() {
   }, [toast]);
 
 
-  // Listener for Firestore document changes (structuredReport, mdxReportStoragePath)
   useEffect(() => {
     if (!user?.uid || !analysisId || reportData.isLoading) return;
 
@@ -123,36 +121,15 @@ export default function ReportPage() {
         const newStructuredReport = analysisData.structuredReport || null;
         const newMdxPath = analysisData.mdxReportStoragePath;
 
-        // Check if structuredReport or mdxPath has actually changed
-        // This avoids unnecessary re-renders or MDX fetches if other fields changed
         const hasStructuredReportChanged = JSON.stringify(newStructuredReport) !== JSON.stringify(reportData.structuredReport);
         
-        // We don't store MDX path in reportData state directly, but if it changes, we need new MDX content
-        // For simplicity, if structured report changed, we assume MDX might also need update
-        // Or, if MDX is primarily generated from structured, this check is sufficient.
-        // A more robust check would compare newMdxPath with a previously stored one if we did.
-
         if (hasStructuredReportChanged) {
           console.log("[ReportPage] Firestore listener: structuredReport or mdxReportStoragePath changed. Updating state.");
           setReportData(prev => ({
             ...prev,
             structuredReport: newStructuredReport,
-            // If MDX path changes, we need to re-fetch MDX content
-            // For now, if structuredReport changes, we assume MDX will be provided by askReportOrchestratorAction or needs re-fetch.
-            // This part is tricky: if Firestore changes *remotely*, we might need to refetch MDX.
-            // Let's assume askReportOrchestratorAction provides the new MDX for now.
-            // If user is not interacting but report changes (e.g. another session), they'd need to refresh MDX.
           }));
-          // If only structured report changes via Firestore listener (not via current chat interaction),
-          // we might need to refetch MDX content based on the new mdxReportStoragePath.
-          // This is complex as the local `reportData.mdxContent` might be stale.
-          // The current `askReportOrchestratorAction` handles updating MDX based on its changes.
-          // This listener is more for remote changes.
-          if (newMdxPath && user.uid && analysisId) { // If path exists
-             // To avoid re-fetching MDX if the orchestrator action already updated it:
-             // We could add a timestamp or version to the MDX/Structured report.
-             // For now, if structured report changes via Firestore, let's prompt a refresh or auto-refresh MDX.
-             // Simple approach: refetch MDX if structuredReport changes from Firestore
+          if (newMdxPath && user.uid && analysisId) { 
              try {
                 const updatedMdxData = await getAnalysisReportAction(user.uid, analysisId);
                 if (!updatedMdxData.error && updatedMdxData.mdxContent) {
@@ -167,10 +144,9 @@ export default function ReportPage() {
       }
     });
     return () => unsubscribeFirestore();
-  }, [user, analysisId, reportData.isLoading, reportData.structuredReport, toast]); // Added reportData.structuredReport
+  }, [user, analysisId, reportData.isLoading, reportData.structuredReport, toast]); 
 
 
-  // Listener for RTDB chat messages
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
@@ -180,7 +156,7 @@ export default function ReportPage() {
     setCurrentLanguageCode(navigator.language || 'pt-BR');
 
     if (user && user.uid && analysisId) {
-      if (reportData.isLoading && !reportData.error) { // Fetch initial report data only if not already fetched/errored
+      if (reportData.isLoading && !reportData.error) { 
          fetchReportAndInitialStructuredData(analysisId, user.uid);
       }
 
@@ -195,7 +171,7 @@ export default function ReportPage() {
           loadedMessages.sort((a, b) => a.timestamp - b.timestamp);
         }
         
-        setChatMessages(loadedMessages); // Update chat messages
+        setChatMessages(loadedMessages); 
 
         if (loadedMessages.length === 0 && !reportData.isLoading && !reportData.error && reportData.fileName) {
             const welcomeMessageExists = loadedMessages.some(msg => msg.text.startsWith("Olá! Sou seu assistente para este relatório"));
@@ -239,11 +215,11 @@ export default function ReportPage() {
       }
       return;
     }
-     if (isAiResponding) { // Prevent multiple sends while AI is "thinking" (before streaming starts)
+     if (isAiResponding) { 
         toast({ title: "Aguarde", description: "A IA ainda está processando a solicitação anterior.", variant: "default"});
         return;
     }
-    if (!reportData.structuredReport) { // Crucial for revisions
+    if (!reportData.structuredReport) { 
         toast({ title: "Relatório não Sincronizado", description: "O relatório estruturado não está disponível para interação ou revisão. Tente recarregar.", variant: "destructive"});
         return;
     }
@@ -255,7 +231,7 @@ export default function ReportPage() {
 
     const userMessageText = userInput.trim();
     setUserInput(''); 
-    setIsAiResponding(true); // Indicate AI is about to process
+    setIsAiResponding(true); 
 
     const userMessageForRtdb = {
       sender: 'user' as const,
@@ -284,14 +260,9 @@ export default function ReportPage() {
         currentLanguageCode
       );
       
-      // AI response text is now streamed directly to RTDB by the server action.
-      // The onValue listener will pick it up.
-      // The server action might return an error or success status.
-
       if (actionResult.error) {
         console.error("Error from AI orchestrator action:", actionResult.error);
         toast({ title: "Erro na Resposta da IA", description: actionResult.error, variant: "destructive" });
-        // An error message might have already been pushed to RTDB by the action.
       }
 
       if (actionResult.reportModified && actionResult.revisedStructuredReport && actionResult.newMdxContent) {
@@ -307,7 +278,6 @@ export default function ReportPage() {
       const errorMsg = e instanceof Error ? e.message : String(e);
       console.error("Failed to send message to orchestrator:", e);
       toast({ title: "Erro de Comunicação", description: `Não foi possível contatar o assistente: ${errorMsg}`, variant: "destructive" });
-      // Attempt to push an error message to chat via RTDB if orchestrator call failed entirely client-side
       const aiErrorResponseForRtdb = {
         sender: 'ai' as const,
         text: `Desculpe, ocorreu um erro de comunicação: ${errorMsg}`,
@@ -320,7 +290,7 @@ export default function ReportPage() {
         console.error("Failed to push AI error message to RTDB:", dbPushError);
       }
     } finally {
-      setIsAiResponding(false); // AI processing (for this interaction call) is done
+      setIsAiResponding(false); 
     }
   }, [userInput, isAiResponding, user, analysisId, reportData, currentLanguageCode, toast]);
 
@@ -413,12 +383,7 @@ export default function ReportPage() {
     );
   }
 
-  // Ensure mdxContent is a string for MDXRemote
   const mdxSource = reportData.mdxContent || "# Relatório indisponível\nO conteúdo não pôde ser carregado.";
-  const mdxProps: MDXRemoteProps = {
-    source: mdxSource,
-    // components: { /* Custom components if any */ }
-  };
 
   return (
     <div className="flex flex-col min-h-screen bg-muted/30">
@@ -439,8 +404,15 @@ export default function ReportPage() {
 
         <article className="prose prose-slate lg:prose-xl max-w-none bg-card p-6 sm:p-8 md:p-10 rounded-lg shadow-lg">
           <Suspense fallback={<div className="text-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary mx-auto"/> Carregando relatório...</div>}>
-            {/* @ts-expect-error MDXRemoteProps can accept string source */}
-            <MDXRemote {...mdxProps} />
+            <MDXRemote 
+              source={mdxSource}
+              options={{
+                mdxOptions: {
+                  remarkPlugins: [remarkGfm, remarkMermaid],
+                }
+              }}
+              // components={{ /* Custom components if any */ }}
+            />
           </Suspense>
         </article>
 
@@ -475,7 +447,6 @@ export default function ReportPage() {
                 </div>
               </div>
             ))}
-            {/* No need for a separate "isAiResponding" visual cue here if text streams directly */}
           </ScrollArea>
 
           <div className="flex items-start gap-2">
@@ -515,3 +486,4 @@ export default function ReportPage() {
     </div>
   );
 }
+
