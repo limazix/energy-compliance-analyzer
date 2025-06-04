@@ -52,21 +52,19 @@ jobs:
           CI: true
           # Estes secrets virão do ambiente 'test' configurado no GitHub
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} 
-          NEXT_PUBLIC_FIREBASE_API_KEY: "test-api-key" # Geralmente não é um secret para emuladores
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "localhost" # Não é um secret
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "default-bucket" # Não é um secret
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "test-sender-id" # Não é um secret
-          NEXT_PUBLIC_FIREBASE_APP_ID: "test-app-id" # Não é um secret
-          # Corrigido: A URL do database não deve ter o nome do projeto como query param, mas sim como parte do namespace
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.TEST_FIREBASE_API_KEY }} 
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "localhost" 
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.TEST_FIREBASE_STORAGE_BUCKET }} 
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.TEST_FIREBASE_MESSAGING_SENDER_ID }} 
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.TEST_FIREBASE_APP_ID }} 
           NEXT_PUBLIC_FIREBASE_DATABASE_URL: "http://localhost:9000?ns=${{ secrets.NEXT_PUBLIC_PROJECT_ID }}" 
-          FIRESTORE_EMULATOR_HOST: "localhost:8080" # Não é um secret
-          FIREBASE_AUTH_EMULATOR_HOST: "localhost:9099" # Não é um secret
-          FIREBASE_STORAGE_EMULATOR_HOST: "localhost:9199" # Não é um secret
-          FIREBASE_DATABASE_EMULATOR_HOST: "localhost:9000"  # Não é um secret
-          FUNCTIONS_EMULATOR_HOST: "localhost:5001" # Não é um secret
-          FIREBASE_FUNCTIONS_EMULATOR_ORIGIN: "http://localhost:5001" # Não é um secret
-          GCLOUD_PROJECT: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} # Para emuladores
-          FIREBASE_CONFIG: "{}" # Para emuladores
-          FIREBASE_PROJECT_ID_INTERNAL: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} # Para emuladores
+          FIRESTORE_EMULATOR_HOST: "localhost:8080" 
+          FIREBASE_AUTH_EMULATOR_HOST: "localhost:9099" 
+          FIREBASE_STORAGE_EMULATOR_HOST: "localhost:9199" 
+          FIREBASE_DATABASE_EMULATOR_HOST: "localhost:9000"  
+          FUNCTIONS_EMULATOR_HOST: "localhost:5001" 
+          FIREBASE_FUNCTIONS_EMULATOR_ORIGIN: "http://localhost:5001" 
+          GCLOUD_PROJECT: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} 
+          FIREBASE_CONFIG: "{}" 
+          FIREBASE_PROJECT_ID_INTERNAL: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} 
           NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
-```
