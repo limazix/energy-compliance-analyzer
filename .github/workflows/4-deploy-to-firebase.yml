@@ -3,20 +3,18 @@ name: 4. Deploy to Firebase
 
 on:
   workflow_run:
-    workflows: ["3. Build for Deployment"] # Aciona quando o workflow "3. Build for Deployment" completar
+    workflows: ["3. Build for Deployment"] 
     types:
       - completed
 
 jobs:
   deploy_application:
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success' # Só executa se o build de deploy teve sucesso
+    if: github.event.workflow_run.conclusion == 'success' 
     permissions:
-      contents: read # Para download de artefatos
-      id-token: write # Para autenticação com GCP via WIF (usado por Functions e Rules deploy)
-      # A permissão `pull-requests: write` ou `actions: write` pode ser necessária para o App Hosting GitHub App
-      # comentar/criar status checks, mas o token é o principal.
-      # O `firebase-tools/action-apphosting-deploy` usará o FIREBASE_TOKEN (gerado pelo App) para autenticação.
+      contents: read 
+      id-token: write 
+      actions: read # Required to download artifacts
 
     steps:
       - name: Set up Node.js
@@ -31,15 +29,16 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: nextjs-prod-build
-          path: . # Extrai para a raiz do workspace
+          path: . 
+          run-id: ${{ github.event.workflow_run.id }}
 
       - name: Download Functions build artifact
         uses: actions/download-artifact@v4
         with:
           name: functions-prod-build
-          path: functions # Extrai para a pasta 'functions'
+          path: functions 
+          run-id: ${{ github.event.workflow_run.id }}
 
-      # Workload Identity Federation - Usado para deploy de Functions e Rules
       - name: Authenticate to Google Cloud (WIF for Functions/Rules)
         id: auth
         uses: 'google-github-actions/auth@v2'
@@ -50,13 +49,12 @@ jobs:
       - name: Deploy to Firebase App Hosting (via GitHub App)
         uses: firebase-tools/action-apphosting-deploy@v0
         with:
-          # O token é automaticamente fornecido pelo GitHub App como secrets.FIREBASE_TOKEN
-          # token: ${{ secrets.FIREBASE_TOKEN }} # Não é necessário especificar explicitamente, usa o default
+          # token: ${{ secrets.FIREBASE_TOKEN }} # Automatically used by the action
           projectId: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }}
-          backendId: ema-backend # CONFIRME ESTE ID - Deve ser o ID do seu backend do App Hosting
-          region: us-central1 # Ajuste a região se necessário
-          # rootDirectory: '.' # Opcional, padrão é a raiz onde o artefato foi baixado
-        # Não precisa de `env: GOOGLE_APPLICATION_CREDENTIALS` aqui, usa o token do GitHub App
+          backendId: ema-backend # CONFIRM THIS ID
+          region: us-central1 
+        env:
+           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }} # Explicitly pass if needed, though action should pick it up
 
       - name: Deploy Firebase Functions
         run: |
@@ -68,25 +66,9 @@ jobs:
 
       - name: Deploy Firebase Rules (Firestore, Storage, RTDB)
         run: |
-          # Adiciona checkout para garantir que os arquivos de regras (ex: firestore.rules) estejam presentes
-          # Se eles já foram incluídos no 'nextjs-prod-build' e extraídos para a raiz, este checkout pode não ser estritamente necessário.
-          # Mas é mais seguro incluí-lo.
-          actions/checkout@v4
+          actions/checkout@v4 # Ensure rule files are present
           firebase deploy --only firestore:rules,storage:rules,database:rules \
             --project ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} \
             --non-interactive
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_path }}
-
-    # Segredos do GitHub Actions NECESSÁRIOS para este workflow (deploy_application):
-    # 1. Para autenticação GCP via Workload Identity Federation (usado para deploy de Functions e Rules):
-    #    - GCP_PROJECT_NUMBER
-    #    - GCP_WORKLOAD_IDENTITY_POOL_ID
-    #    - GCP_WORKLOAD_IDENTITY_PROVIDER_ID
-    #    - GCP_SERVICE_ACCOUNT_EMAIL
-    # 2. Para o deploy do Firebase App Hosting (via firebase-tools/action-apphosting-deploy):
-    #    - NEXT_PUBLIC_PROJECT_ID (usado como projectId)
-    #    - FIREBASE_TOKEN (Este é automaticamente fornecido e gerenciado pela integração do Firebase App Hosting GitHub App. Você NÃO o configura manualmente.)
-    # 3. IMPORTANTE: Confirme o 'backendId' (ex: ema-backend) no passo de deploy do App Hosting.
-    # 4. Secrets de runtime das Firebase Functions (ex: GEMINI_API_KEY) devem ser configurados no GCP.
-```

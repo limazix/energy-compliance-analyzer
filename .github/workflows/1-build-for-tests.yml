@@ -38,6 +38,7 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=4096"
 
       - name: Prepare Functions artifact for testing
+        shell: bash
         run: |
           set -e # Exit immediately if a command exits with a non-zero status.
           echo "Preparing artifact staging directory..."
@@ -48,12 +49,12 @@ jobs:
           cp -r functions/src/* functions_artifact_staging_test/src/
           
           echo "Checking for functions/lib/shared..."
-          if [ -d "functions/lib/shared" ]; then
+          if [ ! -d "functions/lib/shared" ] || [ -z "$(ls -A functions/lib/shared)" ]; then
+            echo "Error: functions/lib/shared not found or is empty after build:shared. Cannot prepare artifact."
+            exit 1
+          else
             echo "Copying functions/lib/shared..."
             cp -r functions/lib/shared/* functions_artifact_staging_test/lib/shared/
-          else
-            echo "Error: functions/lib/shared not found after build:shared. Cannot prepare artifact."
-            exit 1
           fi
           
           echo "Copying functions/package.json and package-lock.json..."
@@ -62,12 +63,11 @@ jobs:
           
           echo "Listing contents of staging directory:"
           ls -R functions_artifact_staging_test
-        shell: bash
-
+        
       - name: Upload Functions source and shared build artifact (for test workflow)
         uses: actions/upload-artifact@v4
         with:
           name: functions-src-and-shared-for-test
-          path: functions_artifact_staging_test/ # Upload content of staging directory
+          path: functions_artifact_staging_test/ 
           retention-days: 1
-          if-no-files-found: error # Fail the step if no files are found
+          if-no-files-found: error 
