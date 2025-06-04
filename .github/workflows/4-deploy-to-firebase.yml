@@ -31,7 +31,7 @@ jobs:
           name: nextjs-prod-build
           path: . 
           run-id: ${{ github.event.workflow_run.id }}
-          token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }} # Use PAT for authentication
+          github-token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }} # Use PAT for authentication
 
       - name: Download Functions build artifact
         uses: actions/download-artifact@v4
@@ -39,7 +39,7 @@ jobs:
           name: functions-prod-build
           path: functions 
           run-id: ${{ github.event.workflow_run.id }}
-          token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }} # Use PAT for authentication
+          github-token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }} # Use PAT for authentication
 
       - name: Authenticate to Google Cloud (WIF for Functions/Rules)
         id: auth

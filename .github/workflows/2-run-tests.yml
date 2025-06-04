@@ -33,7 +33,7 @@ jobs:
           name: functions-src-and-shared-for-test
           path: functions 
           run-id: ${{ github.event.workflow_run.id }} # Specify the run ID of the triggering workflow
-          token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }} # Use PAT for authentication
+          github-token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }} # Use PAT for authentication
 
       - name: Install Next.js app dependencies
         run: npm ci
