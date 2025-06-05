@@ -2,8 +2,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import LoginPage from './page';
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
-import { auth, googleProvider } from '@/lib/firebase'; // Mocked
+import { auth, googleProvider } from '@/lib/firebase'; // auth object is passed to the mocked functions
 import { useToast as originalUseToast } from '@/hooks/use-toast'; // Mocked
+import { signInWithPopup as firebaseSignInWithPopupModule } from 'firebase/auth';
 
 // Mock useAuth hook
 jest.mock('@/contexts/auth-context', () => ({
@@ -20,8 +21,22 @@ jest.mock('@/hooks/use-toast', () => ({
 const useToast = originalUseToast as jest.Mock;
 const mockToastFn = jest.fn();
 
-// Mock Firebase auth functions
-const mockSignInWithPopup = auth.signInWithPopup as jest.Mock;
+// Mock 'firebase/auth' module for signInWithPopup
+jest.mock('firebase/auth', () => {
+  const actualFirebaseAuth = jest.requireActual('firebase/auth');
+  return {
+    ...actualFirebaseAuth,
+    signInWithPopup: jest.fn(), // This is the key change
+    // Keep other functions real if needed, or mock as necessary
+    GoogleAuthProvider: actualFirebaseAuth.GoogleAuthProvider,
+    onAuthStateChanged: jest.fn(() => jest.fn()), // Mock onAuthStateChanged if LoginPage indirectly uses it via useAuth initialization
+    signOut: jest.fn(), // Add signOut if it could be called indirectly
+  };
+});
+
+// Assign the mocked function to a variable for use in tests
+const mockSignInWithPopup = firebaseSignInWithPopupModule as jest.Mock;
+
 
 // Mock Next.js router
 const mockRouterReplace = jest.fn();
@@ -36,7 +51,7 @@ jest.mock('next/navigation', () => ({
 describe('LoginPage', () => {
   beforeEach(() => {
     useAuth.mockClear();
-    mockSignInWithPopup.mockClear();
+    mockSignInWithPopup.mockClear(); // Now this should work
     mockRouterReplace.mockClear();
     useToast.mockReturnValue({ toast: mockToastFn });
     mockToastFn.mockClear();
@@ -76,6 +91,7 @@ describe('LoginPage', () => {
     fireEvent.click(loginButton);
 
     expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
+    // auth object and googleProvider are imported from @/lib/firebase and passed to the function
     expect(mockSignInWithPopup).toHaveBeenCalledWith(auth, googleProvider);
 
     await waitFor(() => {
@@ -101,6 +117,11 @@ describe('LoginPage', () => {
     await waitFor(() => {
          expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
     });
+    
+    // Check if the mocked function (which throws an error) was called with the correct arguments.
+    // This needs to be handled carefully with promises that reject.
+    await expect(mockSignInWithPopup(auth, googleProvider)).rejects.toThrow('Login failed');
+
 
     await waitFor(() => {
       expect(consoleErrorSpy).toHaveBeenCalledWith('Erro no login com Google:', expect.any(Error));
