@@ -2,7 +2,9 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AuthButton } from './auth-button';
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
-import { auth, googleProvider } from '@/lib/firebase'; // Mocked
+// Import the functions that the component uses so we can get their mocked versions
+import { signInWithPopup, signOut as firebaseSignOutModule } from 'firebase/auth'; 
+import { auth, googleProvider } from '@/lib/firebase'; // auth object is passed to the mocked functions
 
 // Mock useAuth hook
 jest.mock('@/contexts/auth-context', () => ({
@@ -12,9 +14,23 @@ jest.mock('@/contexts/auth-context', () => ({
 }));
 const useAuth = originalUseAuth as jest.Mock;
 
-// Mock Firebase auth functions that are directly called
-const mockSignInWithPopup = auth.signInWithPopup as jest.Mock;
-const mockSignOut = auth.signOut as jest.Mock;
+// Mock 'firebase/auth' module for specific functions used by AuthButton
+jest.mock('firebase/auth', () => {
+  const actualFirebaseAuth = jest.requireActual('firebase/auth');
+  return {
+    ...actualFirebaseAuth,
+    // Mock the functions that AuthButton imports and uses
+    signInWithPopup: jest.fn(),
+    signOut: jest.fn(),
+    // Keep other functions like GoogleAuthProvider real if needed elsewhere, or mock as necessary
+    GoogleAuthProvider: actualFirebaseAuth.GoogleAuthProvider, 
+  };
+});
+
+// Assign the mocked functions to variables for use in tests
+const mockSignInWithPopup = signInWithPopup as jest.Mock;
+const mockSignOut = firebaseSignOutModule as jest.Mock;
+
 
 // Mock Next.js router (already in jest.setup.js, but ensure it's effective)
 const mockRouterPush = jest.fn();
@@ -54,7 +70,8 @@ describe('AuthButton', () => {
       fireEvent.click(loginButton);
 
       expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
-      expect(mockSignInWithPopup).toHaveBeenCalledWith(auth, googleProvider);
+      // auth object and googleProvider are imported from @/lib/firebase and passed to the function
+      expect(mockSignInWithPopup).toHaveBeenCalledWith(auth, googleProvider); 
       
       // Wait for promises to resolve
       await screen.findByRole('button', { name: /Login com Google/i }); // Button still exists before navigation mock takes full effect
@@ -68,7 +85,9 @@ describe('AuthButton', () => {
       
       fireEvent.click(screen.getByRole('button', { name: /Login com Google/i }));
 
-      await expect(mockSignInWithPopup).rejects.toThrow('Popup closed by user');
+      // We expect the mock function itself to be called and then it to throw.
+      // The await here is to ensure the async operation triggered by the click completes.
+      await expect(mockSignInWithPopup(auth, googleProvider)).rejects.toThrow('Popup closed by user');
       expect(consoleErrorSpy).toHaveBeenCalledWith('Erro no login com Google:', expect.any(Error));
       consoleErrorSpy.mockRestore();
     });
@@ -114,7 +133,7 @@ describe('AuthButton', () => {
       fireEvent.click(logoutButton);
 
       expect(mockSignOut).toHaveBeenCalledTimes(1);
-      expect(mockSignOut).toHaveBeenCalledWith(auth);
+      expect(mockSignOut).toHaveBeenCalledWith(auth); // auth object from @/lib/firebase
       
       await screen.findByRole('menuitem', { name: /Sair/i }); // Ensure async operations complete
       expect(mockRouterPush).toHaveBeenCalledWith('/login');
@@ -128,7 +147,7 @@ describe('AuthButton', () => {
       fireEvent.click(screen.getByText(mockUser.displayName.split(' ')[0])); // Open dropdown
       fireEvent.click(screen.getByRole('menuitem', { name: /Sair/i }));
 
-      await expect(mockSignOut).rejects.toThrow('Sign out failed');
+      await expect(mockSignOut(auth)).rejects.toThrow('Sign out failed');
       expect(consoleErrorSpy).toHaveBeenCalledWith('Erro no logout:', expect.any(Error));
       consoleErrorSpy.mockRestore();
     });
