@@ -29,7 +29,7 @@ const askReportOrchestratorActionMock = jest.requireMock('@/features/report-chat
 
 
 // --- Mocking firebase/database ---
-// Declare variables in a higher scope. They will be assigned by the mock factory.
+// Declare variables in a higher scope. These will be assigned by the factory.
 let mockFbRef: jest.Mock;
 let mockFbOnValue: jest.Mock;
 let mockFbPush: jest.Mock;
@@ -39,31 +39,41 @@ let mockFbOff: jest.Mock;
 let mockFbChild: jest.Mock;
 let mockGetDatabase: jest.Mock;
 
-
 jest.mock('firebase/database', () => {
   const originalModule = jest.requireActual('firebase/database');
-  // Initialize the mock functions here, inside the factory,
-  // and assign them to the higher-scope variables.
-  mockFbRef = jest.fn();
-  mockFbOnValue = jest.fn();
-  mockFbPush = jest.fn();
-  mockFbUpdate = jest.fn();
-  mockFbServerTimestamp = jest.fn();
-  mockFbOff = jest.fn();
-  mockFbChild = jest.fn();
-  mockGetDatabase = jest.fn();
+
+  // Create new jest.fn() instances locally within the factory
+  const _mockRef = jest.fn();
+  const _mockOnValue = jest.fn();
+  const _mockPush = jest.fn();
+  const _mockUpdate = jest.fn();
+  const _mockServerTimestamp = jest.fn();
+  const _mockOff = jest.fn();
+  const _mockChild = jest.fn();
+  const _mockGetDatabase = jest.fn();
+
+  // Assign these local mocks to the higher-scoped variables
+  // so tests can reference them for configuration/assertions.
+  mockFbRef = _mockRef;
+  mockFbOnValue = _mockOnValue;
+  mockFbPush = _mockPush;
+  mockFbUpdate = _mockUpdate;
+  mockFbServerTimestamp = _mockServerTimestamp;
+  mockFbOff = _mockOff;
+  mockFbChild = _mockChild;
+  mockGetDatabase = _mockGetDatabase;
 
   return {
     __esModule: true,
     ...originalModule,
-    ref: mockFbRef,
-    onValue: mockFbOnValue,
-    push: mockFbPush,
-    update: mockFbUpdate,
-    serverTimestamp: mockFbServerTimestamp,
-    off: mockFbOff,
-    child: mockFbChild,
-    getDatabase: mockGetDatabase,
+    ref: _mockRef, // Return the local mock instance
+    onValue: _mockOnValue,
+    push: _mockPush,
+    update: _mockUpdate,
+    serverTimestamp: _mockServerTimestamp,
+    off: _mockOff,
+    child: _mockChild,
+    getDatabase: _mockGetDatabase,
   };
 });
 // --- End Mocking firebase/database ---
@@ -153,13 +163,15 @@ describe('ReportPage', () => {
     });
 
     // Clear and set default implementations for RTDB mocks
-    // These variables (mockFbRef, etc.) are now the jest.fn() instances from the factory
-    mockGetDatabase.mockClear().mockReturnValue({}); 
-    mockFbRef.mockClear().mockImplementation((db, path) => ({ db, path, key: path.split('/').pop() }));
+    mockRtdbMessagesStore = {};
+    onValueCallbackStore = null;
+
+    mockGetDatabase.mockClear().mockImplementation(() => ({})); 
+    mockFbRef.mockClear().mockImplementation((db, path) => ({ db, path, key: path.split('/').pop(), toString: () => path }));
     mockFbOnValue.mockClear().mockImplementation((ref, callback) => {
       onValueCallbackStore = callback;
       Promise.resolve().then(() => simulateRtdbChangeAndNotify());
-      return mockFbOff; // onValue returns an unsubscribe function
+      return mockFbOff; 
     });
     mockFbPush.mockClear().mockImplementation(async (ref, payload) => {
       const key = `test-msg-${Date.now()}-${Object.keys(mockRtdbMessagesStore).length}`;
@@ -175,15 +187,12 @@ describe('ReportPage', () => {
       }
       return Promise.resolve();
     });
-    mockFbServerTimestamp.mockClear().mockReturnValue({ '.sv': 'timestamp' });
-    mockFbOff.mockClear();
+    mockFbServerTimestamp.mockClear().mockImplementation(() => ({ '.sv': 'timestamp' }));
+    mockFbOff.mockClear().mockImplementation(() => {});
     mockFbChild.mockClear().mockImplementation((parentRef, childPath) => {
       const newPath = `${parentRef.path}/${childPath}`;
-      return { ...parentRef, path: newPath, key: childPath };
+      return { ...parentRef, path: newPath, key: childPath, toString: () => newPath };
     });
-    
-    mockRtdbMessagesStore = {};
-    onValueCallbackStore = null;
     
   });
 
@@ -341,5 +350,3 @@ describe('ReportPage', () => {
   });
 
 });
-
-    
