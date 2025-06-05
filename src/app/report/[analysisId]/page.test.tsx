@@ -79,78 +79,44 @@ const mockSeedStructuredReport = {
 
 
 // --- Mocking firebase/database ---
+// 1. Declare and initialize mock functions at the top level.
+const mockFbOnValue = jest.fn();
+const mockFbPush = jest.fn();
+const mockFbUpdate = jest.fn();
+const mockFbChild = jest.fn();
+const mockFbServerTimestamp = jest.fn(() => ({ '.sv': 'timestamp' }));
+const mockFbOff = jest.fn();
+const mockGetDatabase = jest.fn(() => ({})); // Mock getDatabase if it's ever called directly
+
+// 2. `jest.mock` factory then *uses* these pre-initialized mocks.
+jest.mock('firebase/database', () => {
+  const originalModule = jest.requireActual('firebase/database');
+  return {
+    __esModule: true, // Important for ESM modules being mocked
+    ...originalModule,
+    ref: jest.fn((db, path) => ({ db, path, key: path.split('/').pop() })),
+    onValue: mockFbOnValue,
+    push: mockFbPush,
+    update: mockFbUpdate,
+    serverTimestamp: mockFbServerTimestamp,
+    off: mockFbOff,
+    child: mockFbChild,
+    getDatabase: mockGetDatabase,
+  };
+});
+
+// Helper to simulate RTDB data changes for onValue
 let onValueCallbackStore: ((snapshot: any) => void) | null = null;
 let mockRtdbMessagesStore: Record<string, any> = {};
 
 const simulateRtdbChangeAndNotify = () => {
   if (onValueCallbackStore) {
-    // Ensure the snapshot mimics the Firebase RTDB snapshot structure
     onValueCallbackStore({ 
       exists: () => Object.keys(mockRtdbMessagesStore).length > 0, 
       val: () => mockRtdbMessagesStore 
     });
   }
 };
-
-const mockFbOnValue = jest.fn((ref, callback) => {
-  onValueCallbackStore = callback;
-  // Simulate initial data load (or empty state)
-  Promise.resolve().then(() => simulateRtdbChangeAndNotify());
-  return jest.fn(); // Return an unsubscribe function
-});
-
-const mockFbPush = jest.fn(async (ref, payload) => {
-  const key = `test-msg-${Date.now()}-${Object.keys(mockRtdbMessagesStore).length}`;
-  mockRtdbMessagesStore[key] = { ...payload, timestamp: Date.now() }; // Simulate server timestamping locally
-  simulateRtdbChangeAndNotify();
-  return Promise.resolve({ key });
-});
-
-const mockFbUpdate = jest.fn(async (ref, payload) => {
-  // The 'ref' from rtdbRef for an update usually points to a specific path.
-  // If 'ref.key' is available and represents the message ID for update:
-  const messageKey = ref.key; 
-  if (messageKey && mockRtdbMessagesStore[messageKey]) {
-    mockRtdbMessagesStore[messageKey] = { ...mockRtdbMessagesStore[messageKey], ...payload };
-    simulateRtdbChangeAndNotify();
-  } else {
-    // If updating the root of the chat (e.g., path `chats/${analysisId}`)
-    // This case might need more specific handling based on how `rtdbUpdate` is used in the component
-    // For now, assume updates are targeted at individual message keys if ref.key is present
-    console.warn(`[mockFbUpdate] Update called on ref without a direct key match in mockRtdbMessagesStore or ref.key is missing. Ref path: ${ref.path}`);
-    // Potentially, if payload is the full new state of the chat node:
-    // mockRtdbMessagesStore = {...payload}; 
-    // simulateRtdbChangeAndNotify();
-  }
-  return Promise.resolve();
-});
-
-const mockFbChild = jest.fn((parentRef, childPath) => {
-    // Basic mock for child, returning an object that includes the path and key
-    const newPath = `${parentRef.path}/${childPath}`;
-    return { 
-        ...parentRef, // inherit properties from parent ref if any
-        path: newPath, 
-        key: childPath // The key of a child is its last path segment
-    };
-});
-
-
-jest.mock('firebase/database', () => {
-  const originalModule = jest.requireActual('firebase/database');
-  return {
-    __esModule: true,
-    ...originalModule,
-    ref: jest.fn((db, path) => ({ db, path, key: path.split('/').pop() })), // Mock ref to return an object with a key
-    onValue: mockFbOnValue,
-    push: mockFbPush,
-    update: mockFbUpdate,
-    serverTimestamp: jest.fn(() => ({ '.sv': 'timestamp' })), // Standard mock for RTDB serverTimestamp
-    off: jest.fn(),
-    child: mockFbChild, // Use the new mockFbChild
-    getDatabase: jest.fn(() => ({})), // Mock getDatabase if it's ever called directly
-  };
-});
 // --- End Mocking firebase/database ---
 
 
@@ -166,24 +132,46 @@ describe('ReportPage', () => {
       error: null,
     });
 
-    askReportOrchestratorActionMock.mockReset(); // Reset this mock before each test
-    askReportOrchestratorActionMock.mockResolvedValue({ // Default mock for orchestrator
+    askReportOrchestratorActionMock.mockReset(); 
+    askReportOrchestratorActionMock.mockResolvedValue({ 
       success: true,
       aiMessageRtdbKey: 'ai-response-key-default',
       reportModified: false,
     });
 
-    // Clear local RTDB message store and callback for each test
+    // Clear and set default implementations for RTDB mocks
+    mockFbOnValue.mockClear().mockImplementation((ref, callback) => {
+      onValueCallbackStore = callback;
+      Promise.resolve().then(() => simulateRtdbChangeAndNotify());
+      return mockFbOff; 
+    });
+    mockFbPush.mockClear().mockImplementation(async (ref, payload) => {
+      const key = `test-msg-${Date.now()}-${Object.keys(mockRtdbMessagesStore).length}`;
+      mockRtdbMessagesStore[key] = { ...payload, timestamp: Date.now() };
+      simulateRtdbChangeAndNotify();
+      return Promise.resolve({ key });
+    });
+    mockFbUpdate.mockClear().mockImplementation(async (ref, payload) => {
+      const messageKey = ref.key; 
+      if (messageKey && mockRtdbMessagesStore[messageKey]) {
+        mockRtdbMessagesStore[messageKey] = { ...mockRtdbMessagesStore[messageKey], ...payload };
+        simulateRtdbChangeAndNotify();
+      } else {
+        console.warn(`[mockFbUpdate] Test Mock: Update called on ref without a direct key match or ref.key is missing. Ref path: ${ref.path}`);
+      }
+      return Promise.resolve();
+    });
+    mockFbChild.mockClear().mockImplementation((parentRef, childPath) => {
+      const newPath = `${parentRef.path}/${childPath}`;
+      return { ...parentRef, path: newPath, key: childPath };
+    });
+    mockFbServerTimestamp.mockClear().mockReturnValue({ '.sv': 'timestamp' });
+    mockFbOff.mockClear();
+    mockGetDatabase.mockClear().mockReturnValue({});
+    
     mockRtdbMessagesStore = {};
     onValueCallbackStore = null;
-
-    // Clear the Jest mock functions for RTDB operations
-    mockFbOnValue.mockClear();
-    mockFbPush.mockClear();
-    mockFbUpdate.mockClear();
-    mockFbChild.mockClear();
     
-    // Firestore getDoc and onSnapshot are NOT mocked here, so ReportPage will use emulators.
   });
 
   afterEach(() => {
@@ -192,31 +180,25 @@ describe('ReportPage', () => {
 
   test('renders loading state initially, then report content and chat interface (fetches structuredReport from Firestore emulator)', async () => {
     render(<ReportPage />);
-    // Check for initial loader if AppHeader isn't immediately available
     expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'true');
 
 
     await waitFor(() => {
       expect(getAnalysisReportActionMock).toHaveBeenCalledWith(mockUser.uid, mockAnalysisId);
     });
-    // Firestore getDoc for structuredReport happens inside ReportPage's useEffect
 
     await waitFor(() => {
       expect(screen.getByText(`Relatório: ${mockFileName}`)).toBeInTheDocument();
-      // Check for a snippet from the MDX content (mocked)
       expect(screen.getByText(/Seção de Tensão/i)).toBeInTheDocument();
       expect(screen.getByText(/Interagir com o Relatório/i)).toBeInTheDocument();
       expect(screen.getByRole('textbox', { name: /Caixa de texto para interagir com o relatório/i })).toBeInTheDocument();
-    }, { timeout: 7000 }); // Increased timeout for emulator interaction
+    }, { timeout: 7000 }); 
     
-    // Check for welcome message from AI (should be pushed to RTDB emulator by component if chat is empty)
     await waitFor(() => {
-        // Check our local store that mimics RTDB via the light mocks
         const welcomeMsg = Object.values(mockRtdbMessagesStore).find(
             (msg: any) => msg.sender === 'ai' && msg.text.includes(`Olá! Sou seu assistente para este relatório (${mockFileName})`)
         );
         expect(welcomeMsg).toBeDefined();
-        // Also check the screen for the message
         expect(screen.getByText(new RegExp(`Olá! Sou seu assistente para este relatório \\(${mockFileName}\\)`, "i"))).toBeInTheDocument();
     }, { timeout: 7000 });
   });
@@ -225,7 +207,6 @@ describe('ReportPage', () => {
     const mockAiResponseText = "This is the AI's response to your query.";
     const aiRtdbKey = 'ai-key-test-stream';
     
-    // Ensure askReportOrchestratorActionMock is set for *this specific test call*
     askReportOrchestratorActionMock.mockResolvedValueOnce({ 
       success: true,
       aiMessageRtdbKey: aiRtdbKey, 
@@ -235,13 +216,11 @@ describe('ReportPage', () => {
     render(<ReportPage />);
     await waitFor(() => expect(screen.getByText(`Relatório: ${mockFileName}`)).toBeInTheDocument(), { timeout: 7000 });
 
-    // Ensure initial welcome message appears from AI (and mockRtdbMessagesStore is populated)
     await waitFor(() => {
         const welcomeMsg = Object.values(mockRtdbMessagesStore).find(
              (msg: any) => msg.sender === 'ai' && msg.text.includes("Olá! Sou seu assistente")
         );
         expect(welcomeMsg).toBeDefined();
-         // Ensure the initial onValue callback has populated chatMessages for the component
         expect(screen.getByText(new RegExp("Olá! Sou seu assistente", "i"))).toBeInTheDocument();
     }, { timeout: 7000 });
 
@@ -253,51 +232,31 @@ describe('ReportPage', () => {
     fireEvent.change(chatInput, { target: { value: userMessage } });
     fireEvent.click(sendButton);
 
-    // 1. User message should be in RTDB (check our local store) and on screen
     await waitFor(() => {
         const sentUserMsg = Object.values(mockRtdbMessagesStore).find((msg: any) => msg.sender === 'user' && msg.text === userMessage);
         expect(sentUserMsg).toBeDefined();
         expect(screen.getByText(userMessage)).toBeInTheDocument();
     }, { timeout: 7000 });
     
-    // 2. Orchestrator action called
     await waitFor(() => {
       expect(askReportOrchestratorActionMock).toHaveBeenCalledWith(
         mockUser.uid,
         mockAnalysisId,
         userMessage,
         mockMdxContent, 
-        expect.objectContaining(mockSeedStructuredReport), // Expecting the seeded structured report (or a subset if it loaded partially)
+        expect.objectContaining(mockSeedStructuredReport), 
         mockFileName,
         expect.any(String) 
       );
     }, { timeout: 7000 });
 
-    // 3. Simulate AI response being streamed/updated to RTDB by the action (via our mockUpdate/mockPush)
-    // The askReportOrchestratorAction is responsible for updating RTDB.
-    // Our mockFbUpdate (or mockFbPush if the action creates a new entry for AI response chunks) will handle this.
-    // Here, we simulate the final state of the AI message.
     act(() => {
-      // If the AI message is created with push and then updated:
-      // mockRtdbMessagesStore[aiRtdbKey] = { sender: 'ai', text: mockAiResponseText, timestamp: Date.now() };
-      // simulateRtdbChangeAndNotify(); 
-      // OR if update is on an existing key from the action
-      // Let's assume the action creates the key `aiRtdbKey` and then updates its text.
-      // The action itself will call RTDB `update` which uses `mockFbUpdate`.
-      // We need to ensure `mockFbUpdate` correctly updates the `mockRtdbMessagesStore`
-      // and triggers `simulateRtdbChangeAndNotify`.
-      
-      // For simplicity in test, let's assume the orchestrator action's mock (if it were more detailed)
-      // would lead to this state in mockRtdbMessagesStore which then notifies the component.
-      // The current `askReportOrchestratorActionMock.mockResolvedValueOnce` doesn't directly manipulate RTDB.
-      // The actual server action does. So, we simulate the consequence of the server action.
-      if (aiRtdbKey) { // aiRtdbKey comes from the orchestrator mock result
+      if (aiRtdbKey) { 
         mockRtdbMessagesStore[aiRtdbKey] = { sender: 'ai', text: mockAiResponseText, timestamp: Date.now() };
         simulateRtdbChangeAndNotify();
       }
     });
 
-    // 4. AI response visible in UI
     await waitFor(() => {
       expect(screen.getByText(mockAiResponseText)).toBeInTheDocument();
     }, { timeout: 7000 });
@@ -321,7 +280,6 @@ describe('ReportPage', () => {
     });
 
     render(<ReportPage />);
-    // Initial content (from mocked getAnalysisReportAction)
     await waitFor(() => expect(screen.getByText(/Seção de Tensão/i)).toBeInTheDocument() , { timeout: 7000 }); 
 
     const chatInput = screen.getByRole('textbox', { name: /Caixa de texto para interagir com o relatório/i });
@@ -329,7 +287,6 @@ describe('ReportPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Enviar/i }));
 
     await waitFor(() => {
-      // Check for updated MDX content
       expect(screen.getByText("Seção de Tensão - Revisada")).toBeInTheDocument(); 
       expect(screen.queryByText("Os níveis de tensão mantiveram-se dentro dos limites adequados.")).not.toBeInTheDocument(); 
     }, { timeout: 7000 });
@@ -360,7 +317,6 @@ describe('ReportPage', () => {
   
   test('redirects to login if user is not authenticated while on report page', async () => {
     useAuth.mockReturnValue({ user: null, loading: false });
-    // Prevent getAnalysisReportActionMock from resolving to avoid state updates that might interfere
     getAnalysisReportActionMock.mockImplementationOnce(() => new Promise(() => {})); 
 
     render(<ReportPage />);
@@ -371,4 +327,3 @@ describe('ReportPage', () => {
   });
 
 });
-
