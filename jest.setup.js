@@ -248,7 +248,7 @@ if (typeof window !== 'undefined') {
       console.warn('jsdom.getComputedStyle failed, returning empty CSSStyleDeclaration', error);
       const style = {}; // Removed 'as CSSStyleDeclaration'
       // Populate with some common properties if necessary, or just return empty
-      return style as CSSStyleDeclaration; // Keep cast for return type if needed by TS, but JS object is plain
+      return style;
     }
   };
 }
