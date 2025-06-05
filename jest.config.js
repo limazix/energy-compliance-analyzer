@@ -14,10 +14,10 @@ const customJestConfig = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   transformIgnorePatterns: [
-    // Este padrão agora inclui next-mdx-remote e muitas de suas dependências ESM comuns,
-    // além dos padrões que o Next.js normalmente transforma.
-    '/node_modules/(?!(next-mdx-remote|@mdx-js/.+|unified|remark-.+|rehype-.+|unist-util-.+|vfile.*|micromark.*|mdast-util-.+|estree-util-.+|character-entities|bail|trough|ccount|react-tweet|styled-jsx|next)/)',
-    // Mantém o padrão para módulos CSS
+    // Whitelist specific ESM modules for transformation.
+    // Add other ESM modules from node_modules as needed.
+    '/node_modules/(?!(next-mdx-remote|react-tweet|styled-jsx|next)/)',
+    // Standard pattern for CSS modules
     '^.+\\.module\\.(css|sass|scss)$',
   ],
   // Automatically clear mock calls, instances, contexts and results before every test

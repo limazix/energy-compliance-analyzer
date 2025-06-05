@@ -35,8 +35,7 @@ jest.mock('lucide-react', () => {
             // Return a mock component for any icon name
             return (props) => {
               const { children, ...restProps } = props || {};
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const Tag = 'svg'; // Removed :any type annotation
+              const Tag = 'svg'; 
               return <Tag data-lucide-mock={String(prop)} {...restProps}>{children}</Tag>;
             }
         }
@@ -52,9 +51,27 @@ jest.mock('@/hooks/use-toast', () => ({
   }),
 }));
 
-// Firebase SDKs will auto-connect to emulators when tests are run via `firebase emulators:exec`.
-// So, we typically DON'T mock the core SDK methods (getDoc, addDoc, onValue, push, etc.) here.
-// We let src/lib/firebase.ts initialize and connect to emulators.
+// Mock next-mdx-remote/rsc
+// This will prevent Jest from trying to parse its ESM code.
+jest.mock('next-mdx-remote/rsc', () => {
+  const React = require('react');
+  return {
+    MDXRemote: jest.fn((props) => {
+      // Simple mock: renders the 'source' prop (which is usually the MDX string or compiled result)
+      // You can make this more sophisticated if your tests need to assert specific rendered output from MDX.
+      // For now, just rendering something identifiable.
+      let content = '';
+      if (typeof props.source === 'string') {
+        content = props.source;
+      } else if (props.source && typeof props.source === 'object') {
+        // If source is an object (like compiled MDX), stringify it or extract relevant part
+        content = JSON.stringify(props.source);
+      }
+      return React.createElement('div', { 'data-testid': 'mock-mdx-remote' }, content);
+    }),
+  };
+});
+
 
 // Server Actions Mocks (kept for isolating component logic if needed, or can be unmocked for full integration tests)
 jest.mock('@/features/analysis-listing/actions/analysisListingActions', () => ({
@@ -128,20 +145,8 @@ jest.mock('@/features/file-upload/hooks/useFileUploadManager', () => ({
   useFileUploadManager: jest.fn(() => global.mockUseFileUploadManagerReturnValue),
 }));
 
-// Firebase/Firestore direct usage mocks (like in page.tsx for getDoc, or ReportPage for RTDB)
-// These are now commented out or removed to allow emulators to be hit by the actual SDK.
-// If specific components directly use SDK methods AND you don't want them to hit emulators in certain tests,
-// you might mock them on a per-test-suite basis.
 
-// Example: If you still needed to mock getDoc for a specific test file, you could do:
-// jest.mock('firebase/firestore', () => ({
-//   ...jest.requireActual('firebase/firestore'), // Import and retain default behavior
-//   getDoc: jest.fn(() => Promise.resolve({ exists: () => false, data: () => ({}), id: 'mock-doc-id' })),
-//   doc: jest.fn(),
-// }));
-// However, for emulator testing, we want the real getDoc.
-
-global.Timestamp = Timestamp; // Make Firebase Timestamp globally available if needed
+global.Timestamp = Timestamp; 
 
 
 // Clear all mocks before each test
@@ -207,27 +212,7 @@ export const mockAuthContext = (user, loading = false) => {
   return useAuthActual;
 };
 
-// Global flag to indicate if emulators are connected (tests can check this)
-// This would typically be set by an environment variable via firebase emulators:exec
 global.EMULATORS_CONNECTED = !!process.env.FIRESTORE_EMULATOR_HOST;
-
-// Mock for RTDB `onValue` and `push` if needed for tests not hitting emulators,
-// but for emulator tests, we want the real SDK.
-// jest.mock('firebase/database', () => {
-//   const actualDb = jest.requireActual('firebase/database');
-//   return {
-//     ...actualDb,
-//     ref: jest.fn(),
-//     onValue: jest.fn((ref, callback) => {
-//       // Simulate initial data or no data
-//       // callback({ exists: () => false, val: () => null });
-//       return jest.fn(); // unsubscribe function
-//     }),
-//     push: jest.fn(() => Promise.resolve({ key: 'mock-pushed-key' })),
-//     serverTimestamp: jest.fn(() => Date.now()),
-//     off: jest.fn(),
-//   };
-// });
 
 console.log(`EMULATORS_CONNECTED: ${global.EMULATORS_CONNECTED}`);
 if (global.EMULATORS_CONNECTED) {
@@ -246,7 +231,7 @@ if (typeof window !== 'undefined') {
     } catch (error) {
       // Fallback for environments where getComputedStyle might fail with certain elements
       console.warn('jsdom.getComputedStyle failed, returning empty CSSStyleDeclaration', error);
-      const style = {}; // Removed 'as CSSStyleDeclaration'
+      const style = {}; 
       // Populate with some common properties if necessary, or just return empty
       return style;
     }
