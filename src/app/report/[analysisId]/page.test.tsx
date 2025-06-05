@@ -29,51 +29,29 @@ const askReportOrchestratorActionMock = jest.requireMock('@/features/report-chat
 
 
 // --- Mocking firebase/database ---
-// Declare variables in a higher scope. These will be assigned by the factory.
-let mockFbRef: jest.Mock;
-let mockFbOnValue: jest.Mock;
-let mockFbPush: jest.Mock;
-let mockFbUpdate: jest.Mock;
-let mockFbServerTimestamp: jest.Mock;
-let mockFbOff: jest.Mock;
-let mockFbChild: jest.Mock;
-let mockGetDatabase: jest.Mock;
+// Declare and initialize mock functions at the top-level scope
+const mockFbRef = jest.fn();
+const mockFbOnValue = jest.fn();
+const mockFbPush = jest.fn();
+const mockFbUpdate = jest.fn();
+const mockFbServerTimestamp = jest.fn();
+const mockFbOff = jest.fn();
+const mockFbChild = jest.fn();
+const mockGetDatabase = jest.fn();
 
 jest.mock('firebase/database', () => {
   const originalModule = jest.requireActual('firebase/database');
-
-  // Create new jest.fn() instances locally within the factory
-  const _mockRef = jest.fn();
-  const _mockOnValue = jest.fn();
-  const _mockPush = jest.fn();
-  const _mockUpdate = jest.fn();
-  const _mockServerTimestamp = jest.fn();
-  const _mockOff = jest.fn();
-  const _mockChild = jest.fn();
-  const _mockGetDatabase = jest.fn();
-
-  // Assign these local mocks to the higher-scoped variables
-  // so tests can reference them for configuration/assertions.
-  mockFbRef = _mockRef;
-  mockFbOnValue = _mockOnValue;
-  mockFbPush = _mockPush;
-  mockFbUpdate = _mockUpdate;
-  mockFbServerTimestamp = _mockServerTimestamp;
-  mockFbOff = _mockOff;
-  mockFbChild = _mockChild;
-  mockGetDatabase = _mockGetDatabase;
-
   return {
     __esModule: true,
     ...originalModule,
-    ref: _mockRef, // Return the local mock instance
-    onValue: _mockOnValue,
-    push: _mockPush,
-    update: _mockUpdate,
-    serverTimestamp: _mockServerTimestamp,
-    off: _mockOff,
-    child: _mockChild,
-    getDatabase: _mockGetDatabase,
+    ref: mockFbRef,
+    onValue: mockFbOnValue,
+    push: mockFbPush,
+    update: mockFbUpdate,
+    serverTimestamp: mockFbServerTimestamp,
+    off: mockFbOff,
+    child: mockFbChild,
+    getDatabase: mockGetDatabase,
   };
 });
 // --- End Mocking firebase/database ---
@@ -170,12 +148,12 @@ describe('ReportPage', () => {
     mockFbRef.mockClear().mockImplementation((db, path) => ({ db, path, key: path.split('/').pop(), toString: () => path }));
     mockFbOnValue.mockClear().mockImplementation((ref, callback) => {
       onValueCallbackStore = callback;
-      Promise.resolve().then(() => simulateRtdbChangeAndNotify());
-      return mockFbOff; 
+      Promise.resolve().then(() => simulateRtdbChangeAndNotify()); // Simulate initial call
+      return mockFbOff; // Return the mock for unsubscribe
     });
     mockFbPush.mockClear().mockImplementation(async (ref, payload) => {
       const key = `test-msg-${Date.now()}-${Object.keys(mockRtdbMessagesStore).length}`;
-      mockRtdbMessagesStore[key] = { ...payload, timestamp: Date.now() }; 
+      mockRtdbMessagesStore[key] = { ...payload, timestamp: Date.now() }; // Simulate serverTimestamp locally
       simulateRtdbChangeAndNotify();
       return Promise.resolve({ key });
     });
@@ -187,7 +165,7 @@ describe('ReportPage', () => {
       }
       return Promise.resolve();
     });
-    mockFbServerTimestamp.mockClear().mockImplementation(() => ({ '.sv': 'timestamp' }));
+    mockFbServerTimestamp.mockClear().mockImplementation(() => ({ '.sv': 'timestamp' })); // Standard RTDB server timestamp placeholder
     mockFbOff.mockClear().mockImplementation(() => {});
     mockFbChild.mockClear().mockImplementation((parentRef, childPath) => {
       const newPath = `${parentRef.path}/${childPath}`;
@@ -197,8 +175,17 @@ describe('ReportPage', () => {
   });
 
   afterEach(() => {
-    // jest.restoreAllMocks(); // This might be too broad if other tests in the suite rely on persistent mocks.
-    // Clear specific mocks if needed, though beforeEach should handle it.
+    // Clear all Jest mocks defined with jest.fn() at the top level of the test file
+    mockFbRef.mockClear();
+    mockFbOnValue.mockClear();
+    mockFbPush.mockClear();
+    mockFbUpdate.mockClear();
+    mockFbServerTimestamp.mockClear();
+    mockFbOff.mockClear();
+    mockFbChild.mockClear();
+    mockGetDatabase.mockClear();
+    
+    // Restore any other mocks if needed, or use jest.restoreAllMocks() if appropriate for your setup
   });
 
   test('renders loading state initially, then report content and chat interface (fetches structuredReport from Firestore emulator)', async () => {
@@ -350,3 +337,4 @@ describe('ReportPage', () => {
   });
 
 });
+
