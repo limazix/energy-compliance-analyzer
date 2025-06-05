@@ -80,30 +80,34 @@ const mockSeedStructuredReport = {
 
 // --- Mocking firebase/database ---
 // 1. Declare and initialize mock functions at the top level.
+const mockFbRef = jest.fn();
 const mockFbOnValue = jest.fn();
 const mockFbPush = jest.fn();
 const mockFbUpdate = jest.fn();
-const mockFbChild = jest.fn();
-const mockFbServerTimestamp = jest.fn(() => ({ '.sv': 'timestamp' }));
+const mockFbServerTimestamp = jest.fn();
 const mockFbOff = jest.fn();
-const mockGetDatabase = jest.fn(() => ({})); // Mock getDatabase if it's ever called directly
+const mockFbChild = jest.fn();
+const mockGetDatabase = jest.fn(); 
 
-// 2. `jest.mock` factory then *uses* these pre-initialized mocks.
+// 2. `jest.mock` factory then uses these pre-initialized mocks via wrapper functions.
 jest.mock('firebase/database', () => {
   const originalModule = jest.requireActual('firebase/database');
   return {
-    __esModule: true, // Important for ESM modules being mocked
+    __esModule: true, 
     ...originalModule,
-    ref: jest.fn((db, path) => ({ db, path, key: path.split('/').pop() })),
-    onValue: mockFbOnValue,
-    push: mockFbPush,
-    update: mockFbUpdate,
-    serverTimestamp: mockFbServerTimestamp,
-    off: mockFbOff,
-    child: mockFbChild,
-    getDatabase: mockGetDatabase,
+    // Override specific functions to call our top-level mocks
+    ref: (...args: any[]) => mockFbRef(...args),
+    onValue: (...args: any[]) => mockFbOnValue(...args),
+    push: (...args: any[]) => mockFbPush(...args),
+    update: (...args: any[]) => mockFbUpdate(...args),
+    serverTimestamp: (...args: any[]) => mockFbServerTimestamp(...args),
+    off: (...args: any[]) => mockFbOff(...args),
+    child: (...args: any[]) => mockFbChild(...args),
+    getDatabase: (...args: any[]) => mockGetDatabase(...args),
   };
 });
+// --- End Mocking firebase/database ---
+
 
 // Helper to simulate RTDB data changes for onValue
 let onValueCallbackStore: ((snapshot: any) => void) | null = null;
@@ -117,7 +121,6 @@ const simulateRtdbChangeAndNotify = () => {
     });
   }
 };
-// --- End Mocking firebase/database ---
 
 
 describe('ReportPage', () => {
@@ -140,14 +143,15 @@ describe('ReportPage', () => {
     });
 
     // Clear and set default implementations for RTDB mocks
+    mockFbRef.mockClear().mockImplementation((db, path) => ({ db, path, key: path.split('/').pop() }));
     mockFbOnValue.mockClear().mockImplementation((ref, callback) => {
       onValueCallbackStore = callback;
       Promise.resolve().then(() => simulateRtdbChangeAndNotify());
-      return mockFbOff; 
+      return mockFbOff; // onValue returns an unsubscribe function
     });
     mockFbPush.mockClear().mockImplementation(async (ref, payload) => {
       const key = `test-msg-${Date.now()}-${Object.keys(mockRtdbMessagesStore).length}`;
-      mockRtdbMessagesStore[key] = { ...payload, timestamp: Date.now() };
+      mockRtdbMessagesStore[key] = { ...payload, timestamp: Date.now() }; 
       simulateRtdbChangeAndNotify();
       return Promise.resolve({ key });
     });
@@ -157,16 +161,16 @@ describe('ReportPage', () => {
         mockRtdbMessagesStore[messageKey] = { ...mockRtdbMessagesStore[messageKey], ...payload };
         simulateRtdbChangeAndNotify();
       } else {
-        console.warn(`[mockFbUpdate] Test Mock: Update called on ref without a direct key match or ref.key is missing. Ref path: ${ref.path}`);
+        // console.warn(`[mockFbUpdate] Test Mock: Update called on ref without a direct key match or ref.key is missing. Ref path: ${ref.path}`);
       }
       return Promise.resolve();
     });
+    mockFbServerTimestamp.mockClear().mockReturnValue({ '.sv': 'timestamp' });
+    mockFbOff.mockClear();
     mockFbChild.mockClear().mockImplementation((parentRef, childPath) => {
       const newPath = `${parentRef.path}/${childPath}`;
       return { ...parentRef, path: newPath, key: childPath };
     });
-    mockFbServerTimestamp.mockClear().mockReturnValue({ '.sv': 'timestamp' });
-    mockFbOff.mockClear();
     mockGetDatabase.mockClear().mockReturnValue({});
     
     mockRtdbMessagesStore = {};
@@ -264,8 +268,8 @@ describe('ReportPage', () => {
   });
 
   test('updates MDX content if AI modifies the report', async () => {
-    const newMdxSection = "## Seção de Tensão - Revisada\nEsta seção foi atualizada pela IA.";
-    const newFullMdx = `# Relatório de Conformidade Alpha\n${newMdxSection}`;
+    const newMdxSection = "## Seção de Tensão - Revisada\\nEsta seção foi atualizada pela IA.";
+    const newFullMdx = `# Relatório de Conformidade Alpha\\n${newMdxSection}`;
     const revisedStructuredReport = {
       ...mockSeedStructuredReport,
       analysisSections: [{ ...mockSeedStructuredReport.analysisSections[0], title: 'Seção de Tensão - Revisada', content: 'Esta seção foi atualizada pela IA.' }],
