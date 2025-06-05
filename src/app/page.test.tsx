@@ -1,10 +1,10 @@
 
-import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import HomePage from './page';
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
-import { useAnalysisManager as originalUseAnalysisManager } from '@/hooks/useAnalysisManager';
+import { useAnalysisManager as originalUseAnalysisManagerHook } from '@/hooks/useAnalysisManager'; // Renamed to avoid conflict
 import { useFileUploadManager as originalUseFileUploadManager } from '@/features/file-upload/hooks/useFileUploadManager';
-import type { Analysis } from '@/types/analysis';
+import type { Analysis, AnalysisStep } from '@/types/analysis'; // Import AnalysisStep
 import { Timestamp } from 'firebase/firestore';
 
 // Mocks
@@ -15,8 +15,10 @@ jest.mock('@/contexts/auth-context', () => ({
 }));
 const useAuth = originalUseAuth as jest.Mock;
 
-jest.mock('@/hooks/useAnalysisManager');
-const useAnalysisManager = originalUseAnalysisManager as jest.Mock;
+// The actual mock for useAnalysisManager is in jest.setup.js
+// We get a reference to it here.
+const useAnalysisManager = originalUseAnalysisManagerHook as jest.Mock;
+
 
 jest.mock('@/features/file-upload/hooks/useFileUploadManager');
 const useFileUploadManager = originalUseFileUploadManager as jest.Mock;
@@ -107,67 +109,228 @@ const mockAnalysisItemInProgress: Analysis = {
 };
 
 
+// Helper to calculate displayed steps, mirroring the hook's logic for tests
+// This function is from `features/analysis-processing/utils/analysisStepsUtils.ts`
+// It's copied here to be used by the mock implementation of useAnalysisManager
+function calculateDisplayedAnalysisSteps(currentAnalysis: Analysis | null): AnalysisStep[] {
+  const BASE_ANALYSIS_STEPS: Omit<AnalysisStep, 'status' | 'progress' | 'details'>[] = [
+    { name: 'Upload do Arquivo e Preparação' },
+    { name: 'Sumarizando Dados da Qualidade de Energia' },
+    { name: 'Identificando Resoluções ANEEL' },
+    { name: 'Analisando Conformidade Inicial' },
+    { name: 'Revisando e Refinando Relatório' },
+    { name: 'Gerando Arquivos Finais do Relatório' },
+  ];
+  let steps: AnalysisStep[] = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'pending', progress: 0 }));
+
+  if (!currentAnalysis || currentAnalysis.id.startsWith('error-')) {
+    const errorMsg = currentAnalysis?.errorMessage || 'Aguardando início da análise ou configuração inicial.';
+    const uploadProg = Math.max(0, Math.min(100, currentAnalysis?.uploadProgress ?? 0));
+    
+    steps[0] = { 
+        ...BASE_ANALYSIS_STEPS[0], 
+        status: currentAnalysis?.status === 'error' && !currentAnalysis?.powerQualityDataUrl ? 'error' : (uploadProg === 100 ? 'completed' : (uploadProg > 0 ? 'in_progress' : 'pending')), 
+        details: currentAnalysis?.status === 'error' ? errorMsg : (uploadProg < 100 && uploadProg > 0 ? 'Enviando...' : undefined), 
+        progress: uploadProg
+    };
+    
+    for (let i = 1; i < steps.length; i++) {
+        if (steps[0].status === 'error' || steps[0].status === 'pending' || steps[0].status === 'in_progress') {
+            steps[i] = { ...BASE_ANALYSIS_STEPS[i], status: 'pending', progress: 0 };
+        }
+    }
+     if (currentAnalysis?.status === 'error' && currentAnalysis?.errorMessage && steps[0].status !== 'error') {
+        const errorStepIndex = steps.findIndex(s => s.status === 'in_progress' || s.status === 'pending');
+        if (errorStepIndex !== -1) {
+            steps[errorStepIndex] = { ...steps[errorStepIndex], status: 'error', details: errorMsg };
+        } else { 
+            steps[steps.length-1] = {...steps[steps.length-1], status: 'error', details: errorMsg }
+        }
+    }
+    return steps;
+  }
+
+  const { status, progress, errorMessage, powerQualityDataUrl, powerQualityDataSummary, identifiedRegulations, structuredReport, uploadProgress } = currentAnalysis;
+  const overallProgress = typeof progress === 'number' ? Math.min(100, Math.max(0, progress)) : 0;
+  
+  const UPLOAD_COMPLETE_PROGRESS = 10;
+  const SUMMARIZATION_COMPLETE_PROGRESS = 45; 
+  const IDENTIFY_REG_COMPLETE_PROGRESS = 60;
+  const ANALYZE_COMPLIANCE_COMPLETE_PROGRESS = 75;
+  const REVIEW_REPORT_COMPLETE_PROGRESS = 90;
+  const FINAL_GENERATION_COMPLETE_PROGRESS = 100;
+
+  const markPreviousStepsCompleted = (currentIndex: number) => {
+      for (let i = 0; i < currentIndex; i++) {
+          steps[i] = { ...steps[i], status: 'completed', progress: 100 };
+      }
+  };
+  const markFollowingStepsPending = (currentIndex: number) => {
+      for (let i = currentIndex + 1; i < steps.length; i++) {
+          steps[i] = { ...steps[i], status: 'pending', progress: 0 };
+      }
+  };
+  
+  const markAllStepsCancelled = (details?: string) => {
+    let cancellationPointReached = false;
+    steps.forEach((step, i) => {
+      if (steps[i].status === 'completed' && !cancellationPointReached) return; 
+      cancellationPointReached = true;
+      steps[i] = { ...steps[i], status: 'cancelled', details: i === steps.findIndex(s => s.status !== 'completed') ? details : undefined, progress: steps[i].progress ?? 0 };
+    });
+  }
+
+  if (status === 'uploading' || (status !== 'completed' && !powerQualityDataUrl && status !== 'error' && status !== 'cancelled' && status !== 'cancelling')) {
+     steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'in_progress', progress: Math.max(0, Math.min(100, uploadProgress ?? 0)) };
+     markFollowingStepsPending(0);
+     return steps;
+  } else if (powerQualityDataUrl || overallProgress >= UPLOAD_COMPLETE_PROGRESS) {
+      steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'completed', progress: 100 };
+  }
+
+  if (status === 'cancelled') {
+    markAllStepsCancelled(errorMessage || 'Análise cancelada.');
+    if(powerQualityDataUrl) steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'completed', progress: 100 };
+    return steps;
+  }
+  if (status === 'cancelling') {
+    steps.forEach((step, i) => {
+       if (steps[i].status === 'completed') return;
+       steps[i] = { ...steps[i], status: 'pending', details: 'Cancelamento em andamento...', progress: steps[i].progress ?? 0 };
+    });
+    const currentActiveStepIndex = steps.findIndex(s => s.status !== 'completed' && s.status !== 'cancelled');
+    if (currentActiveStepIndex !== -1) {
+        steps[currentActiveStepIndex].details = 'Cancelamento solicitado durante esta etapa...';
+    }
+    return steps;
+  }
+
+  switch (status) {
+      case 'summarizing_data':
+          markPreviousStepsCompleted(1);
+          steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'in_progress', progress: Math.max(0, Math.min(100, ((overallProgress - UPLOAD_COMPLETE_PROGRESS) / (SUMMARIZATION_COMPLETE_PROGRESS - UPLOAD_COMPLETE_PROGRESS)) * 100 )) };
+          markFollowingStepsPending(1);
+          break;
+      case 'identifying_regulations':
+          markPreviousStepsCompleted(2);
+          steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'in_progress', progress: Math.max(0, Math.min(100, ((overallProgress - SUMMARIZATION_COMPLETE_PROGRESS) / (IDENTIFY_REG_COMPLETE_PROGRESS - SUMMARIZATION_COMPLETE_PROGRESS)) * 100)) };
+          markFollowingStepsPending(2);
+          break;
+      case 'assessing_compliance': 
+          markPreviousStepsCompleted(3); 
+          steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'in_progress', progress: Math.max(0, Math.min(100, ((overallProgress - IDENTIFY_REG_COMPLETE_PROGRESS) / (ANALYZE_COMPLIANCE_COMPLETE_PROGRESS - IDENTIFY_REG_COMPLETE_PROGRESS)) * 100)) };
+          markFollowingStepsPending(3);
+          break;
+      case 'reviewing_report':
+          markPreviousStepsCompleted(4);
+          steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'in_progress', progress: Math.max(0, Math.min(100, ((overallProgress - ANALYZE_COMPLIANCE_COMPLETE_PROGRESS) / (REVIEW_REPORT_COMPLETE_PROGRESS - ANALYZE_COMPLIANCE_COMPLETE_PROGRESS)) * 100)) };
+          steps[5] = { ...BASE_ANALYSIS_STEPS[5], status: 'pending', progress: 0 }; 
+          break;
+      case 'completed':
+          steps = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'completed', progress: 100 }));
+          break;
+      case 'error':
+          if (overallProgress < UPLOAD_COMPLETE_PROGRESS || !powerQualityDataUrl) { 
+              steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, uploadProgress ?? 0))};
+              markFollowingStepsPending(0);
+          } else if (overallProgress < SUMMARIZATION_COMPLETE_PROGRESS || !powerQualityDataSummary) { 
+              markPreviousStepsCompleted(1);
+              steps[1] = { ...BASE_ANALYSIS_STEPS[1], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, ((overallProgress - UPLOAD_COMPLETE_PROGRESS) / (SUMMARIZATION_COMPLETE_PROGRESS - UPLOAD_COMPLETE_PROGRESS)) * 100 )) };
+              markFollowingStepsPending(1);
+          } else if (overallProgress < IDENTIFY_REG_COMPLETE_PROGRESS || !identifiedRegulations) { 
+              markPreviousStepsCompleted(2);
+              steps[2] = { ...BASE_ANALYSIS_STEPS[2], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, ((overallProgress - SUMMARIZATION_COMPLETE_PROGRESS) / (IDENTIFY_REG_COMPLETE_PROGRESS - SUMMARIZATION_COMPLETE_PROGRESS)) * 100)) };
+              markFollowingStepsPending(2);
+          } else if (overallProgress < ANALYZE_COMPLIANCE_COMPLETE_PROGRESS) { 
+              markPreviousStepsCompleted(3);
+              steps[3] = { ...BASE_ANALYSIS_STEPS[3], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, ((overallProgress - IDENTIFY_REG_COMPLETE_PROGRESS) / (ANALYZE_COMPLIANCE_COMPLETE_PROGRESS - IDENTIFY_REG_COMPLETE_PROGRESS)) * 100)) };
+              markFollowingStepsPending(3);
+          } else if (overallProgress < REVIEW_REPORT_COMPLETE_PROGRESS || !structuredReport) { 
+              markPreviousStepsCompleted(4);
+              steps[4] = { ...BASE_ANALYSIS_STEPS[4], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, ((overallProgress - ANALYZE_COMPLIANCE_COMPLETE_PROGRESS) / (REVIEW_REPORT_COMPLETE_PROGRESS - ANALYZE_COMPLIANCE_COMPLETE_PROGRESS)) * 100)) };
+              markFollowingStepsPending(4);
+          } else { 
+              markPreviousStepsCompleted(5);
+              steps[5] = { ...BASE_ANALYSIS_STEPS[5], status: 'error', details: errorMessage, progress: Math.max(0, Math.min(100, ((overallProgress - REVIEW_REPORT_COMPLETE_PROGRESS) / (FINAL_GENERATION_COMPLETE_PROGRESS - REVIEW_REPORT_COMPLETE_PROGRESS)) * 100)) };
+          }
+          break;
+      default:
+           steps = BASE_ANALYSIS_STEPS.map(s => ({ ...s, status: 'pending', progress: 0, details: `Status desconhecido: ${status}` }));
+  }
+  if (steps.slice(1).some(s => s.status === 'completed' || s.status === 'in_progress') && steps[0].status !== 'error') {
+    steps[0] = { ...BASE_ANALYSIS_STEPS[0], status: 'completed', progress: 100 };
+  }
+  return steps;
+}
+
+
 describe('HomePage - Navigation and Views', () => {
-  let mockSetCurrentAnalysis: jest.Mock;
-  let mockFetchPastAnalyses: jest.Mock;
-  let mockStartAiProcessing: jest.Mock;
-  let mockUploadFileAndCreateRecord: jest.Mock;
-  let mockHandleDeleteAnalysis: jest.Mock;
-  let mockHandleCancelAnalysis: jest.Mock;
+  // Test-local mocks for hook functions that might be overridden or specifically asserted
+  let mockFetchPastAnalysesInTest: jest.Mock;
+  let mockStartAiProcessingInTest: jest.Mock;
+  let mockHandleDeleteAnalysisInTest: jest.Mock;
+  let mockHandleCancelAnalysisInTest: jest.Mock;
+  let mockUploadFileAndCreateRecordInTest: jest.Mock;
 
   beforeEach(() => {
-    // Reset all navigation mocks
     mockRouterPush.mockClear();
     mockRouterReplace.mockClear();
 
-    // Setup hook mocks
-    mockSetCurrentAnalysis = jest.fn();
-    mockFetchPastAnalyses = jest.fn().mockResolvedValue(undefined);
-    mockStartAiProcessing = jest.fn().mockResolvedValue(undefined);
-    mockUploadFileAndCreateRecord = jest.fn().mockResolvedValue({
+    // Reset the state of the global mock object from jest.setup.js before each test
+    global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
+    global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
+    global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
+    global.mockUseAnalysisManagerReturnValue.tagInput = '';
+    (global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis as jest.Mock).mockClear();
+    (global.mockUseAnalysisManagerReturnValue.setTagInput as jest.Mock).mockClear();
+    (global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock).mockClear();
+    (global.mockUseAnalysisManagerReturnValue.startAiProcessing as jest.Mock).mockClear();
+    (global.mockUseAnalysisManagerReturnValue.handleAddTag as jest.Mock).mockClear();
+    (global.mockUseAnalysisManagerReturnValue.handleRemoveTag as jest.Mock).mockClear();
+    (global.mockUseAnalysisManagerReturnValue.handleDeleteAnalysis as jest.Mock).mockClear();
+    (global.mockUseAnalysisManagerReturnValue.handleCancelAnalysis as jest.Mock).mockClear();
+    (global.mockUseAnalysisManagerReturnValue.downloadReportAsTxt as jest.Mock).mockClear();
+    global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps = [];
+
+
+    // Initialize test-local mocks
+    mockFetchPastAnalysesInTest = jest.fn().mockResolvedValue(undefined);
+    mockStartAiProcessingInTest = jest.fn().mockResolvedValue(undefined);
+    mockHandleDeleteAnalysisInTest = jest.fn((id, cb) => { cb?.(); return Promise.resolve(); });
+    mockHandleCancelAnalysisInTest = jest.fn().mockResolvedValue(undefined);
+    mockUploadFileAndCreateRecordInTest = jest.fn().mockResolvedValue({
       analysisId: 'new-analysis-id',
       fileName: 'new-file.csv',
       error: null,
     });
-    mockHandleDeleteAnalysis = jest.fn((id, cb) => { cb?.(); return Promise.resolve(); });
-    mockHandleCancelAnalysis = jest.fn().mockResolvedValue(undefined);
+
+    // Configure the main mock for useAnalysisManager for this test suite
+    // It reads from global.mockUseAnalysisManagerReturnValue for state
+    // and uses test-local mocks for functions that might be spied on or have custom implementations.
+    useAnalysisManager.mockImplementation(() => {
+      // Ensure that if setCurrentAnalysis was called, its effect on currentAnalysis is reflected here
+      const currentGlobalAnalysis = global.mockUseAnalysisManagerReturnValue.currentAnalysis;
+      return {
+        ...global.mockUseAnalysisManagerReturnValue, // Base state from global
+        currentAnalysis: currentGlobalAnalysis, // Ensure this is the potentially updated one
+        fetchPastAnalyses: mockFetchPastAnalysesInTest,
+        startAiProcessing: mockStartAiProcessingInTest,
+        handleDeleteAnalysis: mockHandleDeleteAnalysisInTest,
+        handleCancelAnalysis: mockHandleCancelAnalysisInTest,
+        // Dynamically calculate displayedAnalysisSteps based on the (potentially updated) currentAnalysis
+        displayedAnalysisSteps: calculateDisplayedAnalysisSteps(currentGlobalAnalysis),
+      };
+    });
 
     useAuth.mockReturnValue({ user: mockUser, loading: false });
     
-    // Use a fresh mock object for each test to avoid interference
-    const currentMockAnalysisManagerValue = {
-      currentAnalysis: null,
-      setCurrentAnalysis: mockSetCurrentAnalysis,
-      pastAnalyses: [], // Default to empty, specific tests will override
-      isLoadingPastAnalyses: false,
-      tagInput: '',
-      setTagInput: jest.fn(),
-      fetchPastAnalyses: mockFetchPastAnalyses,
-      startAiProcessing: mockStartAiProcessing,
-      handleAddTag: jest.fn(),
-      handleRemoveTag: jest.fn(),
-      handleDeleteAnalysis: mockHandleDeleteAnalysis,
-      handleCancelAnalysis: mockHandleCancelAnalysis,
-      downloadReportAsTxt: jest.fn(),
-      displayedAnalysisSteps: [],
-    };
-    useAnalysisManager.mockReturnValue(currentMockAnalysisManagerValue);
-
-    useFileUploadManager.mockReturnValue({
-      fileToUpload: null,
-      isUploading: false,
-      uploadProgress: 0,
-      uploadError: null,
-      handleFileSelection: jest.fn(),
-      uploadFileAndCreateRecord: mockUploadFileAndCreateRecord,
-    });
-
-    // getPastAnalysesAction is mocked globally in jest.setup.js
-    // If EMULATORS_CONNECTED, it's unmocked. Otherwise, it returns Promise.resolve([]).
-    // Tests here will rely on useAnalysisManager's `pastAnalyses` being set correctly for UI.
-
+    useFileUploadManager.mockImplementation(() => ({
+      ...global.mockUseFileUploadManagerReturnValue, // Base from setup
+      uploadFileAndCreateRecord: mockUploadFileAndCreateRecordInTest, // Override with test-local mock
+    }));
+    
     const { getAnalysisReportAction } = jest.requireMock('@/features/report-viewing/actions/reportViewingActions');
-    getAnalysisReportAction.mockResolvedValue({ // This remains mocked as Storage isn't seeded
+    getAnalysisReportAction.mockResolvedValue({
         mdxContent: `# Test Report for ${mockAnalysisItemCompleted.id}`,
         fileName: mockAnalysisItemCompleted.fileName,
         analysisId: mockAnalysisItemCompleted.id,
@@ -183,22 +346,22 @@ describe('HomePage - Navigation and Views', () => {
     });
   });
 
-  test('renders default view (Past Analyses Accordion) for authenticated user, including AppHeader with "Nova Análise" button', () => {
-    // Ensure getPastAnalysesAction (if unmocked) doesn't throw due to missing user.uid in its mock
-    // This test relies on the global mock of getPastAnalysesAction if emulators are not connected.
-    // If emulators are connected, it should hit the emulator.
-    // The UI will show "Nenhuma análise" if pastAnalyses in useAnalysisManager is empty.
-    useAnalysisManager.mockReturnValue({
-      ...global.mockUseAnalysisManagerReturnValue,
-      fetchPastAnalyses: mockFetchPastAnalyses.mockResolvedValue(undefined),
-      pastAnalyses: [], // Explicitly empty for this render
+  test('renders default view (Past Analyses Accordion) for authenticated user, including AppHeader with "Nova Análise" button', async () => {
+    mockFetchPastAnalysesInTest.mockImplementation(async () => {
+      // Simulate fetch populating the global mock's pastAnalyses
+      global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
+      return Promise.resolve(undefined);
     });
-
+    
     render(<HomePage />);
-    // Check for AppHeader content specific to authenticated user
+    
+    // HomePage calls fetchPastAnalyses on mount if user exists.
+    // Ensure the mock is called.
+    await waitFor(() => expect(mockFetchPastAnalysesInTest).toHaveBeenCalled());
+
     expect(screen.getByRole('button', { name: /Nova Análise/i })).toBeInTheDocument(); 
-    // Check for HomePage specific content
     expect(screen.getByText(`Suas Análises Anteriores`)).toBeInTheDocument();
+    expect(screen.getByText(/Nenhuma análise anterior encontrada./i)).toBeInTheDocument();
   });
 
   test('navigates to NewAnalysisForm when "Nova Análise" is clicked and back to Dashboard on cancel', () => {
@@ -212,31 +375,20 @@ describe('HomePage - Navigation and Views', () => {
   });
 
   test('displays past analyses from seed data in accordion and expands to show AnalysisView', async () => {
-    // Simulate that useAnalysisManager.fetchPastAnalyses populates pastAnalyses with seeded data
     const mockPastAnalysesFromSeed = [mockAnalysisItemCompleted, mockAnalysisItemInProgress];
-    useAnalysisManager.mockReturnValue({
-      ...global.mockUseAnalysisManagerReturnValue, // Use the base from jest.setup.js
-      setCurrentAnalysis: mockSetCurrentAnalysis,
-      pastAnalyses: mockPastAnalysesFromSeed, // Data consistent with seed
-      fetchPastAnalyses: mockFetchPastAnalyses.mockImplementation(async () => {
-        // In a real scenario with unmocked getPastAnalysesAction, this would fetch from emulator.
-        // Here, we ensure the test uses the seeded data structure.
-        (useAnalysisManager.mock.results[0].value as any).pastAnalyses = mockPastAnalysesFromSeed;
-        return Promise.resolve(undefined);
-      }),
-    });
     
+    // Set up fetchPastAnalyses to populate the global pastAnalyses state
+    mockFetchPastAnalysesInTest.mockImplementation(async () => {
+      global.mockUseAnalysisManagerReturnValue.pastAnalyses = mockPastAnalysesFromSeed;
+      return Promise.resolve(undefined);
+    });
+
     render(<HomePage />);
 
-    // Trigger fetch (though it's mocked to directly set pastAnalyses for this test)
-    await act(async () => {
-      await useAnalysisManager.mock.results[0].value.fetchPastAnalyses();
-    });
+    // Wait for fetchPastAnalyses to be called and populate the data
+    await waitFor(() => expect(mockFetchPastAnalysesInTest).toHaveBeenCalled());
     
-    // Re-render might be needed if the hook updates state that HomePage relies on for list
-    // Forcing a re-render or finding a more robust way to wait for list update
-    // However, with direct mockReturnValue, it should render with this data.
-
+    // Verify items are rendered
     await waitFor(() => {
       expect(screen.getByText(mockAnalysisItemCompleted.title!)).toBeInTheDocument();
       expect(screen.getByText(mockAnalysisItemInProgress.title!)).toBeInTheDocument();
@@ -245,44 +397,44 @@ describe('HomePage - Navigation and Views', () => {
     const completedAnalysisAccordionTrigger = screen.getByText(mockAnalysisItemCompleted.title!);
     fireEvent.click(completedAnalysisAccordionTrigger);
 
+    // The click triggers handleAccordionChange in HomePage, which calls setCurrentAnalysis (the global mock's version).
+    // This updates global.mockUseAnalysisManagerReturnValue.currentAnalysis.
+    // HomePage then re-renders due to setExpandedAnalysisId.
+    // When useAnalysisManager is called again during re-render, our mockImplementation
+    // uses the updated global.mockUseAnalysisManagerReturnValue.currentAnalysis.
+
     await waitFor(() => {
-      expect(mockSetCurrentAnalysis).toHaveBeenCalledWith(mockAnalysisItemCompleted);
+      // Check that the global mock's setCurrentAnalysis was called correctly
+      expect(global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis as jest.Mock).toHaveBeenCalledWith(mockAnalysisItemCompleted);
+      // Check that the global mock's state was updated
+      expect(global.mockUseAnalysisManagerReturnValue.currentAnalysis).toEqual(mockAnalysisItemCompleted);
     });
     
-    // Simulate currentAnalysis is now set in the hook's return value
-    useAnalysisManager.mockReturnValueOnce({
-      ...global.mockUseAnalysisManagerReturnValue,
-      currentAnalysis: mockAnalysisItemCompleted, // IMPORTANT: set currentAnalysis
-      setCurrentAnalysis: mockSetCurrentAnalysis,
-      pastAnalyses: mockPastAnalysesFromSeed,
-      fetchPastAnalyses: mockFetchPastAnalyses,
-      displayedAnalysisSteps: calculateDisplayedAnalysisSteps(mockAnalysisItemCompleted),
-    });
-    
-    // Re-render or wait for component to update with new currentAnalysis
+    // Now wait for the UI to reflect the new currentAnalysis
     await waitFor(() => {
         const analysisViewTitle = screen.getByText(new RegExp(mockAnalysisItemCompleted.title!, 'i'));
         expect(analysisViewTitle).toBeInTheDocument();
+        // screen.debug(undefined, 300000); // Uncomment for extensive DOM debugging
         expect(screen.getByText(/Análise Concluída com Sucesso!/i)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /Visualizar Relatório Detalhado/i})).toBeInTheDocument();
-    });
+    }, { timeout: 5000 });
   });
 
   test('navigates to ReportPage when "Visualizar Relatório Detalhado" is clicked', async () => {
-     useAnalysisManager.mockReturnValue({
-      ...global.mockUseAnalysisManagerReturnValue,
-      currentAnalysis: mockAnalysisItemCompleted,
-      setCurrentAnalysis: mockSetCurrentAnalysis,
-      pastAnalyses: [mockAnalysisItemCompleted],
-      displayedAnalysisSteps: calculateDisplayedAnalysisSteps(mockAnalysisItemCompleted),
-    });
+    // Set currentAnalysis directly on the global mock for this test setup
+    global.mockUseAnalysisManagerReturnValue.currentAnalysis = mockAnalysisItemCompleted;
+    // Ensure pastAnalyses contains the item so it can be found and displayed
+    global.mockUseAnalysisManagerReturnValue.pastAnalyses = [mockAnalysisItemCompleted];
+
 
     render(<HomePage />);
     
+    // Open the accordion for the completed analysis
     const completedAnalysisAccordionTrigger = screen.getByText(mockAnalysisItemCompleted.title!);
     fireEvent.click(completedAnalysisAccordionTrigger);
 
     await waitFor(() => {
+        // Ensure AnalysisView with "Análise Concluída" is shown
         expect(screen.getByText(/Análise Concluída com Sucesso!/i)).toBeInTheDocument();
     });
 
@@ -305,35 +457,34 @@ describe('HomePage - Navigation and Views', () => {
       fileName: newFileName,
       title: newAnalysisTitle,
       status: 'summarizing_data', 
-      progress: 10,
+      progress: 10, // Progress after upload completes and processing starts
       uploadProgress: 100,
       createdAt: new Date().toISOString(),
       tags: [],
     };
     
-    const handleFileSelectionMock = jest.fn();
-    useFileUploadManager.mockReturnValue({
-      fileToUpload: new File(['col1,col2\nval1,val2'], newFileName, { type: 'text/csv' }),
-      isUploading: false,
-      uploadProgress: 0,
-      uploadError: null,
-      handleFileSelection: handleFileSelectionMock,
-      uploadFileAndCreateRecord: mockUploadFileAndCreateRecord.mockResolvedValue({
-        analysisId: newAnalysisId,
-        fileName: newFileName,
-        title: newAnalysisTitle,
-        error: null,
-      }),
+    // Configure mockUploadFileAndCreateRecordInTest for this specific test
+    mockUploadFileAndCreateRecordInTest.mockResolvedValue({
+      analysisId: newAnalysisId,
+      fileName: newFileName,
+      title: newAnalysisTitle, // Pass title back if createInitialAnalysisRecordAction sets it based on input
+      error: null,
     });
+    
+    // Make handleFileSelection do something simple if needed for fileToUpload state
+    const handleFileSelectionMock = jest.fn((event) => {
+      if (event.target.files && event.target.files[0]) {
+        // Simulate the hook updating its internal fileToUpload state
+        (useFileUploadManager.mock.results[0].value as any).fileToUpload = event.target.files[0];
+      }
+    });
+    useFileUploadManager.mockImplementationOnce(() => ({ // One-time specific mock for this test
+        ...global.mockUseFileUploadManagerReturnValue,
+        fileToUpload: new File(['col1,col2\nval1,val2'], newFileName, { type: 'text/csv' }), // Assume file selected
+        handleFileSelection: handleFileSelectionMock,
+        uploadFileAndCreateRecord: mockUploadFileAndCreateRecordInTest,
+    }));
 
-     const setCurrentAnalysisForUpload = jest.fn();
-     const startAiProcessingForUpload = jest.fn().mockResolvedValue(undefined);
-     useAnalysisManager.mockReturnValue({
-        ...global.mockUseAnalysisManagerReturnValue,
-        setCurrentAnalysis: setCurrentAnalysisForUpload,
-        startAiProcessing: startAiProcessingForUpload,
-        fetchPastAnalyses: mockFetchPastAnalyses.mockResolvedValue(undefined), 
-     });
 
     render(<HomePage />);
 
@@ -345,12 +496,14 @@ describe('HomePage - Navigation and Views', () => {
 
     const submitButton = screen.getByRole('button', { name: /Enviar e Iniciar Análise/i });
     
+    // This click triggers handleUploadAndAnalyze, which calls uploadFileAndCreateRecord
+    // then handleUploadResult, which calls setCurrentAnalysis and startAiProcessing.
     await act(async () => {
       fireEvent.click(submitButton);
     });
     
     await waitFor(() => {
-      expect(mockUploadFileAndCreateRecord).toHaveBeenCalledWith(
+      expect(mockUploadFileAndCreateRecordInTest).toHaveBeenCalledWith(
         mockUser, 
         newAnalysisTitle, 
         '', 
@@ -358,47 +511,45 @@ describe('HomePage - Navigation and Views', () => {
       );
     });
     
+    // After upload, handleUploadResult in HomePage should call setCurrentAnalysis.
+    // This will update global.mockUseAnalysisManagerReturnValue.currentAnalysis.
     await waitFor(() => {
-      expect(setCurrentAnalysisForUpload).toHaveBeenCalledWith(
+      expect(global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis as jest.Mock).toHaveBeenCalledWith(
         expect.objectContaining({
           id: newAnalysisId,
           fileName: newFileName,
           title: newAnalysisTitle,
         })
       );
+      expect(global.mockUseAnalysisManagerReturnValue.currentAnalysis?.id).toBe(newAnalysisId);
     });
 
+    // And then it should call startAiProcessing.
     await waitFor(() => {
-        expect(startAiProcessingForUpload).toHaveBeenCalledWith(newAnalysisId, mockUser.uid);
+        expect(mockStartAiProcessingInTest).toHaveBeenCalledWith(newAnalysisId, mockUser.uid);
     });
     
-    useAnalysisManager.mockReturnValueOnce({
-      ...global.mockUseAnalysisManagerReturnValue,
-      currentAnalysis: { 
-          ...mockNewAnalysisData,
-          createdAt: new Date(mockNewAnalysisData.createdAt).toISOString(), 
-      },
-      setCurrentAnalysis: setCurrentAnalysisForUpload,
-      startAiProcessing: startAiProcessingForUpload,
-      displayedAnalysisSteps: calculateDisplayedAnalysisSteps(mockNewAnalysisData),
-      fetchPastAnalyses: mockFetchPastAnalyses.mockResolvedValue(undefined),
-    });
+    // The component re-renders, useAnalysisManager is called again,
+    // and its mockImplementation uses the updated global.mockUseAnalysisManagerReturnValue.currentAnalysis
+    // to calculate displayedAnalysisSteps and pass the currentAnalysis to AnalysisView.
 
     await waitFor(() => {
       const analysisViewForNew = screen.getByText(new RegExp(newAnalysisTitle, "i"));
       expect(analysisViewForNew).toBeInTheDocument();
+      // Check for a step relevant to 'summarizing_data' status
       expect(screen.getByText(/Sumarizando Dados da Qualidade de Energia/i)).toBeInTheDocument(); 
     });
   });
 
   test('can delete an analysis from the AnalysisView', async () => {
-    useAnalysisManager.mockReturnValue({
-      ...global.mockUseAnalysisManagerReturnValue,
-      currentAnalysis: mockAnalysisItemCompleted,
-      setCurrentAnalysis: mockSetCurrentAnalysis,
-      pastAnalyses: [mockAnalysisItemCompleted],
-      fetchPastAnalyses: mockFetchPastAnalyses,
-      handleDeleteAnalysis: mockHandleDeleteAnalysis, 
+    // Set currentAnalysis and pastAnalyses for the test
+    global.mockUseAnalysisManagerReturnValue.currentAnalysis = mockAnalysisItemCompleted;
+    global.mockUseAnalysisManagerReturnValue.pastAnalyses = [mockAnalysisItemCompleted];
+    
+    mockFetchPastAnalysesInTest.mockImplementation(async () => {
+        // After deletion, pastAnalyses should be empty
+        global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
+        return Promise.resolve(undefined);
     });
 
     render(<HomePage />);
@@ -422,35 +573,17 @@ describe('HomePage - Navigation and Views', () => {
     });
 
     await waitFor(() => {
-      expect(mockHandleDeleteAnalysis).toHaveBeenCalledWith(mockAnalysisItemCompleted.id, expect.any(Function));
+      // Check that the test-local mock for handleDeleteAnalysis was called
+      expect(mockHandleDeleteAnalysisInTest).toHaveBeenCalledWith(mockAnalysisItemCompleted.id, expect.any(Function));
     });
+    // Check that fetchPastAnalyses was called to refresh the list
     await waitFor(() => {
-        expect(mockFetchPastAnalyses).toHaveBeenCalled();
+        expect(mockFetchPastAnalysesInTest).toHaveBeenCalled();
+    });
+    // Optionally, check that the item is no longer displayed if list updates
+    await waitFor(() => {
+        expect(screen.queryByText(mockAnalysisItemCompleted.title!)).not.toBeInTheDocument();
     });
   });
 
 });
-
-// Helper to calculate displayed steps, mirroring the hook's logic for tests
-function calculateDisplayedAnalysisSteps(analysis: Analysis | null): any[] {
-  if (!analysis) return [];
-  // This is a simplified version for test setup.
-  // Refer to the actual implementation in `useAnalysisManager` or its utils for accuracy.
-  const steps = [
-    { name: "Upload do Arquivo e Preparação", status: "pending", progress: 0 },
-    { name: "Sumarizando Dados da Qualidade de Energia", status: "pending", progress: 0 },
-    // ... other steps
-  ];
-  if (analysis.status === 'completed') {
-    return steps.map(s => ({ ...s, status: 'completed', progress: 100 }));
-  }
-  if (analysis.status === 'summarizing_data') {
-    steps[0].status = 'completed';
-    steps[0].progress = 100;
-    steps[1].status = 'in_progress';
-    steps[1].progress = analysis.progress; // Or a calculated value
-    return steps;
-  }
-  // Add more cases as needed
-  return steps;
-}

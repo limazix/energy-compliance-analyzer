@@ -107,27 +107,25 @@ jest.mock('@/features/tag-management/actions/tagActions', () => ({
 
 
 // Mock useAnalysisManager
-const mockSetCurrentAnalysis = jest.fn();
-const mockFetchPastAnalyses = jest.fn(() => Promise.resolve());
-const mockStartAiProcessing = jest.fn(() => Promise.resolve());
-const mockHandleDeleteAnalysis = jest.fn((id, cb) => { cb?.(); return Promise.resolve(); });
-const mockHandleCancelAnalysis = jest.fn(() => Promise.resolve());
-
 global.mockUseAnalysisManagerReturnValue = {
   currentAnalysis: null,
-  setCurrentAnalysis: mockSetCurrentAnalysis,
+  setCurrentAnalysis: jest.fn((newAnalysis) => {
+    // This mock directly updates the currentAnalysis on the global object.
+    // The displayedAnalysisSteps will be calculated by the mockImplementation in the test file.
+    global.mockUseAnalysisManagerReturnValue.currentAnalysis = newAnalysis;
+  }),
   pastAnalyses: [],
   isLoadingPastAnalyses: false,
   tagInput: '',
   setTagInput: jest.fn(),
-  fetchPastAnalyses: mockFetchPastAnalyses,
-  startAiProcessing: mockStartAiProcessing,
+  fetchPastAnalyses: jest.fn(() => Promise.resolve()),
+  startAiProcessing: jest.fn(() => Promise.resolve()),
   handleAddTag: jest.fn(() => Promise.resolve()),
   handleRemoveTag: jest.fn(() => Promise.resolve()),
-  handleDeleteAnalysis: mockHandleDeleteAnalysis,
-  handleCancelAnalysis: mockHandleCancelAnalysis,
+  handleDeleteAnalysis: jest.fn((id, cb) => { cb?.(); return Promise.resolve(); }),
+  handleCancelAnalysis: jest.fn(() => Promise.resolve()),
   downloadReportAsTxt: jest.fn(),
-  displayedAnalysisSteps: [],
+  displayedAnalysisSteps: [], // This will be dynamically calculated in the test's mock implementation
 };
 
 jest.mock('@/hooks/useAnalysisManager', () => ({
@@ -158,51 +156,48 @@ beforeEach(() => {
   mockRouterPush.mockClear();
   mockRouterReplace.mockClear();
   mockToastFn.mockClear();
-  mockSetCurrentAnalysis.mockClear();
-  mockFetchPastAnalyses.mockClear();
-  mockStartAiProcessing.mockClear();
-  mockHandleDeleteAnalysis.mockClear();
-  mockHandleCancelAnalysis.mockClear();
-  mockUploadFileAndCreateRecord.mockClear();
+  
+  // Reset global useAnalysisManager mock state
+  global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
+  global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
+  global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
+  global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps = [];
+  (global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis as jest.Mock).mockClear();
+  (global.mockUseAnalysisManagerReturnValue.setTagInput as jest.Mock).mockClear();
+  (global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock).mockClear().mockResolvedValue(undefined);
+  (global.mockUseAnalysisManagerReturnValue.startAiProcessing as jest.Mock).mockClear().mockResolvedValue(undefined);
+  (global.mockUseAnalysisManagerReturnValue.handleAddTag as jest.Mock).mockClear().mockResolvedValue(undefined);
+  (global.mockUseAnalysisManagerReturnValue.handleRemoveTag as jest.Mock).mockClear().mockResolvedValue(undefined);
+  (global.mockUseAnalysisManagerReturnValue.handleDeleteAnalysis as jest.Mock).mockClear().mockImplementation((id, cb) => { cb?.(); return Promise.resolve(); });
+  (global.mockUseAnalysisManagerReturnValue.handleCancelAnalysis as jest.Mock).mockClear().mockResolvedValue(undefined);
+  (global.mockUseAnalysisManagerReturnValue.downloadReportAsTxt as jest.Mock).mockClear();
 
-  // Reset return values for custom hooks
-  global.mockUseAnalysisManagerReturnValue = {
-    currentAnalysis: null,
-    setCurrentAnalysis: mockSetCurrentAnalysis,
-    pastAnalyses: [],
-    isLoadingPastAnalyses: false,
-    tagInput: '',
-    setTagInput: jest.fn(),
-    fetchPastAnalyses: mockFetchPastAnalyses,
-    startAiProcessing: mockStartAiProcessing,
-    handleAddTag: jest.fn(() => Promise.resolve()),
-    handleRemoveTag: jest.fn(() => Promise.resolve()),
-    handleDeleteAnalysis: mockHandleDeleteAnalysis,
-    handleCancelAnalysis: mockHandleCancelAnalysis,
-    downloadReportAsTxt: jest.fn(),
-    displayedAnalysisSteps: [],
-  };
-  global.mockUseFileUploadManagerReturnValue = {
-    fileToUpload: null,
-    isUploading: false,
-    uploadProgress: 0,
-    uploadError: null,
-    handleFileSelection: jest.fn(),
-    uploadFileAndCreateRecord: mockUploadFileAndCreateRecord,
-  };
+
+  // Reset global useFileUploadManager mock state
+   global.mockUseFileUploadManagerReturnValue.fileToUpload = null;
+   global.mockUseFileUploadManagerReturnValue.isUploading = false;
+   global.mockUseFileUploadManagerReturnValue.uploadProgress = 0;
+   global.mockUseFileUploadManagerReturnValue.uploadError = null;
+  (global.mockUseFileUploadManagerReturnValue.handleFileSelection as jest.Mock).mockClear();
+  (global.mockUseFileUploadManagerReturnValue.uploadFileAndCreateRecord as jest.Mock).mockClear().mockResolvedValue({ analysisId: 'mock-analysis-upload-id', fileName: 'mock-file.csv', error: null });
+
 
   // Reset server action mocks
-  jest.requireMock('@/features/analysis-listing/actions/analysisListingActions').getPastAnalysesAction.mockResolvedValue([]);
-  jest.requireMock('@/features/file-upload/actions/fileUploadActions').createInitialAnalysisRecordAction.mockImplementation(
+  jest.requireMock('@/features/analysis-listing/actions/analysisListingActions').getPastAnalysesAction.mockClear().mockResolvedValue([]);
+  jest.requireMock('@/features/file-upload/actions/fileUploadActions').createInitialAnalysisRecordAction.mockClear().mockImplementation(
     (userId, fileName) => Promise.resolve({ analysisId: `mock-analysis-id-for-${fileName}` })
   );
-   jest.requireMock('@/features/report-viewing/actions/reportViewingActions').getAnalysisReportAction.mockResolvedValue(
+   jest.requireMock('@/features/report-viewing/actions/reportViewingActions').getAnalysisReportAction.mockClear().mockResolvedValue(
      { mdxContent: '# Mock Report Default', fileName: 'mock-report-default.csv', analysisId: 'default-mock-analysis-id', error: null }
    );
-   jest.requireMock('@/features/report-chat/actions/reportChatActions').askReportOrchestratorAction.mockResolvedValue(
+   jest.requireMock('@/features/report-chat/actions/reportChatActions').askReportOrchestratorAction.mockClear().mockResolvedValue(
      { success: true, aiMessageRtdbKey: 'mock-ai-key-default' }
    );
-
+   jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').deleteAnalysisAction.mockClear().mockResolvedValue(undefined);
+   jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').cancelAnalysisAction.mockClear().mockResolvedValue({ success: true });
+   jest.requireMock('@/features/analysis-processing/actions/analysisProcessingActions').processAnalysisFile.mockClear().mockResolvedValue({ success: true, analysisId: 'mock-analysis-id' });
+   jest.requireMock('@/features/tag-management/actions/tagActions').addTagToAction.mockClear().mockResolvedValue(undefined);
+   jest.requireMock('@/features/tag-management/actions/tagActions').removeTagAction.mockClear().mockResolvedValue(undefined);
 
 });
 afterEach(() => {
