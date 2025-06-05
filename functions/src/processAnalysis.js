@@ -10,26 +10,26 @@ const { googleAI } = require('@genkit-ai/googleai');
 // Importar configurações de prompt da pasta 'lib/shared' (onde serão compilados os .ts)
 const {
   summarizePowerQualityDataPromptConfig,
-} = require('./lib/shared/ai/prompt-configs/summarize-power-quality-data-prompt-config.js'); // Adicionado .js
+} = require('../lib/shared/ai/prompt-configs/summarize-power-quality-data-prompt-config.js');
 const {
   identifyAEEEResolutionsPromptConfig,
-} = require('./lib/shared/ai/prompt-configs/identify-aneel-resolutions-prompt-config.js'); // Adicionado .js
+} = require('../lib/shared/ai/prompt-configs/identify-aneel-resolutions-prompt-config.js');
 const {
   analyzeComplianceReportPromptConfig,
-} = require('./lib/shared/ai/prompt-configs/analyze-compliance-report-prompt-config.js'); // Adicionado .js
+} = require('../lib/shared/ai/prompt-configs/analyze-compliance-report-prompt-config.js');
 const {
   reviewComplianceReportPromptConfig,
-} = require('./lib/shared/ai/prompt-configs/review-compliance-report-prompt-config.js'); // Adicionado .js
+} = require('../lib/shared/ai/prompt-configs/review-compliance-report-prompt-config.js');
 
-const { convertStructuredReportToMdx } = require('./lib/shared/lib/reportUtils.js'); // Adicionado .js
+const { convertStructuredReportToMdx } = require('../lib/shared/lib/reportUtils.js');
 
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-const geminiApiKey = process.env.GEMINI_API_KEY || 
-                     (functions.config().gemini ? functions.config().gemini.apikey : undefined) || 
+const geminiApiKey = process.env.GEMINI_API_KEY ||
+                     (functions.config().gemini ? functions.config().gemini.apikey : undefined) ||
                      process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
 if (!geminiApiKey) {
