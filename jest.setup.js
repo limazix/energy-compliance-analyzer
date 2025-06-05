@@ -35,7 +35,7 @@ jest.mock('lucide-react', () => {
             // Return a mock component for any icon name
             return (props) => {
               const { children, ...restProps } = props || {};
-              const Tag = 'svg'; 
+              const Tag = 'svg';
               return <Tag data-lucide-mock={String(prop)} {...restProps}>{children}</Tag>;
             }
         }
@@ -71,6 +71,10 @@ jest.mock('next-mdx-remote/rsc', () => {
     }),
   };
 });
+
+// Mock remark plugins that are ESM-only
+jest.mock('remark-gfm', () => jest.fn());
+jest.mock('remark-mermaidjs', () => jest.fn());
 
 
 // Server Actions Mocks (kept for isolating component logic if needed, or can be unmocked for full integration tests)
@@ -146,7 +150,7 @@ jest.mock('@/features/file-upload/hooks/useFileUploadManager', () => ({
 }));
 
 
-global.Timestamp = Timestamp; 
+global.Timestamp = Timestamp;
 
 
 // Clear all mocks before each test
@@ -231,7 +235,7 @@ if (typeof window !== 'undefined') {
     } catch (error) {
       // Fallback for environments where getComputedStyle might fail with certain elements
       console.warn('jsdom.getComputedStyle failed, returning empty CSSStyleDeclaration', error);
-      const style = {}; 
+      const style = {};
       // Populate with some common properties if necessary, or just return empty
       return style;
     }
