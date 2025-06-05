@@ -7,7 +7,7 @@ const admin = require('firebase-admin');
 const { genkit } = require('genkit');
 const { googleAI } = require('@genkit-ai/googleai');
 
-// Importar configurações de prompt da pasta 'lib/shared' (onde serão compilados os .ts)
+// Importar configurações de prompt da pasta '../lib/shared' (onde serão compilados os .ts)
 const {
   summarizePowerQualityDataPromptConfig,
 } = require('../lib/shared/ai/prompt-configs/summarize-power-quality-data-prompt-config.js');
@@ -47,7 +47,10 @@ const reviewReportFlow = ai.definePrompt(reviewComplianceReportPromptConfig);
 
 
 const db = admin.firestore();
-const storage = admin.storage();
+const storageAdmin = admin.storage(); // Renomeado de 'storage' para 'storageAdmin'
+const rtdbAdmin = admin.database(); // Adicionado: Inicialização do RTDB com Admin SDK
+
+console.log('[Function_processAnalysis] Admin SDK for RTDB initialized, root URL (if configured for emulators/prod):', rtdbAdmin.ref().toString());
 
 const CHUNK_SIZE = 100000;
 const OVERLAP_SIZE = 10000;
@@ -64,9 +67,9 @@ const MAX_ERROR_MSG_LENGTH = 1000;
 
 
 async function getFileContentFromStorage(filePath) {
-  const bucketName = storage.bucket().name;
+  const bucketName = storageAdmin.bucket().name; // Usando storageAdmin
   console.log(`[Function_getFileContent] Reading from bucket: ${bucketName}, path: ${filePath}`);
-  const file = storage.bucket(bucketName).file(filePath);
+  const file = storageAdmin.bucket(bucketName).file(filePath); // Usando storageAdmin
 
   try {
     const [content] = await file.download();
@@ -254,7 +257,7 @@ exports.processAnalysisOnUpdate = functions
 
       const mdxContent = convertStructuredReportToMdx(finalReportForMdx, originalFileName);
       const mdxFilePath = `user_reports/${userId}/${analysisId}/report.mdx`;
-      await storage.bucket().file(mdxFilePath).save(mdxContent, { contentType: 'text/markdown' });
+      await storageAdmin.bucket().file(mdxFilePath).save(mdxContent, { contentType: 'text/markdown' }); // Usando storageAdmin
       await analysisRef.update({ mdxReportStoragePath: mdxFilePath });
 
       await analysisRef.update({
@@ -268,9 +271,7 @@ exports.processAnalysisOnUpdate = functions
     } catch (error) {
       console.error(`[Function_processAnalysis] Error processing analysis ${analysisId}:`, error);
       let errorMessage = 'Erro desconhecido no processamento em segundo plano.';
-      // Check if 'error' is an object and has 'isGenerativeAIError' property
       if (error && typeof error === 'object' && 'isGenerativeAIError' in error && error.isGenerativeAIError === true) {
-        // Access properties directly
         const msg = error.message ? String(error.message) : 'Detalhes do erro da IA não disponíveis';
         const stat = error.status ? String(error.status) : 'Status da IA não disponível';
         const cd = error.code ? String(error.code) : 'N/A';
@@ -298,4 +299,3 @@ exports.processAnalysisOnUpdate = functions
     }
     return null;
   });
-
