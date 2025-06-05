@@ -14,9 +14,9 @@ const customJestConfig = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   transformIgnorePatterns: [
-    // Adicionada a barra inicial '/' ao padrão de node_modules.
-    // Este padrão permite transformar next-mdx-remote e outros pacotes especificados.
-    '/node_modules/(?!(next-mdx-remote|react-tweet|styled-jsx|next)/)',
+    // Este padrão agora inclui next-mdx-remote e muitas de suas dependências ESM comuns,
+    // além dos padrões que o Next.js normalmente transforma.
+    '/node_modules/(?!(next-mdx-remote|@mdx-js/.+|unified|remark-.+|rehype-.+|unist-util-.+|vfile.*|micromark.*|mdast-util-.+|estree-util-.+|character-entities|bail|trough|ccount|react-tweet|styled-jsx|next)/)',
     // Mantém o padrão para módulos CSS
     '^.+\\.module\\.(css|sass|scss)$',
   ],
