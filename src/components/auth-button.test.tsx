@@ -1,5 +1,5 @@
 
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'; // Added waitFor
 import { AuthButton } from './auth-button';
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
 // Import the functions that the component uses so we can get their mocked versions
@@ -34,11 +34,12 @@ const mockSignOut = firebaseSignOutModule as jest.Mock;
 
 // Mock Next.js router (already in jest.setup.js, but ensure it's effective)
 const mockRouterPush = jest.fn();
+const mockRouterReplace = jest.fn(); // Added mockRouterReplace
 jest.mock('next/navigation', () => ({
   ...jest.requireActual('next/navigation'), // Retain other exports
   useRouter: () => ({
     push: mockRouterPush,
-    replace: jest.fn(),
+    replace: mockRouterReplace, // Added replace
   }),
 }));
 
@@ -50,6 +51,7 @@ describe('AuthButton', () => {
     mockSignInWithPopup.mockClear();
     mockSignOut.mockClear();
     mockRouterPush.mockClear();
+    mockRouterReplace.mockClear(); // Clear replace mock
   });
 
   describe('when user is not logged in', () => {
@@ -73,22 +75,25 @@ describe('AuthButton', () => {
       // auth object and googleProvider are imported from @/lib/firebase and passed to the function
       expect(mockSignInWithPopup).toHaveBeenCalledWith(auth, googleProvider); 
       
-      // Wait for promises to resolve
-      await screen.findByRole('button', { name: /Login com Google/i }); // Button still exists before navigation mock takes full effect
-      expect(mockRouterPush).toHaveBeenCalledWith('/');
+      // Wait for promises to resolve and navigation to occur
+      await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/'));
     });
 
     it('handles login error (e.g., popup closed)', async () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      // Configure o mock para rejeitar na próxima chamada
       mockSignInWithPopup.mockRejectedValueOnce(new Error('Popup closed by user'));
       render(<AuthButton />);
       
       fireEvent.click(screen.getByRole('button', { name: /Login com Google/i }));
 
-      // We expect the mock function itself to be called and then it to throw.
-      // The await here is to ensure the async operation triggered by the click completes.
-      await expect(mockSignInWithPopup(auth, googleProvider)).rejects.toThrow('Popup closed by user');
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Erro no login com Google:', expect.any(Error));
+      // Espere que o console.error seja chamado, o que indica que a promessa foi rejeitada e capturada
+      await waitFor(() => {
+        expect(consoleErrorSpy).toHaveBeenCalledWith('Erro no login com Google:', expect.any(Error));
+      });
+      
+      // Verifique também se o mock foi chamado como esperado
+      expect(mockSignInWithPopup).toHaveBeenCalledWith(auth, googleProvider);
       consoleErrorSpy.mockRestore();
     });
   });
@@ -135,8 +140,7 @@ describe('AuthButton', () => {
       expect(mockSignOut).toHaveBeenCalledTimes(1);
       expect(mockSignOut).toHaveBeenCalledWith(auth); // auth object from @/lib/firebase
       
-      await screen.findByRole('menuitem', { name: /Sair/i }); // Ensure async operations complete
-      expect(mockRouterPush).toHaveBeenCalledWith('/login');
+      await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/login'));
     });
 
      it('handles logout error', async () => {
@@ -147,8 +151,11 @@ describe('AuthButton', () => {
       fireEvent.click(screen.getByText(mockUser.displayName.split(' ')[0])); // Open dropdown
       fireEvent.click(screen.getByRole('menuitem', { name: /Sair/i }));
 
-      await expect(mockSignOut(auth)).rejects.toThrow('Sign out failed');
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Erro no logout:', expect.any(Error));
+      // Check that the error was logged
+      await waitFor(() => {
+        expect(consoleErrorSpy).toHaveBeenCalledWith('Erro no logout:', expect.any(Error));
+      });
+      expect(mockSignOut).toHaveBeenCalledWith(auth);
       consoleErrorSpy.mockRestore();
     });
 
@@ -158,7 +165,6 @@ describe('AuthButton', () => {
       const settingsButton = screen.getByRole('menuitem', { name: /Configurações/i });
       fireEvent.click(settingsButton);
       // No assertion on navigation as it's a TODO
-      // You could assert if a function was called if you passed one for settings
     });
   });
 });
