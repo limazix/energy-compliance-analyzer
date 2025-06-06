@@ -3,7 +3,7 @@
   "apphosting": {},
   "firestore": {
     "rules": "rules/firestore.rules",
-    "indexes": "firestore.indexes.json"
+    "indexes": "rules/firestore.indexes.json"
   },
   "storage": {
     "rules": "rules/storage.rules"
@@ -56,3 +56,4 @@
     }
   ]
 }
+
