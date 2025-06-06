@@ -2,14 +2,14 @@
 {
   "apphosting": {},
   "firestore": {
-    "rules": "firestore.rules",
+    "rules": "rules/firestore.rules",
     "indexes": "firestore.indexes.json"
   },
   "storage": {
-    "rules": "storage.rules"
+    "rules": "rules/storage.rules"
   },
   "database": {
-    "rules": "database.rules.json"
+    "rules": "rules/database.rules.json"
   },
   "emulators": {
     "auth": {

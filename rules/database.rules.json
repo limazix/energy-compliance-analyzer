@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "chats": {
+      "$analysisId": {
+        // Allow authenticated users to read/write to specific chat rooms
+        // For production, you should restrict this further, e.g., based on ownership of the analysisId.
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}

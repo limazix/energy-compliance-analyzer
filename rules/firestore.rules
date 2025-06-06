@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Regra para operações em um documento de análise específico
+    match /users/{userId}/analyses/{analysisId} {
+      allow read, write, update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+    // Regra para operações na coleção 'analyses' de um usuário
+    match /users/{userId}/analyses { // Rule for the collection
+      allow list, create: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

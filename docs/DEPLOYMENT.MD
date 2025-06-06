@@ -9,7 +9,7 @@ O projeto é implantado no projeto Firebase `electric-magnitudes-analizer` e con
 
 1.  **Aplicação Next.js:** Implantada no Firebase App Hosting.
 2.  **Funções de Backend (AI, Processamento):** Implantadas como Firebase Functions.
-3.  **Regras de Segurança:** Regras do Firestore, Storage e Realtime Database.
+3.  **Regras de Segurança:** Regras do Firestore, Storage e Realtime Database (localizadas na pasta `rules/`).
 4.  **Índices do Firestore:** (Se houver, gerenciados por `firestore.indexes.json`).
 
 Os workflows de GitHub Actions (na pasta `.github/workflows/`) estão configurados para automatizar o deploy de todas essas partes.
@@ -79,7 +79,7 @@ O sistema de deploy usa uma série de workflows:
     *   Autentica no Google Cloud usando Workload Identity Federation (para Functions e Rules).
     *   **Deploy do App Hosting (Next.js):** Usa a ação `firebase-tools/action-apphosting-deploy@v0` que se autentica usando o `FIREBASE_TOKEN` fornecido pelo GitHub App do Firebase App Hosting.
     *   **Deploy das Firebase Functions:** Usa `firebase deploy --only functions` com as credenciais do WIF.
-    *   **Deploy das Regras do Firebase:** Usa `firebase deploy --only firestore:rules,storage:rules,database:rules` com as credenciais do WIF.
+    *   **Deploy das Regras do Firebase:** Usa `firebase deploy --only firestore:rules,storage:rules,database:rules` com as credenciais do WIF (os arquivos de regras são lidos da pasta `rules/` conforme `firebase.json`).
 
 ## Deployment Manual
 
@@ -133,12 +133,11 @@ Se precisar fazer deploy manual:
 
 ### 3. Deploy das Regras de Segurança e Índices do Firebase
 
-As regras de segurança para Firestore, Firebase Storage e Realtime Database, bem como os índices do Firestore, são cruciais.
+As regras de segurança para Firestore, Firebase Storage e Realtime Database, bem como os índices do Firestore, são cruciais. Os arquivos de regras (`firestore.rules`, `storage.rules`, `database.rules.json`) agora estão localizados na pasta `rules/` e o `firebase.json` aponta para lá.
 
 1.  **Implante as regras e índices:**
     ```bash
     firebase deploy --only firestore,storage,database --project electric-magnitudes-analizer
     ```
     (O comando `firestore` inclui tanto `firestore:rules` quanto `firestore:indexes`. `database` cobre `database:rules`).
-2.  **Verifique as regras no Firebase Console:** Após o deploy, confirme visualmente que as regras no console correspondem aos seus arquivos locais (`firestore.rules`, `storage.rules`, `database.rules.json`).
-```
+2.  **Verifique as regras no Firebase Console:** Após o deploy, confirme visualmente que as regras no console correspondem aos seus arquivos locais (na pasta `rules/`).

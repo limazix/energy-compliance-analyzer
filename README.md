@@ -79,7 +79,7 @@ O Energy Compliance Analyzer simplifica a verificação de conformidade para o s
     No Firebase Console (`electric-magnitudes-analizer` > Authentication > Settings > Authorized domains), adicione `localhost` e outros domínios de desenvolvimento (ex: `*.cloudworkstations.dev`).
 
 6.  **Regras de Segurança do Firebase:**
-    Revise e, se necessário, implante as regras de segurança para Firestore (`firestore.rules`), Storage (`storage.rules`) e Realtime Database (`database.rules.json`) antes de executar localmente ou testar, para garantir que os emuladores ou o projeto Firebase real tenham as permissões corretas.
+    Revise e, se necessário, implante as regras de segurança para Firestore (`rules/firestore.rules`), Storage (`rules/storage.rules`) e Realtime Database (`rules/database.rules.json`) antes de executar localmente ou testar, para garantir que os emuladores ou o projeto Firebase real tenham as permissões corretas.
     Implantação manual (se ainda não feita pelo CI/CD ou se quiser forçar uma atualização):
     `firebase deploy --only firestore,storage,database --project electric-magnitudes-analizer`
 

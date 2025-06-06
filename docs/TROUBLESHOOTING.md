@@ -8,8 +8,8 @@ Este documento fornece um checklist para diagnosticar e resolver erros comuns, i
 Se você encontrar erros de `PERMISSION_DENIED` no Firestore ou Storage, siga este checklist rigorosamente:
 
 1.  **Conteúdo das Regras Locais:**
-    *   Verifique se os arquivos `firestore.rules` e `storage.rules` na raiz do seu projeto contêm as regras esperadas. Por exemplo, para um cenário onde usuários só acessam seus próprios dados:
-    *   **`firestore.rules` esperado:**
+    *   Verifique se os arquivos `rules/firestore.rules` e `rules/storage.rules` na pasta `rules/` do seu projeto contêm as regras esperadas. Por exemplo, para um cenário onde usuários só acessam seus próprios dados:
+    *   **`rules/firestore.rules` esperado:**
         ```javascript
         rules_version = '2';
         service cloud.firestore {
@@ -25,7 +25,7 @@ Se você encontrar erros de `PERMISSION_DENIED` no Firestore ou Storage, siga es
           }
         }
         ```
-    *   **`storage.rules` esperado:**
+    *   **`rules/storage.rules` esperado:**
         ```javascript
         rules_version = '2';
         service firebase.storage {
@@ -50,13 +50,13 @@ Se você encontrar erros de `PERMISSION_DENIED` no Firestore ou Storage, siga es
 
 4.  **Deployment das Regras (para deploy manual):**
     *   Execute `firebase deploy --only firestore:rules,storage:rules --project electric-magnitudes-analizer`.
-    *   Observe a saída para sucesso e para confirmar que o deploy foi para o projeto `electric-magnitudes-analizer`.
+    *   Observe a saída para sucesso e para confirmar que o deploy foi para o projeto `electric-magnitudes-analizer`. O CLI usará os caminhos definidos em `firebase.json` (agora apontando para a pasta `rules/`).
 
 5.  **VERIFICAÇÃO CRÍTICA E VISUAL - Regras Ativas no Firebase Console:**
     *   Abra o Firebase Console ([console.firebase.google.com](https://console.firebase.google.com/)).
     *   Selecione o projeto `electric-magnitudes-analizer`.
-    *   Vá para **Firestore Database > Aba "Regras"**. Compare o texto COMPLETO das regras exibidas aqui com o conteúdo do seu arquivo `firestore.rules` local. Eles devem ser *idênticos*.
-    *   Faça o mesmo para **Storage > Aba "Regras"**, comparando com seu arquivo `storage.rules` local.
+    *   Vá para **Firestore Database > Aba "Regras"**. Compare o texto COMPLETO das regras exibidas aqui com o conteúdo do seu arquivo `rules/firestore.rules` local. Eles devem ser *idênticos*.
+    *   Faça o mesmo para **Storage > Aba "Regras"**, comparando com seu arquivo `rules/storage.rules` local.
     *   **Se as regras no console não forem as esperadas, o deploy falhou, foi para o projeto errado, ou o deploy automático (se configurado) não está funcionando como esperado.** Este é o ponto mais comum de falha.
 
 6.  **Logs do Servidor Next.js (e Console do Navegador):**
@@ -82,8 +82,8 @@ Seguir este checklist rigorosamente geralmente resolve a maioria dos problemas d
 
 Se você tiver problemas com o chat do relatório (que usa RTDB):
 
-1.  **Conteúdo das Regras Locais (`database.rules.json`):**
-    *   Verifique se `database.rules.json` na raiz do projeto permite acesso aos caminhos do chat. Exemplo:
+1.  **Conteúdo das Regras Locais (`rules/database.rules.json`):**
+    *   Verifique se `rules/database.rules.json` na pasta `rules/` do projeto permite acesso aos caminhos do chat. Exemplo:
         ```json
         {
           "rules": {
@@ -108,7 +108,7 @@ Se você tiver problemas com o chat do relatório (que usa RTDB):
 
 4.  **VERIFICAÇÃO CRÍTICA E VISUAL - Regras Ativas no Firebase Console:**
     *   Abra o Firebase Console (`electric-magnitudes-analizer`).
-    *   Vá para **Realtime Database > Aba "Regras"**. Compare com seu `database.rules.json` local.
+    *   Vá para **Realtime Database > Aba "Regras"**. Compare com seu `rules/database.rules.json` local.
 
 5.  **Logs do Console do Navegador:**
     *   Procure por erros de conexão com o RTDB ou mensagens de "PERMISSION_DENIED" específicas do RTDB.
