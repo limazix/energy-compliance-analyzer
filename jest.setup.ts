@@ -30,13 +30,12 @@ jest.mock('next/navigation', () => ({
 jest.mock('lucide-react', () => {
     const icons = {};
     const handler = {
-        get: (target: any, prop: any) => {
+        get: (_target: any, prop: any) => {
             if (prop === '__esModule') return true;
             // Return a mock component for any icon name
             return (props: any) => {
-              const { children, ...restProps } = props || {}; // Corrigido aqui
-              const Tag = 'svg';
-              return <Tag data-lucide-mock={String(prop)} {...restProps}>{children}</Tag>;
+              const { children, ...restProps } = props || {};
+              return <svg data-lucide-mock={String(prop)} {...restProps}><path d="M12 2v20M17 5H7l-5 7 5 7h10l5-7Z"></path>{children}</svg>;
             }
         }
     };

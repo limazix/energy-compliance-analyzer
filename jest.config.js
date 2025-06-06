@@ -12,6 +12,9 @@ const customJestConfig = {
   testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // Mock lucid-react to return SVG elements directly
+    'lucide-react': '<rootDir>/__mocks__/lucide-react.js',
+
   },
   transformIgnorePatterns: [
     // Whitelist specific ESM modules for transformation.
@@ -24,5 +27,4 @@ const customJestConfig = {
   clearMocks: true,
 };
 
-// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
 module.exports = createJestConfig(customJestConfig);
