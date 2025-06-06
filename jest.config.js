@@ -12,9 +12,7 @@ const customJestConfig = {
   testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    // Mock lucid-react to return SVG elements directly
-    'lucide-react': '<rootDir>/__mocks__/lucide-react.js',
-
+    // A entrada para 'lucide-react' foi removida daqui, pois o mock está em jest.setup.js
   },
   transformIgnorePatterns: [
     // Whitelist specific ESM modules for transformation.
