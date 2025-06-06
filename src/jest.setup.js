@@ -1,4 +1,3 @@
-
 // Optional: configure or set up a testing framework before each test.
 // If you delete this file, remove `setupFilesAfterEnv` from `jest.config.js`
 
@@ -6,6 +5,7 @@
 // Learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
 import { Timestamp } from 'firebase/firestore';
+import React from 'react'; // Import React
 
 // Mock Next.js router
 const mockRouterPush = jest.fn();
@@ -30,13 +30,20 @@ jest.mock('next/navigation', () => ({
 jest.mock('lucide-react', () => {
     const icons = {};
     const handler = {
-        get: (target, prop) => {
+        get: (_target, prop) => { // _target é o objeto proxy, prop é o nome do ícone
             if (prop === '__esModule') return true;
-            // Return a mock component for any icon name
-            return (props) => {
+            // Retorna um componente funcional mockado para qualquer ícone
+            const MockLucideIcon = (props) => {
               const { children, ...restProps } = props || {};
-              return <svg data-lucide-mock={String(prop)} {...restProps}>{children}</svg>;
-            }
+              // Usar React.createElement para criar o elemento SVG
+              return React.createElement(
+                'svg', // tipo do elemento
+                { 'data-lucide-mock': String(prop), ...restProps }, // propriedades
+                children // filhos
+              );
+            };
+            MockLucideIcon.displayName = `LucideMock(${String(prop)})`; // Útil para debugging
+            return MockLucideIcon;
         }
     };
     return new Proxy(icons, handler);
@@ -53,17 +60,13 @@ jest.mock('@/hooks/use-toast', () => ({
 // Mock next-mdx-remote/rsc
 // This will prevent Jest from trying to parse its ESM code.
 jest.mock('next-mdx-remote/rsc', () => {
-  const React = require('react');
+  // const React = require('react'); // React já está importado no topo
   return {
     MDXRemote: jest.fn((props) => {
-      // Simple mock: renders the 'source' prop (which is usually the MDX string or compiled result)
-      // You can make this more sophisticated if your tests need to assert specific rendered output from MDX.
-      // For now, just rendering something identifiable.
       let content = '';
       if (typeof props.source === 'string') {
         content = props.source;
       } else if (props.source && typeof props.source === 'object') {
-        // If source is an object (like compiled MDX), stringify it or extract relevant part
         content = JSON.stringify(props.source);
       }
       return React.createElement('div', { 'data-testid': 'mock-mdx-remote' }, content);
