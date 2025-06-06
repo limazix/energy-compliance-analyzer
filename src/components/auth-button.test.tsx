@@ -113,7 +113,8 @@ describe('AuthButton', () => {
     it('renders user avatar and name as dropdown trigger', () => {
       render(<AuthButton />);
       expect(screen.getByText(mockUser.displayName.split(' ')[0])).toBeInTheDocument();
-      expect(screen.getByAltText(mockUser.displayName ?? 'User Avatar')).toBeInTheDocument();
+      // Check for AvatarFallback content since image won't load in JSDOM
+      expect(screen.getByText(mockUser.displayName.charAt(0).toUpperCase())).toBeInTheDocument();
     });
 
     it('shows user info and logout button in dropdown menu when opened', () => {
@@ -168,3 +169,4 @@ describe('AuthButton', () => {
     });
   });
 });
+
