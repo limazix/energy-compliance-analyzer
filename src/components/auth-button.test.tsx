@@ -117,15 +117,16 @@ describe('AuthButton', () => {
       expect(screen.getByText(mockUser.displayName.charAt(0).toUpperCase())).toBeInTheDocument();
     });
 
-    it('shows user info and logout button in dropdown menu when opened', () => {
+    it('shows user info and logout button in dropdown menu when opened', async () => {
       render(<AuthButton />);
       const triggerButton = screen.getByText(mockUser.displayName.split(' ')[0]);
       fireEvent.click(triggerButton); // Open dropdown
 
-      expect(screen.getByText(mockUser.displayName)).toBeInTheDocument();
-      expect(screen.getByText(mockUser.email)).toBeInTheDocument();
-      expect(screen.getByRole('menuitem', { name: /Configurações/i })).toBeInTheDocument();
-      expect(screen.getByRole('menuitem', { name: /Sair/i })).toBeInTheDocument();
+      // Use findBy* for elements that appear asynchronously or within portals
+      expect(await screen.findByText(mockUser.displayName)).toBeInTheDocument();
+      expect(await screen.findByText(mockUser.email)).toBeInTheDocument();
+      expect(await screen.findByRole('menuitem', { name: /Configurações/i })).toBeInTheDocument();
+      expect(await screen.findByRole('menuitem', { name: /Sair/i })).toBeInTheDocument();
     });
 
     it('calls signOut on logout button click and navigates to /login', async () => {
@@ -135,7 +136,7 @@ describe('AuthButton', () => {
       const triggerButton = screen.getByText(mockUser.displayName.split(' ')[0]);
       fireEvent.click(triggerButton); // Open dropdown
       
-      const logoutButton = screen.getByRole('menuitem', { name: /Sair/i });
+      const logoutButton = await screen.findByRole('menuitem', { name: /Sair/i }); // Use findByRole here as well
       fireEvent.click(logoutButton);
 
       expect(mockSignOut).toHaveBeenCalledTimes(1);
@@ -150,7 +151,8 @@ describe('AuthButton', () => {
       render(<AuthButton />);
       
       fireEvent.click(screen.getByText(mockUser.displayName.split(' ')[0])); // Open dropdown
-      fireEvent.click(screen.getByRole('menuitem', { name: /Sair/i }));
+      const logoutButton = await screen.findByRole('menuitem', { name: /Sair/i }); // Use findByRole
+      fireEvent.click(logoutButton);
 
       // Check that the error was logged
       await waitFor(() => {
@@ -160,10 +162,10 @@ describe('AuthButton', () => {
       consoleErrorSpy.mockRestore();
     });
 
-    it('handles clicking settings (currently no navigation)', () => {
+    it('handles clicking settings (currently no navigation)', async () => {
       render(<AuthButton />);
       fireEvent.click(screen.getByText(mockUser.displayName.split(' ')[0])); // Open dropdown
-      const settingsButton = screen.getByRole('menuitem', { name: /Configurações/i });
+      const settingsButton = await screen.findByRole('menuitem', { name: /Configurações/i }); // Use findByRole
       fireEvent.click(settingsButton);
       // No assertion on navigation as it's a TODO
     });
