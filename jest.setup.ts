@@ -6,6 +6,7 @@
 // Learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
 import { Timestamp } from 'firebase/firestore';
+import React from 'react';
 
 // Mock Next.js router
 const mockRouterPush = jest.fn();
@@ -33,10 +34,17 @@ jest.mock('lucide-react', () => {
         get: (_target: any, prop: any) => {
             if (prop === '__esModule') return true;
             // Return a mock component for any icon name
-            return (props: any) => {
+            const MockLucideIcon = (props: any) => {
               const { children, ...restProps } = props || {};
-              return <svg data-lucide-mock={String(prop)} {...restProps}><path d="M12 2v20M17 5H7l-5 7 5 7h10l5-7Z"></path>{children}</svg>;
-            }
+              // Use React.createElement to create the SVG element
+              return React.createElement(
+                'svg',
+                { 'data-lucide-mock': String(prop), ...restProps },
+                children
+              );
+            };
+            MockLucideIcon.displayName = `LucideMock(${String(prop)})`;
+            return MockLucideIcon;
         }
     };
     return new Proxy(icons, handler);
