@@ -34,7 +34,7 @@ jest.mock('lucide-react', () => {
             if (prop === '__esModule') return true;
             // Return a mock component for any icon name
             return (props: any) => {
-              const { children, ...restProps } = props || {}; // Corrected here
+              const { children, ...restProps } = props || {}; // Corrigido aqui
               const Tag = 'svg';
               return <Tag data-lucide-mock={String(prop)} {...restProps}>{children}</Tag>;
             }
