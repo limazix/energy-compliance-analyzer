@@ -1,10 +1,10 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /user_uploads/{userId}/{analysisId}/{allPaths=**} {
+    match /user_uploads/{userId}/{analysisId}/{allPaths=**} { // Ajustado para incluir analysisId se usado no path
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-    match /user_reports/{userId}/{analysisId}/{allPaths=**} { 
+    match /user_reports/{userId}/{analysisId}/{allPaths=**} { // Para relatórios MDX
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
