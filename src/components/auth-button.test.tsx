@@ -123,7 +123,8 @@ describe('AuthButton', () => {
       fireEvent.click(triggerButton); // Open dropdown
 
       // Wait for the menu itself to appear
-      const menu = await screen.findByRole('menu');
+      const menu = await screen.findByTestId('auth-dropdown-menu');
+      expect(menu).toBeInTheDocument();
 
       // Now query within the menu for the text
       expect(within(menu).getByText(mockUser.displayName)).toBeInTheDocument();
@@ -140,7 +141,7 @@ describe('AuthButton', () => {
       fireEvent.click(triggerButton); // Open dropdown
       
       // Wait for the menu and then the item
-      const menu = await screen.findByRole('menu');
+      const menu = await screen.findByTestId('auth-dropdown-menu');
       const logoutButton = within(menu).getByRole('menuitem', { name: /Sair/i });
       fireEvent.click(logoutButton);
 
@@ -156,7 +157,7 @@ describe('AuthButton', () => {
       render(<AuthButton />);
       
       fireEvent.click(screen.getByText(mockUser.displayName.split(' ')[0])); // Open dropdown
-      const menu = await screen.findByRole('menu');
+      const menu = await screen.findByTestId('auth-dropdown-menu');
       const logoutButton = within(menu).getByRole('menuitem', { name: /Sair/i });
       fireEvent.click(logoutButton);
 
@@ -171,7 +172,7 @@ describe('AuthButton', () => {
     it('handles clicking settings (currently no navigation)', async () => {
       render(<AuthButton />);
       fireEvent.click(screen.getByText(mockUser.displayName.split(' ')[0])); // Open dropdown
-      const menu = await screen.findByRole('menu');
+      const menu = await screen.findByTestId('auth-dropdown-menu');
       const settingsButton = within(menu).getByRole('menuitem', { name: /Configurações/i });
       fireEvent.click(settingsButton);
       // No assertion on navigation as it's a TODO
