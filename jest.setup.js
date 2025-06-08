@@ -8,6 +8,23 @@ import '@testing-library/jest-dom';
 import { Timestamp } from 'firebase/firestore';
 import React from 'react'; // Import React for createElement
 
+// --- Mock Firebase Env Vars for Jest ---
+// These are documented in README.md and expected to be set by the testing environment/CI
+// For local testing, you might use a .env.test file loaded by Jest or set them in your shell.
+// Example:
+// process.env.NEXT_PUBLIC_FIREBASE_CONFIG = JSON.stringify({
+//   apiKey: "test-api-key",
+//   authDomain: "test-project.firebaseapp.com",
+//   projectId: "test-project",
+//   storageBucket: "test-project.appspot.com",
+//   messagingSenderId: "1234567890",
+//   appId: "test-app-id",
+//   measurementId: "test-measurement-id",
+//   databaseURL: "http://localhost:9000/?ns=test-project", // Crucial for RTDB
+// });
+// process.env.NEXT_PUBLIC_GEMINI_API_KEY = "test-gemini-api-key";
+// --- End Mock Firebase Env Vars ---
+
 // Mock Next.js router
 const mockRouterPush = jest.fn();
 const mockRouterReplace = jest.fn();
@@ -166,75 +183,71 @@ global.requestAnimationFrame = jest.fn(cb => {
 });
 global.cancelAnimationFrame = jest.fn();
 
-// To deal with "Could not parse CSS stylesheet" from Radix UI in tests
+// Refined window.getComputedStyle mock for Radix UI
 if (typeof window !== 'undefined') {
   const originalGetComputedStyle = window.getComputedStyle;
   window.getComputedStyle = (elt, pseudoElt) => {
+    let style;
     try {
-      // Attempt to use the real getComputedStyle first
-      const actualStyle = originalGetComputedStyle(elt, pseudoElt);
-      // If it returns something, and doesn't throw, use it.
-      // Radix might be causing an error with specific elements (like <template> if used internally).
-      if (actualStyle) return actualStyle;
-    } catch (e) {
-      // If the original getComputedStyle throws, then fall back to the mock.
-      // This happens with some elements in JSDOM that Radix might interact with.
-      // console.warn(`jsdom.getComputedStyle error for element ${elt.tagName}, falling back to mock. Error: ${e.message}`);
-    }
-    
-    // Fallback mock, ensuring it's a compliant CSSStyleDeclaration-like object
-    const mockStyle = Object.create(CSSStyleDeclaration.prototype);
-    
-    // Essential properties Radix UI might check for layout/visibility
-    mockStyle.display = 'block'; 
-    mockStyle.opacity = '1';
-    mockStyle.visibility = 'visible';
-    mockStyle.position = 'static'; // Common default
-    mockStyle.pointerEvents = 'auto'; // Common default
-    mockStyle.animationName = 'none';
-    mockStyle.transitionProperty = 'none';
-    // Add other common properties with default "non-interfering" values
-    mockStyle.width = 'auto';
-    mockStyle.height = 'auto';
-    mockStyle.margin = '0px';
-    mockStyle.padding = '0px';
-    mockStyle.border = '0px none rgb(0, 0, 0)';
-    mockStyle.overflow = 'visible';
-    
-    // This function needs to exist and return something.
-    mockStyle.getPropertyValue = (propertyName) => {
-      // Convert kebab-case to camelCase for direct property access
-      const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-      if (mockStyle.hasOwnProperty(camelCaseProperty)) {
-        return mockStyle[camelCaseProperty];
+      style = originalGetComputedStyle(elt, pseudoElt);
+      // If the original works and returns a valid style object, use it.
+      if (style && typeof style.getPropertyValue === 'function') {
+        return style;
       }
-      // console.debug(`getPropertyValue for unmocked CSS property: ${propertyName}, returning empty string`);
-      return ''; // Default for unmocked properties
+    } catch (e) {
+      // Original failed, fall through to mock
+      // console.warn(`Original getComputedStyle failed for ${elt.tagName}: ${e.message}. Using fallback.`);
+    }
+
+    // Fallback mock if originalGetComputedStyle fails or returns an unusable object
+    const properties = {
+      display: 'block',
+      opacity: '1',
+      visibility: 'visible',
+      position: 'static',
+      pointerEvents: 'auto',
+      animationName: 'none',
+      transitionProperty: 'none',
+      width: 'auto',
+      height: 'auto',
+      margin: '0px',
+      padding: '0px',
+      border: '0px none rgb(0, 0, 0)',
+      overflow: 'visible',
+      // Add other common properties with default "non-interfering" values
     };
 
-    // Ensure 'length' and 'item' are present as Radix might iterate
-    const ownProperties = Object.keys(mockStyle);
-    mockStyle.length = ownProperties.length;
-    mockStyle.item = (index) => ownProperties[index] || '';
-    
-    mockStyle.setProperty = (property, value, priority) => {
-      const camelCaseProperty = property.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-      mockStyle[camelCaseProperty] = value;
-      // Re-calculate length if needed, though unlikely to be critical for most tests
-      const currentOwnProperties = Object.keys(mockStyle);
-      mockStyle.length = currentOwnProperties.length;
+    const mockStyle = {
+      ...properties,
+      getPropertyValue: (propertyName) => {
+        const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        return properties[camelCaseProperty] || '';
+      },
+      length: Object.keys(properties).length,
+      item: (index) => Object.keys(properties)[index] || '',
+      setProperty: (propertyName, value, priority) => {
+        const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        properties[camelCaseProperty] = value;
+        mockStyle.length = Object.keys(properties).length;
+      },
+      removeProperty: (propertyName) => {
+        const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        const oldValue = properties[camelCaseProperty];
+        delete properties[camelCaseProperty];
+        mockStyle.length = Object.keys(properties).length;
+        return oldValue || '';
+      },
     };
-    mockStyle.removeProperty = (property) => {
-      const camelCaseProperty = property.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-      const oldValue = mockStyle[camelCaseProperty];
-      delete mockStyle[camelCaseProperty];
-      // Re-calculate length
-      const currentOwnProperties = Object.keys(mockStyle);
-      mockStyle.length = currentOwnProperties.length;
-      return oldValue || '';
-    };
     
-    return mockStyle;
+    // Ensure it behaves somewhat like CSSStyleDeclaration for iteration if needed
+    for (let i = 0; i < mockStyle.length; i++) {
+        const key = mockStyle.item(i);
+        if (key) {
+            mockStyle[i] = key;
+        }
+    }
+    
+    return mockStyle as CSSStyleDeclaration;
   };
 }
 
@@ -297,15 +310,12 @@ export const mockAuthContext = (user, loading = false) => {
   return useAuthActual;
 };
 
-// Environment variables for tests are expected to be set externally (e.g., via .env.test or shell)
-// Refer to README.md for required variables.
+// Ensure EMULATORS_CONNECTED is available globally for tests if needed
 global.EMULATORS_CONNECTED = !!process.env.FIRESTORE_EMULATOR_HOST;
 
-console.log(`EMULATORS_CONNECTED: ${global.EMULATORS_CONNECTED}`);
+console.debug(`[JestSetup] EMULATORS_CONNECTED: ${global.EMULATORS_CONNECTED}`);
 if (global.EMULATORS_CONNECTED) {
-  console.log('Jest setup: Firebase SDKs should connect to emulators.');
+  console.info('[JestSetup] Firebase SDKs should connect to emulators.');
 } else {
-  console.warn('Jest setup: Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail if they rely on emulator behavior.');
+  console.warn('[JestSetup] Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail if they rely on emulator behavior.');
 }
-
-    
