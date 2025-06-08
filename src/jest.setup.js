@@ -9,8 +9,6 @@ import { Timestamp } from 'firebase/firestore';
 import React from 'react'; // Import React for createElement
 
 // --- Mock Firebase Env Vars for Jest ---
-// These are needed for src/lib/firebase.ts to initialize without error during tests.
-// The actual Firebase services (Auth, Firestore, etc.) should be mocked if tests interact with them directly.
 process.env.NEXT_PUBLIC_FIREBASE_CONFIG = JSON.stringify({
   apiKey: "test-api-key",
   authDomain: "test-project.firebaseapp.com",
@@ -19,11 +17,10 @@ process.env.NEXT_PUBLIC_FIREBASE_CONFIG = JSON.stringify({
   messagingSenderId: "1234567890",
   appId: "test-app-id",
   measurementId: "test-measurement-id",
-  databaseURL: "https://test-project-default-rtdb.firebaseio.com", // Added databaseURL
+  databaseURL: "https://test-project-default-rtdb.firebaseio.com",
 });
 process.env.NEXT_PUBLIC_GEMINI_API_KEY = "test-gemini-api-key";
 // --- End Mock Firebase Env Vars ---
-
 
 // Mock Next.js router
 const mockRouterPush = jest.fn();
@@ -41,7 +38,7 @@ jest.mock('next/navigation', () => ({
   }),
   usePathname: jest.fn(() => '/'),
   useSearchParams: jest.fn(() => new URLSearchParams()),
-  useParams: jest.fn(() => ({})), // Mock useParams, useful for dynamic routes like report/[analysisId]
+  useParams: jest.fn(() => ({})),
 }));
 
 // Mock lucide-react icons
@@ -50,10 +47,8 @@ jest.mock('lucide-react', () => {
     const handler = {
         get: (_target, prop) => {
             if (prop === '__esModule') return true;
-            // Return a mock component for any icon name
             const MockLucideIcon = (props) => {
               const { children, ...restProps } = props || {};
-              // Use React.createElement to create the SVG element
               return React.createElement(
                 'svg',
                 { 'data-lucide-mock': String(prop), ...restProps },
@@ -77,7 +72,6 @@ jest.mock('@/hooks/use-toast', () => ({
 
 // Mock next-mdx-remote/rsc
 jest.mock('next-mdx-remote/rsc', () => {
-  // const React = require('react'); // React is already imported at the top
   return {
     MDXRemote: jest.fn((props) => {
       let content = '';
@@ -94,7 +88,6 @@ jest.mock('next-mdx-remote/rsc', () => {
 // Mock remark plugins that are ESM-only
 jest.mock('remark-gfm', () => jest.fn());
 jest.mock('remark-mermaidjs', () => jest.fn());
-
 
 // Server Actions Mocks
 jest.mock('@/features/analysis-listing/actions/analysisListingActions', () => ({
@@ -124,7 +117,6 @@ jest.mock('@/features/tag-management/actions/tagActions', () => ({
     removeTagAction: jest.fn(() => Promise.resolve()),
 }));
 
-
 // Mock useAnalysisManager
 global.mockUseAnalysisManagerReturnValue = {
   currentAnalysis: null,
@@ -144,11 +136,9 @@ global.mockUseAnalysisManagerReturnValue = {
   downloadReportAsTxt: jest.fn(),
   displayedAnalysisSteps: [],
 };
-
 jest.mock('@/hooks/useAnalysisManager', () => ({
   useAnalysisManager: jest.fn(() => global.mockUseAnalysisManagerReturnValue),
 }));
-
 
 // Mock useFileUploadManager
 const mockUploadFileAndCreateRecord = jest.fn(() => Promise.resolve({ analysisId: 'mock-analysis-upload-id', fileName: 'mock-file.csv', error: null }));
@@ -164,8 +154,56 @@ jest.mock('@/features/file-upload/hooks/useFileUploadManager', () => ({
   useFileUploadManager: jest.fn(() => global.mockUseFileUploadManagerReturnValue),
 }));
 
-
 global.Timestamp = Timestamp;
+
+// JSDOM API Mocks for Radix UI and other libraries
+global.ResizeObserver = jest.fn().mockImplementation(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn(),
+}));
+
+window.matchMedia = jest.fn().mockImplementation(query => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener: jest.fn(), // deprecated
+  removeListener: jest.fn(), // deprecated
+  addEventListener: jest.fn(),
+  removeEventListener: jest.fn(),
+  dispatchEvent: jest.fn(),
+}));
+
+global.requestAnimationFrame = jest.fn(cb => {
+  if (typeof cb === 'function') cb(0);
+  return 0; // return a number
+});
+global.cancelAnimationFrame = jest.fn();
+
+// To deal with "Could not parse CSS stylesheet" from Radix UI in tests
+if (typeof window !== 'undefined') {
+  const originalGetComputedStyle = window.getComputedStyle;
+  window.getComputedStyle = (elt, pseudoElt) => {
+    try {
+      return originalGetComputedStyle(elt, pseudoElt);
+    } catch (error) {
+      console.warn('jsdom.getComputedStyle failed for element, returning a mock CSSStyleDeclaration. Error:', error.message);
+      const style = {
+        animationName: 'none',
+        transitionProperty: 'none',
+        display: 'block',
+        getPropertyValue: (prop) => '',
+        length: 0,
+        parentRule: null,
+        item: () => '',
+        setProperty: () => {},
+        removeProperty: () => {},
+        ...Array.from({ length: 0 }).reduce((acc, _, i) => ({ ...acc, [i]: undefined }), {})
+      };
+      return style;
+    }
+  };
+}
 
 
 // Clear all mocks before each test
@@ -189,34 +227,32 @@ beforeEach(() => {
   global.mockUseAnalysisManagerReturnValue.handleCancelAnalysis.mockClear().mockResolvedValue(undefined);
   global.mockUseAnalysisManagerReturnValue.downloadReportAsTxt.mockClear();
 
-
   // Reset global useFileUploadManager mock state
-   global.mockUseFileUploadManagerReturnValue.fileToUpload = null;
-   global.mockUseFileUploadManagerReturnValue.isUploading = false;
-   global.mockUseFileUploadManagerReturnValue.uploadProgress = 0;
-   global.mockUseFileUploadManagerReturnValue.uploadError = null;
+  global.mockUseFileUploadManagerReturnValue.fileToUpload = null;
+  global.mockUseFileUploadManagerReturnValue.isUploading = false;
+  global.mockUseFileUploadManagerReturnValue.uploadProgress = 0;
+  global.mockUseFileUploadManagerReturnValue.uploadError = null;
   global.mockUseFileUploadManagerReturnValue.handleFileSelection.mockClear();
   global.mockUseFileUploadManagerReturnValue.uploadFileAndCreateRecord.mockClear().mockResolvedValue({ analysisId: 'mock-analysis-upload-id', fileName: 'mock-file.csv', error: null });
-
 
   // Reset server action mocks
   jest.requireMock('@/features/analysis-listing/actions/analysisListingActions').getPastAnalysesAction.mockClear().mockResolvedValue([]);
   jest.requireMock('@/features/file-upload/actions/fileUploadActions').createInitialAnalysisRecordAction.mockClear().mockImplementation(
     (userId, fileName) => Promise.resolve({ analysisId: `mock-analysis-id-for-${fileName}` })
   );
-   jest.requireMock('@/features/report-viewing/actions/reportViewingActions').getAnalysisReportAction.mockClear().mockResolvedValue(
-     { mdxContent: '# Mock Report Default', fileName: 'mock-report-default.csv', analysisId: 'default-mock-analysis-id', error: null }
-   );
-   jest.requireMock('@/features/report-chat/actions/reportChatActions').askReportOrchestratorAction.mockClear().mockResolvedValue(
-     { success: true, aiMessageRtdbKey: 'mock-ai-key-default' }
-   );
-   jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').deleteAnalysisAction.mockClear().mockResolvedValue(undefined);
-   jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').cancelAnalysisAction.mockClear().mockResolvedValue({ success: true });
-   jest.requireMock('@/features/analysis-processing/actions/analysisProcessingActions').processAnalysisFile.mockClear().mockResolvedValue({ success: true, analysisId: 'mock-analysis-id' });
-   jest.requireMock('@/features/tag-management/actions/tagActions').addTagToAction.mockClear().mockResolvedValue(undefined);
-   jest.requireMock('@/features/tag-management/actions/tagActions').removeTagAction.mockClear().mockResolvedValue(undefined);
-
+  jest.requireMock('@/features/report-viewing/actions/reportViewingActions').getAnalysisReportAction.mockClear().mockResolvedValue(
+    { mdxContent: '# Mock Report Default', fileName: 'mock-report-default.csv', analysisId: 'default-mock-analysis-id', error: null }
+  );
+  jest.requireMock('@/features/report-chat/actions/reportChatActions').askReportOrchestratorAction.mockClear().mockResolvedValue(
+    { success: true, aiMessageRtdbKey: 'mock-ai-key-default' }
+  );
+  jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').deleteAnalysisAction.mockClear().mockResolvedValue(undefined);
+  jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').cancelAnalysisAction.mockClear().mockResolvedValue({ success: true });
+  jest.requireMock('@/features/analysis-processing/actions/analysisProcessingActions').processAnalysisFile.mockClear().mockResolvedValue({ success: true, analysisId: 'mock-analysis-id' });
+  jest.requireMock('@/features/tag-management/actions/tagActions').addTagToAction.mockClear().mockResolvedValue(undefined);
+  jest.requireMock('@/features/tag-management/actions/tagActions').removeTagAction.mockClear().mockResolvedValue(undefined);
 });
+
 afterEach(() => {
   jest.clearAllMocks();
 });
@@ -235,40 +271,4 @@ if (global.EMULATORS_CONNECTED) {
   console.log('Jest setup: Firebase SDKs should connect to emulators.');
 } else {
   console.warn('Jest setup: Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail.');
-}
-
-// To deal with "Could not parse CSS stylesheet" from Radix UI in tests
-// See: https://github.com/radix-ui/primitives/issues/2269
-if (typeof window !== 'undefined') {
-  const originalGetComputedStyle = window.getComputedStyle;
-  window.getComputedStyle = (elt, pseudoElt) => {
-    try {
-      return originalGetComputedStyle(elt, pseudoElt);
-    } catch (error) {
-      console.warn('jsdom.getComputedStyle failed for element, returning a mock CSSStyleDeclaration. Error:', error.message);
-      // Return a more compliant mock CSSStyleDeclaration
-      // This helps Radix UI and other libraries that rely on getComputedStyle.
-      const style = {
-        // Common properties that might be checked
-        animationName: 'none',
-        transitionProperty: 'none',
-        display: 'block', // A sensible default
-        // Implement getPropertyValue to return a default for any requested CSS property
-        getPropertyValue: (prop) => '',
-        // Add other CSSStyleDeclaration properties as needed if further errors occur
-        // For example: length, parentRule, item(), setProperty(), removeProperty()
-        // However, getPropertyValue is often the most critical one for Radix.
-        length: 0,
-        parentRule: null,
-        item: () => '',
-        setProperty: () => {},
-        removeProperty: () => {},
-        // Make it iterable like a real CSSStyleDeclaration
-        ...Array.from({ length: 0 }).reduce((acc, _, i) => ({ ...acc, [i]: undefined }), {})
-      };
-      // Add a Symbol.iterator to make it iterable if necessary, though often not needed
-      // style[Symbol.iterator] = function*() { /* yield property names if needed */ };
-      return style;
-    }
-  };
 }
