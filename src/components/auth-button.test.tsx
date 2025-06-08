@@ -1,9 +1,9 @@
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'; // Added waitFor
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'; // Added waitFor and within
 import { AuthButton } from './auth-button';
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
 // Import the functions that the component uses so we can get their mocked versions
-import { signInWithPopup, signOut as firebaseSignOutModule } from 'firebase/auth'; 
+import { signInWithPopup, signOut as firebaseSignOutModule } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase'; // auth object is passed to the mocked functions
 
 // Mock useAuth hook
@@ -23,7 +23,7 @@ jest.mock('firebase/auth', () => {
     signInWithPopup: jest.fn(),
     signOut: jest.fn(),
     // Keep other functions like GoogleAuthProvider real if needed elsewhere, or mock as necessary
-    GoogleAuthProvider: actualFirebaseAuth.GoogleAuthProvider, 
+    GoogleAuthProvider: actualFirebaseAuth.GoogleAuthProvider,
   };
 });
 
@@ -73,7 +73,7 @@ describe('AuthButton', () => {
 
       expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
       // auth object and googleProvider are imported from @/lib/firebase and passed to the function
-      expect(mockSignInWithPopup).toHaveBeenCalledWith(auth, googleProvider); 
+      expect(mockSignInWithPopup).toHaveBeenCalledWith(auth, googleProvider);
       
       // Wait for promises to resolve and navigation to occur
       await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/'));
@@ -122,11 +122,14 @@ describe('AuthButton', () => {
       const triggerButton = screen.getByText(mockUser.displayName.split(' ')[0]);
       fireEvent.click(triggerButton); // Open dropdown
 
-      // Use findBy* for elements that appear asynchronously or within portals
-      expect(await screen.findByText(mockUser.displayName)).toBeInTheDocument();
-      expect(await screen.findByText(mockUser.email)).toBeInTheDocument();
-      expect(await screen.findByRole('menuitem', { name: /Configurações/i })).toBeInTheDocument();
-      expect(await screen.findByRole('menuitem', { name: /Sair/i })).toBeInTheDocument();
+      // Wait for the menu itself to appear
+      const menu = await screen.findByRole('menu');
+
+      // Now query within the menu for the text
+      expect(within(menu).getByText(mockUser.displayName)).toBeInTheDocument();
+      expect(within(menu).getByText(mockUser.email)).toBeInTheDocument();
+      expect(within(menu).getByRole('menuitem', { name: /Configurações/i })).toBeInTheDocument();
+      expect(within(menu).getByRole('menuitem', { name: /Sair/i })).toBeInTheDocument();
     });
 
     it('calls signOut on logout button click and navigates to /login', async () => {
@@ -136,7 +139,9 @@ describe('AuthButton', () => {
       const triggerButton = screen.getByText(mockUser.displayName.split(' ')[0]);
       fireEvent.click(triggerButton); // Open dropdown
       
-      const logoutButton = await screen.findByRole('menuitem', { name: /Sair/i }); // Use findByRole here as well
+      // Wait for the menu and then the item
+      const menu = await screen.findByRole('menu');
+      const logoutButton = within(menu).getByRole('menuitem', { name: /Sair/i });
       fireEvent.click(logoutButton);
 
       expect(mockSignOut).toHaveBeenCalledTimes(1);
@@ -151,7 +156,8 @@ describe('AuthButton', () => {
       render(<AuthButton />);
       
       fireEvent.click(screen.getByText(mockUser.displayName.split(' ')[0])); // Open dropdown
-      const logoutButton = await screen.findByRole('menuitem', { name: /Sair/i }); // Use findByRole
+      const menu = await screen.findByRole('menu');
+      const logoutButton = within(menu).getByRole('menuitem', { name: /Sair/i });
       fireEvent.click(logoutButton);
 
       // Check that the error was logged
@@ -165,10 +171,10 @@ describe('AuthButton', () => {
     it('handles clicking settings (currently no navigation)', async () => {
       render(<AuthButton />);
       fireEvent.click(screen.getByText(mockUser.displayName.split(' ')[0])); // Open dropdown
-      const settingsButton = await screen.findByRole('menuitem', { name: /Configurações/i }); // Use findByRole
+      const menu = await screen.findByRole('menu');
+      const settingsButton = within(menu).getByRole('menuitem', { name: /Configurações/i });
       fireEvent.click(settingsButton);
       // No assertion on navigation as it's a TODO
     });
   });
 });
-
