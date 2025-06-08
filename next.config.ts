@@ -26,6 +26,11 @@ const nextConfig: NextConfig = {
     ],
   },
   env: {
+    // NEXT_PUBLIC_FIREBASE_CONFIG is automatically available if set in .env or build environment
+    // We only need to explicitly list other non-NEXT_PUBLIC_ variables here if we want to expose them,
+    // or if we are renaming/aliasing NEXT_PUBLIC_ variables.
+    // Since NEXT_PUBLIC_GEMINI_API_KEY is already prefixed, it's also automatically available.
+    // This block can be used if you need to pass other specific env vars.
     NEXT_PUBLIC_GEMINI_API_KEY: process.env.NEXT_PUBLIC_GEMINI_API_KEY 
   }
 };

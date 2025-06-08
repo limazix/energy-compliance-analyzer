@@ -39,11 +39,9 @@ jobs:
         env:
           # Configure these secrets in your GitHub "development" environment
           GCLOUD_PROJECT: ${{ secrets.GCLOUD_PROJECT }}
-          FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
-          FIREBASE_WEB_CONFIG: ${{ secrets.FIREBASE_WEB_CONFIG }}
+          FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }} # For Firebase Admin/Functions if used in build context
           GCP_REGION: ${{ secrets.GCP_REGION }}
-          NEXT_PUBLIC_FIREBASE_CONFIG: ${{ secrets.NEXT_PUBLIC_FIREBASE_CONFIG }}
-          NEXT_PUBLIC_FIREBASE_WEB_CONFIG: ${{ secrets.NEXT_PUBLIC_FIREBASE_WEB_CONFIG }}
+          NEXT_PUBLIC_FIREBASE_CONFIG: ${{ secrets.NEXT_PUBLIC_FIREBASE_CONFIG }} # Single JSON config for Firebase Web SDK
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
           NODE_OPTIONS: "--max-old-space-size=4096"
