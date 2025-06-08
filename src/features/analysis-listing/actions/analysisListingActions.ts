@@ -7,13 +7,13 @@ import type { Analysis } from '@/types/analysis';
 import type { AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report';
 
 function statusIsValid(status: any): status is Analysis['status'] {
-    const validStatuses: Analysis['status'][] = ['uploading', 'summarizing_data', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted', 'cancelling', 'cancelled'];
+    const validStatuses: Analysis['status'][] = ['uploading', 'summarizing_data', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted', 'cancelling', 'cancelled', 'reviewing_report'];
     return typeof status === 'string' && validStatuses.includes(status as Analysis['status']);
 }
 
 export async function getPastAnalysesAction(userIdInput: string): Promise<Analysis[]> {
   const userId = userIdInput?.trim() ?? '';
-  console.log(`[getPastAnalysesAction] Effective userId: '${userId}' (Input: '${userIdInput}')`);
+  console.debug(`[getPastAnalysesAction] Effective userId: '${userId}' (Input: '${userIdInput}')`);
 
   if (!userId) {
     const errorMsg = `[getPastAnalysesAction] CRITICAL: userId is invalid (input: '${userIdInput}').`;
@@ -21,13 +21,13 @@ export async function getPastAnalysesAction(userIdInput: string): Promise<Analys
     throw new Error(errorMsg);
   }
   const analysesCollectionPath = `users/${userId}/analyses`;
-  console.log(`[getPastAnalysesAction] Fetching for userId: ${userId}, path: '${analysesCollectionPath}', Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
+  console.info(`[getPastAnalysesAction] Fetching for userId: ${userId}, path: '${analysesCollectionPath}', Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
   const analysesCol = collection(db, analysesCollectionPath);
   const q = query(analysesCol, orderBy('createdAt', 'desc'));
 
   try {
     const snapshot = await getDocs(q);
-    console.log(`[getPastAnalysesAction] Found ${snapshot.docs.length} analyses for userId: ${userId}`);
+    console.info(`[getPastAnalysesAction] Found ${snapshot.docs.length} analyses for userId: ${userId}`);
 
     const mapTimestampToISO = (timestampFieldValue: any): string | undefined => {
       if (timestampFieldValue && typeof timestampFieldValue.toDate === 'function') {
@@ -82,3 +82,6 @@ export async function getPastAnalysesAction(userIdInput: string): Promise<Analys
     throw new Error(`Falha ao buscar análises: ${originalErrorMessage}`);
   }
 }
+
+
+    

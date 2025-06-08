@@ -22,7 +22,7 @@ export async function createInitialAnalysisRecordAction(
   const finalLanguageCode = languageCode?.trim() || 'pt-BR';
 
 
-  console.log(`[Action_createInitialAnalysisRecord] Received: userId='${userId}', fileName='${trimmedFileName}', title='${finalTitle}', description='${finalDescription}', lang='${finalLanguageCode}'`);
+  console.debug(`[Action_createInitialAnalysisRecord] Received: userId='${userId}', fileName='${trimmedFileName}', title='${finalTitle}', description='${finalDescription}', lang='${finalLanguageCode}'`);
 
   if (!userId) {
     const msg = `[Action_createInitialAnalysisRecord] CRITICAL: userId is invalid. Input: '${userIdInput}'. Aborting.`;
@@ -58,12 +58,12 @@ export async function createInitialAnalysisRecordAction(
 
   const analysisCollectionPath = `users/${userId}/analyses`;
   const currentProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET_OR_EMPTY';
-  console.log(`[Action_createInitialAnalysisRecord] Adding doc to Firestore. Path: '${analysisCollectionPath}'. Project: '${currentProjectId}'`);
+  console.info(`[Action_createInitialAnalysisRecord] Adding doc to Firestore. Path: '${analysisCollectionPath}'. Project: '${currentProjectId}'`);
 
   try {
     const analysisCollectionRef = collection(db, 'users', userId, 'analyses');
     const docRef = await addDoc(analysisCollectionRef, analysisDataForFirestore);
-    console.log(`[Action_createInitialAnalysisRecord] Document created: ${docRef.id} for user ${userId}`);
+    console.info(`[Action_createInitialAnalysisRecord] Document created: ${docRef.id} for user ${userId}`);
     return { analysisId: docRef.id };
   } catch (error) {
     let errorMessage = 'Falha ao criar registro inicial da análise.';
@@ -111,7 +111,6 @@ export async function updateAnalysisUploadProgressAction(
     });
     return { success: true };
   } catch (error) {
-    // ... (error handling as before)
     let errorMessage = 'Falha ao atualizar progresso do upload.';
      if (error instanceof FirestoreError) {
       errorMessage = `Falha Firestore (progresso upload): ${error.code} ${error.message}`;
@@ -161,10 +160,9 @@ export async function finalizeFileUploadRecordAction(
       summary: null, 
       completedAt: null,
     });
-    console.log(`[Action_finalizeUpload] Doc ${analysisId} updated. Status 'summarizing_data', ready for Function.`);
+    console.info(`[Action_finalizeUpload] Doc ${analysisId} updated. Status 'summarizing_data', ready for Function.`);
     return { success: true };
   } catch (error) {
-    // ... (error handling as before)
     let errorMessage = 'Falha ao finalizar registro do upload.';
      if (error instanceof FirestoreError) {
       errorMessage = `Falha Firestore (finalizar upload): ${error.code} ${error.message}`;
@@ -210,10 +208,9 @@ export async function markUploadAsFailedAction(
       progress: 0,
       uploadProgress: 0,
     });
-    console.log(`[Action_markUploadFailed] Doc ${analysisId} marked as error due to upload failure.`);
+    console.info(`[Action_markUploadFailed] Doc ${analysisId} marked as error due to upload failure.`);
     return { success: true };
   } catch (error) {
-    // ... (error handling as before)
     let errorMessage = 'Falha ao marcar upload como falho.';
      if (error instanceof FirestoreError) {
       errorMessage = `Falha Firestore (marcar falha upload): ${error.code} ${error.message}`;
@@ -224,3 +221,6 @@ export async function markUploadAsFailedAction(
     return { success: false, error: errorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH) };
   }
 }
+
+
+    

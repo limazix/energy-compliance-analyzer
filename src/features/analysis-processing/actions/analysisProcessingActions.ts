@@ -15,7 +15,7 @@ export async function processAnalysisFile(
   const userId = userIdInput?.trim() ?? '';
   const analysisId = analysisIdInput?.trim() ?? '';
 
-  console.log(`[Action_processAnalysisFile] Triggered for analysisId: ${analysisId} (input: ${analysisIdInput}), userId: ${userId} (input: ${userIdInput})`);
+  console.info(`[Action_processAnalysisFile] Triggered for analysisId: ${analysisId} (input: ${analysisIdInput}), userId: ${userId} (input: ${userIdInput})`);
 
   if (!userId) {
     const criticalMsg = `[Action_processAnalysisFile] CRITICAL: userId is invalid ('${userIdInput}' -> '${userId}') for analysisId: ${analysisId || 'N/A'}. Aborting.`;
@@ -55,7 +55,7 @@ export async function processAnalysisFile(
     // If the analysis was in an error state, or uploading, reset to 'summarizing_data' to allow the Firebase Function to pick it up.
     // If it's already completed, or being cancelled, don't re-trigger.
     if (analysisData.status === 'completed' || analysisData.status === 'cancelling' || analysisData.status === 'cancelled' || analysisData.status === 'deleted') {
-      console.log(`[Action_processAnalysisFile] Analysis ${analysisId} is in status '${analysisData.status}'. No re-processing triggered by this action.`);
+      console.info(`[Action_processAnalysisFile] Analysis ${analysisId} is in status '${analysisData.status}'. No re-processing triggered by this action.`);
       return { success: true, analysisId }; // Indicate success as no action needed from client perspective
     }
 
@@ -65,7 +65,7 @@ export async function processAnalysisFile(
     // If it was 'error', changing to 'summarizing_data' will re-trigger.
     // If it's already 'summarizing_data' or other in-progress states, the function might already be running or will pick up.
     
-    console.log(`[Action_processAnalysisFile] Setting analysis ${analysisId} to 'summarizing_data' (or ensuring it is) to be picked up by Firebase Function.`);
+    console.info(`[Action_processAnalysisFile] Setting analysis ${analysisId} to 'summarizing_data' (or ensuring it is) to be picked up by Firebase Function.`);
     await updateDoc(analysisRef, {
       status: 'summarizing_data', // This status will trigger the Firebase Function
       progress: analysisData.progress < UPLOAD_COMPLETED_OVERALL_PROGRESS ? UPLOAD_COMPLETED_OVERALL_PROGRESS : analysisData.progress, // Ensure at least 10%
@@ -75,7 +75,7 @@ export async function processAnalysisFile(
       // Fields like structuredReport, summary, etc., will be populated by the Function.
     });
 
-    console.log(`[Action_processAnalysisFile] Analysis ${analysisId} queued/confirmed for background processing.`);
+    console.info(`[Action_processAnalysisFile] Analysis ${analysisId} queued/confirmed for background processing.`);
     return { success: true, analysisId };
 
   } catch (error) {
@@ -101,3 +101,6 @@ export async function processAnalysisFile(
     return { success: false, analysisId, error: `Erro ao enfileirar para processamento: ${originalErrorMessage.substring(0, CLIENT_ERROR_MESSAGE_MAX_LENGTH)}` };
   }
 }
+
+
+    

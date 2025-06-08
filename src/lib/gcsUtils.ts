@@ -7,7 +7,7 @@ import { storage } from '@/lib/firebase';
 const CLIENT_ERROR_MESSAGE_MAX_LENGTH = 250; 
 
 export async function getFileContentFromStorage(filePath: string): Promise<string> {
-  console.log(`[getFileContentFromStorage] Attempting to download: ${filePath}`);
+  console.debug(`[getFileContentFromStorage] Attempting to download: ${filePath}`);
   const fileRef = storageRef(storage, filePath);
   let downloadURL;
   try {
@@ -48,3 +48,6 @@ export async function getFileContentFromStorage(filePath: string): Promise<strin
   }
   return textContent;
 }
+
+
+    

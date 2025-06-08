@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log('[AuthProvider] Auth state changed. currentUser:', JSON.stringify(currentUser, null, 2));
+      console.debug('[AuthProvider] Auth state changed. currentUser:', currentUser ? { uid: currentUser.uid, email: currentUser.email, displayName: currentUser.displayName } : null);
       if (currentUser && !currentUser.uid) {
         console.error('[AuthProvider] CRITICAL: currentUser exists but uid is missing or empty!', currentUser);
       }
@@ -53,3 +53,6 @@ export function useAuth() {
   }
   return context;
 }
+
+
+    

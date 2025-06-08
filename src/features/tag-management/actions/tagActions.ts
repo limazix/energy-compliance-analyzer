@@ -8,7 +8,7 @@ export async function addTagToAction(userIdInput: string, analysisIdInput: strin
   const userId = userIdInput?.trim() ?? '';
   const analysisId = analysisIdInput?.trim() ?? '';
   const trimmedTag = tag?.trim() ?? '';
-  console.log(`[addTagToAction] Effective userId: '${userId}', analysisId: '${analysisId}', tag: '${trimmedTag}' (Inputs: '${userIdInput}', '${analysisIdInput}', '${tag}')`);
+  console.debug(`[addTagToAction] Effective userId: '${userId}', analysisId: '${analysisId}', tag: '${trimmedTag}' (Inputs: '${userIdInput}', '${analysisIdInput}', '${tag}')`);
 
 
   if (!userId || !analysisId || !trimmedTag) {
@@ -17,7 +17,7 @@ export async function addTagToAction(userIdInput: string, analysisIdInput: strin
     throw new Error(errorMsg);
   }
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
-  console.log(`[addTagToAction] Adding tag '${trimmedTag}' to ${analysisDocPath}. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
+  console.info(`[addTagToAction] Adding tag '${trimmedTag}' to ${analysisDocPath}. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
   const analysisRef = doc(db, analysisDocPath);
   try {
     const analysisSnap = await getDoc(analysisRef);
@@ -37,7 +37,7 @@ export async function removeTagAction(userIdInput: string, analysisIdInput: stri
   const userId = userIdInput?.trim() ?? '';
   const analysisId = analysisIdInput?.trim() ?? '';
   const trimmedTagToRemove = tagToRemove?.trim() ?? '';
-  console.log(`[removeTagAction] Effective userId: '${userId}', analysisId: '${analysisId}', tagToRemove: '${trimmedTagToRemove}' (Inputs: '${userIdInput}', '${analysisIdInput}', '${tagToRemove}')`);
+  console.debug(`[removeTagAction] Effective userId: '${userId}', analysisId: '${analysisId}', tagToRemove: '${trimmedTagToRemove}' (Inputs: '${userIdInput}', '${analysisIdInput}', '${tagToRemove}')`);
 
   if (!userId || !analysisId || !trimmedTagToRemove) {
     const errorMsg = `[removeTagAction] CRITICAL: Invalid params. userId: '${userIdInput}', analysisId: '${analysisIdInput}', tag: '${tagToRemove}'.`;
@@ -45,7 +45,7 @@ export async function removeTagAction(userIdInput: string, analysisIdInput: stri
     throw new Error(errorMsg);
   }
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
-  console.log(`[removeTagAction] Removing tag '${trimmedTagToRemove}' from ${analysisDocPath}. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
+  console.info(`[removeTagAction] Removing tag '${trimmedTagToRemove}' from ${analysisDocPath}. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
   const analysisRef = doc(db, analysisDocPath);
   try {
     const analysisSnap = await getDoc(analysisRef);
@@ -58,3 +58,6 @@ export async function removeTagAction(userIdInput: string, analysisIdInput: stri
     throw new Error(originalErrorMessage);
   }
 }
+
+
+    

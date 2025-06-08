@@ -28,7 +28,7 @@ export function useAnalysisManager(user: User | null) {
 
     if (user?.uid && currentAnalysis?.id && !currentAnalysis.id.startsWith('error-')) {
       const validUserId = user.uid; // Ensure it's a string before using
-      console.log(`[useAnalysisManager_onSnapshot] Subscribing to analysis ID: ${currentAnalysis.id} for user UID: ${validUserId}. Current local status: ${currentAnalysis?.status}`);
+      console.debug(`[useAnalysisManager_onSnapshot] Subscribing to analysis ID: ${currentAnalysis.id} for user UID: ${validUserId}. Current local status: ${currentAnalysis?.status}`);
       const analysisDocumentRef = doc(db, 'users', validUserId, 'analyses', currentAnalysis.id);
       
       try {
@@ -36,9 +36,9 @@ export function useAnalysisManager(user: User | null) {
           (docSnap) => {
             if (docSnap.exists()) {
               const data = docSnap.data();
-              console.log(`[useAnalysisManager_onSnapshot] Snapshot for ${currentAnalysis.id}: Status: ${data.status}, Progress: ${data.progress}, ErrMsg: ${data.errorMessage?.substring(0,100)}`);
+              console.debug(`[useAnalysisManager_onSnapshot] Snapshot for ${currentAnalysis.id}: Status: ${data.status}, Progress: ${data.progress}, ErrMsg: ${data.errorMessage?.substring(0,100)}`);
               
-              const validStatuses: Analysis['status'][] = ['uploading', 'summarizing_data', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted', 'cancelling', 'cancelled'];
+              const validStatuses: Analysis['status'][] = ['uploading', 'summarizing_data', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted', 'cancelling', 'cancelled', 'reviewing_report'];
               const statusIsValid = data.status && validStatuses.includes(data.status as Analysis['status']);
 
               const updatedAnalysis: Analysis = {
@@ -98,7 +98,7 @@ export function useAnalysisManager(user: User | null) {
     }
     return () => {
       if (unsub) {
-        console.log(`[useAnalysisManager_onSnapshot] Unsubscribing from analysis ID: ${currentAnalysis?.id}`);
+        console.debug(`[useAnalysisManager_onSnapshot] Unsubscribing from analysis ID: ${currentAnalysis?.id}`);
         unsub();
       }
     };
@@ -106,7 +106,7 @@ export function useAnalysisManager(user: User | null) {
 
 
   const startAiProcessing = useCallback(async (analysisId: string, userIdFromCaller: string) => {
-    console.log(`[useAnalysisManager_startAiProcessing] Calling server action 'processAnalysisFile' for ID: ${analysisId}, UserID: ${userIdFromCaller}`);
+    console.info(`[useAnalysisManager_startAiProcessing] Calling server action 'processAnalysisFile' for ID: ${analysisId}, UserID: ${userIdFromCaller}`);
     if (!userIdFromCaller || !analysisId) {
         const msg = `[useAnalysisManager_startAiProcessing] CRITICAL: userId ('${userIdFromCaller}') or analysisId ('${analysisId}') is invalid. Aborting.`;
         console.error(msg);
@@ -118,7 +118,7 @@ export function useAnalysisManager(user: User | null) {
     try {
       // This action now just queues the analysis for background processing by the Firebase Function
       const result = await processAnalysisFile(analysisId, userIdFromCaller);
-      console.log(`[useAnalysisManager_startAiProcessing] Server action 'processAnalysisFile' completed for ID: ${analysisId}. Success: ${result.success}, Error: ${result.error}`);
+      console.info(`[useAnalysisManager_startAiProcessing] Server action 'processAnalysisFile' completed for ID: ${analysisId}. Success: ${result.success}, Error: ${result.error}`);
       
       if (result.success) {
         toast({ title: 'Processamento Iniciado', description: 'A análise está sendo processada em segundo plano. O progresso será atualizado automaticamente.' });
@@ -156,7 +156,7 @@ export function useAnalysisManager(user: User | null) {
     }
     setIsLoadingPastAnalyses(true);
     const currentUserId = user.uid;
-    console.log(`[useAnalysisManager_fetchPastAnalyses] Fetching for user: ${currentUserId}`);
+    console.info(`[useAnalysisManager_fetchPastAnalyses] Fetching for user: ${currentUserId}`);
     try {
       const analyses = await getPastAnalysesAction(currentUserId);
       setPastAnalyses(analyses.filter(a => a.status !== 'deleted'));
@@ -226,7 +226,7 @@ export function useAnalysisManager(user: User | null) {
       toast({ title: 'Erro', description: 'Não foi possível solicitar o cancelamento: dados inválidos.', variant: 'destructive' });
       return;
     }
-    console.log(`[useAnalysisManager_handleCancel] Requesting cancellation for analysis ID: ${analysisId}`);
+    console.info(`[useAnalysisManager_handleCancel] Requesting cancellation for analysis ID: ${analysisId}`);
     try {
       const result = await cancelAnalysisAction(user.uid, analysisId);
       if (result.success) {
@@ -283,3 +283,6 @@ export function useAnalysisManager(user: User | null) {
     displayedAnalysisSteps,
   };
 }
+
+
+    

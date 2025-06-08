@@ -14,7 +14,7 @@ export async function getAnalysisReportAction(
 ): Promise<AnalysisReportData> {
   const userId = userIdInput?.trim() ?? '';
   const analysisId = analysisIdInput?.trim() ?? '';
-  console.log(`[getAnalysisReportAction] Effective userId: '${userId}', analysisId: '${analysisId}' (Inputs: '${userIdInput}', '${analysisIdInput}')`);
+  console.debug(`[getAnalysisReportAction] Effective userId: '${userId}', analysisId: '${analysisId}' (Inputs: '${userIdInput}', '${analysisIdInput}')`);
   
   const baseReturn = { mdxContent: null, fileName: null, analysisId: analysisIdInput || null };
 
@@ -25,7 +25,7 @@ export async function getAnalysisReportAction(
   }
 
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
-  console.log(`[getAnalysisReportAction] Fetching report from ${analysisDocPath}. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
+  console.info(`[getAnalysisReportAction] Fetching report from ${analysisDocPath}. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
   const analysisRef = doc(db, analysisDocPath);
 
   try {
@@ -57,3 +57,6 @@ export async function getAnalysisReportAction(
     return { ...baseReturn, error: `Erro ao carregar o relatório: ${errorMessage.substring(0, CLIENT_ERROR_MESSAGE_MAX_LENGTH)}` };
   }
 }
+
+
+    

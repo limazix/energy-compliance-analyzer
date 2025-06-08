@@ -124,7 +124,7 @@ export default function ReportPage() {
         const hasStructuredReportChanged = JSON.stringify(newStructuredReport) !== JSON.stringify(reportData.structuredReport);
         
         if (hasStructuredReportChanged) {
-          console.log("[ReportPage] Firestore listener: structuredReport or mdxReportStoragePath changed. Updating state.");
+          console.debug("[ReportPage] Firestore listener: structuredReport or mdxReportStoragePath changed. Updating state.");
           setReportData(prev => ({
             ...prev,
             structuredReport: newStructuredReport,
@@ -304,7 +304,7 @@ export default function ReportPage() {
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <AppHeader />
-        <main className="container mx-auto py-8 px-4 flex-1 flex items-center justify-center">
+        <main className="container mx-auto py-8 px-4 flex-1 flex items-center justify-center" aria-busy="true">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </main>
          <footer className="py-6 text-center text-sm text-muted-foreground border-t border-border/50 bg-muted/20">
@@ -487,3 +487,6 @@ export default function ReportPage() {
   );
 }
 
+
+
+    

@@ -10,7 +10,7 @@ const CLIENT_ERROR_MESSAGE_MAX_LENGTH = 250;
 export async function deleteAnalysisAction(userIdInput: string, analysisIdInput: string): Promise<void> {
   const userId = userIdInput?.trim() ?? '';
   const analysisId = analysisIdInput?.trim() ?? '';
-  console.log(`[deleteAnalysisAction] Effective userId: '${userId}', analysisId: '${analysisId}' (Inputs: '${userIdInput}', '${analysisIdInput}')`);
+  console.debug(`[deleteAnalysisAction] Effective userId: '${userId}', analysisId: '${analysisId}' (Inputs: '${userIdInput}', '${analysisIdInput}')`);
 
   if (!userId || !analysisId) {
     const errorMsg = `[deleteAnalysisAction] CRITICAL: userId ('${userIdInput}') or analysisId ('${analysisIdInput}') invalid.`;
@@ -18,7 +18,7 @@ export async function deleteAnalysisAction(userIdInput: string, analysisIdInput:
     throw new Error(errorMsg);
   }
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
-  console.log(`[deleteAnalysisAction] Marking ${analysisDocPath} as 'deleted'. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
+  console.info(`[deleteAnalysisAction] Marking ${analysisDocPath} as 'deleted'. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
   const analysisRef = doc(db, analysisDocPath);
   try {
     const analysisSnap = await getDoc(analysisRef);
@@ -39,13 +39,13 @@ export async function deleteAnalysisAction(userIdInput: string, analysisIdInput:
     if (dataToDelete.powerQualityDataUrl) {
         try {
             await deleteObject(storageRef(storage, dataToDelete.powerQualityDataUrl));
-            console.log(`[deleteAnalysisAction] Original data file ${dataToDelete.powerQualityDataUrl} deleted.`);
+            console.info(`[deleteAnalysisAction] Original data file ${dataToDelete.powerQualityDataUrl} deleted.`);
         } catch (e) { console.warn(`[deleteAnalysisAction] Failed to delete original data file ${dataToDelete.powerQualityDataUrl}:`, e); }
     }
     if (dataToDelete.mdxReportStoragePath) {
         try {
             await deleteObject(storageRef(storage, dataToDelete.mdxReportStoragePath));
-            console.log(`[deleteAnalysisAction] MDX report ${dataToDelete.mdxReportStoragePath} deleted.`);
+            console.info(`[deleteAnalysisAction] MDX report ${dataToDelete.mdxReportStoragePath} deleted.`);
         } catch (e) { console.warn(`[deleteAnalysisAction] Failed to delete MDX ${dataToDelete.mdxReportStoragePath}:`, e); }
     }
   } catch (error) {
@@ -61,7 +61,7 @@ export async function cancelAnalysisAction(
 ): Promise<{ success: boolean; error?: string }> {
   const userId = userIdInput?.trim() ?? '';
   const analysisId = analysisIdInput?.trim() ?? '';
-  console.log(`[cancelAnalysisAction] Effective userId: '${userId}', analysisId: '${analysisId}' (Inputs: '${userIdInput}', '${analysisIdInput}')`);
+  console.debug(`[cancelAnalysisAction] Effective userId: '${userId}', analysisId: '${analysisId}' (Inputs: '${userIdInput}', '${analysisIdInput}')`);
 
   if (!userId || !analysisId) {
     const msg = `[cancelAnalysisAction] CRITICAL: userId ('${userIdInput}' -> '${userId}') or analysisId ('${analysisIdInput}' -> '${analysisId}') is invalid. Aborting.`;
@@ -71,7 +71,7 @@ export async function cancelAnalysisAction(
 
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = doc(db, analysisDocPath);
-  console.log(`[cancelAnalysisAction] Requesting cancellation for ${analysisDocPath}. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
+  console.info(`[cancelAnalysisAction] Requesting cancellation for ${analysisDocPath}. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
 
   try {
     const docSnap = await getDoc(analysisRef);
@@ -92,7 +92,7 @@ export async function cancelAnalysisAction(
       status: 'cancelling',
       errorMessage: 'Cancelamento solicitado pelo usuário...', 
     });
-    console.log(`[cancelAnalysisAction] Analysis ${analysisId} status set to 'cancelling'.`);
+    console.info(`[cancelAnalysisAction] Analysis ${analysisId} status set to 'cancelling'.`);
     return { success: true };
   } catch (error) {
     const originalErrorMessage = error instanceof Error ? error.message : String(error);
@@ -100,3 +100,6 @@ export async function cancelAnalysisAction(
     return { success: false, error: `Falha ao solicitar cancelamento: ${originalErrorMessage.substring(0, CLIENT_ERROR_MESSAGE_MAX_LENGTH)}` };
   }
 }
+
+
+    

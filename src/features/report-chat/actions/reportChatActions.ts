@@ -98,7 +98,7 @@ export async function askReportOrchestratorAction(
       languageCode,
     };
 
-    console.log(`[askReportOrchestratorAction] Calling orchestrator prompt.generateStream for analysis ${analysisId}, AI message key ${aiMessageRtdbKey}`);
+    console.info(`[askReportOrchestratorAction] Calling orchestrator prompt.generateStream for analysis ${analysisId}, AI message key ${aiMessageRtdbKey}`);
     
     const { stream, response } = interactionPrompt.generateStream({
       input: orchestratorInput,
@@ -113,7 +113,7 @@ export async function askReportOrchestratorAction(
         await rtdbUpdate(rtdbChild(chatRootRef, aiMessageRtdbKey), { text: streamedText });
       }
     }
-    console.log(`[askReportOrchestratorAction] Stream finished for AI message ${aiMessageRtdbKey}.`);
+    console.info(`[askReportOrchestratorAction] Stream finished for AI message ${aiMessageRtdbKey}.`);
 
     const finalOutput = (await response)?.output; // Access the structured output
 
@@ -122,17 +122,17 @@ export async function askReportOrchestratorAction(
     }
 
     // The finalOutput.aiResponseText might be redundant if we streamed everything,
-    // but good to log or compare. The streamedText is what's in RTDB.
+    // but good to debug or compare. The streamedText is what's in RTDB.
     // The critical part is finalOutput.revisedStructuredReport.
 
     if (finalOutput.revisedStructuredReport) {
-      console.log(`[askReportOrchestratorAction] Revisor tool was used. New structured report generated for ${analysisId}.`);
+      console.info(`[askReportOrchestratorAction] Revisor tool was used. New structured report generated for ${analysisId}.`);
       const newMdxContent = convertStructuredReportToMdx(finalOutput.revisedStructuredReport, analysisFileName);
       
       const mdxFilePath = analysisSnap.exists() ? (analysisSnap.data().mdxReportStoragePath || `user_reports/${userId}/${analysisId}/report.mdx`) : `user_reports/${userId}/${analysisId}/report.mdx`;
       const mdxFileStorageRef = storageFileRef(storage, mdxFilePath);
       await uploadString(mdxFileStorageRef, newMdxContent, 'raw', { contentType: 'text/markdown' });
-      console.log(`[askReportOrchestratorAction] New MDX saved to ${mdxFilePath}`);
+      console.info(`[askReportOrchestratorAction] New MDX saved to ${mdxFilePath}`);
 
       if (analysisSnap.exists()) {
         await updateDoc(analysisDocRef, {
@@ -140,7 +140,7 @@ export async function askReportOrchestratorAction(
           mdxReportStoragePath: mdxFilePath,
           reportLastModifiedAt: firestoreServerTimestamp() as Timestamp,
         });
-        console.log(`[askReportOrchestratorAction] Firestore updated with revised report for ${analysisId}.`);
+        console.info(`[askReportOrchestratorAction] Firestore updated with revised report for ${analysisId}.`);
       }
 
       return { 
@@ -178,3 +178,6 @@ export async function askReportOrchestratorAction(
     };
   }
 }
+
+
+    

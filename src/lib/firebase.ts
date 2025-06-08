@@ -35,7 +35,7 @@ if (!firebaseConfig.projectId) {
   throw new Error(errorMsg);
 }
 
-console.log(`Firebase Init: Using NEXT_PUBLIC_FIREBASE_CONFIG. Project ID: ${firebaseConfig.projectId}, API Key (masked): ${String(firebaseConfig.apiKey).substring(0, 3)}...${String(firebaseConfig.apiKey).substring(String(firebaseConfig.apiKey).length - 3)}`);
+console.info(`Firebase Init: Using NEXT_PUBLIC_FIREBASE_CONFIG. Project ID: ${firebaseConfig.projectId}, API Key (masked): ${String(firebaseConfig.apiKey).substring(0, 3)}...${String(firebaseConfig.apiKey).substring(String(firebaseConfig.apiKey).length - 3)}`);
 
 let app: FirebaseApp;
 
@@ -55,3 +55,6 @@ const googleProvider = new GoogleAuthProvider();
 connectEmulators(auth, db, storage, rtdb);
 
 export { app, auth, db, storage, rtdb, googleProvider };
+
+
+    

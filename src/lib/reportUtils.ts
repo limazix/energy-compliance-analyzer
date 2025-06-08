@@ -205,3 +205,6 @@ export function formatStructuredReportToTxt(
 
   return txt;
 }
+
+
+    
