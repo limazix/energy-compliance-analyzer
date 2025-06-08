@@ -37,24 +37,24 @@ O Energy Compliance Analyzer simplifica a verificação de conformidade para o s
 ```mermaid
 graph TD
     subgraph UserInteraction["Interação do Usuário"]
-        UI[Frontend Next.js/React<br>(ShadCN, TailwindCSS)<br>Hosted on Firebase App Hosting]
+        UI["Frontend Next.js/React<br>(ShadCN, TailwindCSS)<br>Hosted on Firebase App Hosting"]
     end
 
     subgraph BackendNextJs["Backend (Next.js)"]
-        ServerActions[Next.js Server Actions<br>(Disparador Upload, Orquestrador Chat)]
+        ServerActions["Next.js Server Actions<br>(Disparador Upload, Orquestrador Chat)"]
     end
 
     subgraph FirebasePlatform["Plataforma Firebase"]
-        Auth[Firebase Authentication<br>(Google Sign-In)]
-        Firestore[Firebase Firestore<br>(Metadados Análises, Tags, Status, Relatório Estruturado)]
-        Storage[Firebase Storage<br>(Upload CSVs, Relatórios MDX)]
-        RTDB[Firebase Realtime Database<br>(Histórico Chat)]
-        Functions[Firebase Functions<br>(Processamento Pesado, AI Pipeline Principal)]
+        Auth["Firebase Authentication<br>(Google Sign-In)"]
+        Firestore["Firebase Firestore<br>(Metadados Análises, Tags, Status, Relatório Estruturado)"]
+        Storage["Firebase Storage<br>(Upload CSVs, Relatórios MDX)"]
+        RTDB["Firebase Realtime Database<br>(Histórico Chat)"]
+        Functions["Firebase Functions<br>(Processamento Pesado, AI Pipeline Principal)"]
     end
 
     subgraph GenAI["Inteligência Artificial (Genkit & Gemini)"]
-        AIEngineFunctions[AI Engine - Functions<br>(Pipeline: Analista de Dados, Engenheiro Elétrico, Relator, Revisor)]
-        AIEngineServerActions[AI Engine - Server Actions<br>(Agente Orquestrador do Chat Interativo)]
+        AIEngineFunctions["AI Engine - Functions<br>(Pipeline: Analista de Dados, Engenheiro Elétrico, Relator, Revisor)"]
+        AIEngineServerActions["AI Engine - Server Actions<br>(Agente Orquestrador do Chat Interativo)"]
     end
 
     %% User Flows
@@ -241,3 +241,5 @@ Consulte o [**Guia de Deployment**](docs/DEPLOYMENT.md) para detalhes sobre depl
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
+
+```
