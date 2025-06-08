@@ -29,8 +29,8 @@ if (admin.apps.length === 0) {
 }
 
 const geminiApiKey = process.env.GEMINI_API_KEY ||
-                     (functions.config().gemini ? functions.config().gemini.apikey : undefined) ||
-                     process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  (functions.config().gemini ? functions.config().gemini.apikey : undefined) ||
+  process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
 if (!geminiApiKey) {
   console.warn("CRITICAL: GEMINI_API_KEY not found for Firebase Functions. Genkit AI calls WILL FAIL.");
@@ -96,7 +96,7 @@ async function checkCancellation(analysisRef) {
 }
 
 exports.processAnalysisOnUpdate = functions
-  .region('southamerica-east1')
+  .region(process.env.GCLOUD_REGION)
   .runWith({
     timeoutSeconds: 540,
     memory: '1GB', // Pode ser ajustado conforme necessário
@@ -114,31 +114,31 @@ exports.processAnalysisOnUpdate = functions
     console.log(`[Function_processAnalysis] Progress Before: ${analysisDataBefore?.progress}, Progress After: ${analysisDataAfter?.progress}`);
 
     if (
-        analysisDataAfter?.status !== 'summarizing_data' ||
-        (analysisDataBefore?.status !== 'uploading' && analysisDataBefore?.status !== 'error')
+      analysisDataAfter?.status !== 'summarizing_data' ||
+      (analysisDataBefore?.status !== 'uploading' && analysisDataBefore?.status !== 'error')
     ) {
-        if (analysisDataAfter?.status === 'summarizing_data' &&
-            analysisDataBefore?.status === 'summarizing_data' &&
-            analysisDataBefore?.progress < analysisDataAfter?.progress) {
-            // Allow if progress is being made within summarizing_data
-        } else {
-            console.log(`[Function_processAnalysis] No action needed for status change from ${analysisDataBefore?.status} to ${analysisDataAfter?.status}. Exiting.`);
-            return null;
-        }
-    }
-    
-    if (analysisDataBefore?.status === 'completed' && analysisDataAfter?.status === 'summarizing_data') {
-        console.log(`[Function_processAnalysis] Analysis ${analysisId} was 'completed' but reset to 'summarizing_data'. Reprocessing allowed.`);
-    } else if (analysisDataBefore?.status === 'completed') {
-        console.log(`[Function_processAnalysis] Analysis ${analysisId} already completed. Exiting.`);
+      if (analysisDataAfter?.status === 'summarizing_data' &&
+        analysisDataBefore?.status === 'summarizing_data' &&
+        analysisDataBefore?.progress < analysisDataAfter?.progress) {
+        // Allow if progress is being made within summarizing_data
+      } else {
+        console.log(`[Function_processAnalysis] No action needed for status change from ${analysisDataBefore?.status} to ${analysisDataAfter?.status}. Exiting.`);
         return null;
+      }
+    }
+
+    if (analysisDataBefore?.status === 'completed' && analysisDataAfter?.status === 'summarizing_data') {
+      console.log(`[Function_processAnalysis] Analysis ${analysisId} was 'completed' but reset to 'summarizing_data'. Reprocessing allowed.`);
+    } else if (analysisDataBefore?.status === 'completed') {
+      console.log(`[Function_processAnalysis] Analysis ${analysisId} already completed. Exiting.`);
+      return null;
     }
 
     if (['completed', 'error', 'cancelled'].includes(analysisDataBefore?.status || '')) {
-        if (!(analysisDataBefore?.status === 'error' && analysisDataAfter?.status === 'summarizing_data')) {
-            console.log(`[Function_processAnalysis] Analysis ${analysisId} was in a terminal state '${analysisDataBefore?.status}' and not reset from error. Exiting.`);
-            return null;
-        }
+      if (!(analysisDataBefore?.status === 'error' && analysisDataAfter?.status === 'summarizing_data')) {
+        console.log(`[Function_processAnalysis] Analysis ${analysisId} was in a terminal state '${analysisDataBefore?.status}' and not reset from error. Exiting.`);
+        return null;
+      }
     }
 
     try {
@@ -150,7 +150,7 @@ exports.processAnalysisOnUpdate = functions
         await analysisRef.update({ status: 'error', errorMessage: 'URL do arquivo de dados não encontrada na Function.', progress: 0 });
         return null;
       }
-      
+
       if (await checkCancellation(analysisRef)) return null;
 
       console.log(`[Function_processAnalysis] Reading file: ${filePath}`);
@@ -168,21 +168,21 @@ exports.processAnalysisOnUpdate = functions
       } else {
         chunks.push(powerQualityDataCsv);
       }
-      await analysisRef.update({ isDataChunked: chunks.length > 1, progress: PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE -1 });
+      await analysisRef.update({ isDataChunked: chunks.length > 1, progress: PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE - 1 });
 
       let aggregatedSummary = "";
       for (let i = 0; i < chunks.length; i++) {
         if (await checkCancellation(analysisRef)) return null;
         const chunk = chunks[i];
         console.log(`[Function_processAnalysis] Summarizing ${analysisId}, chunk ${i + 1}/${chunks.length}.`);
-        
+
         if (chunk.trim() === "") {
-            console.warn(`[Function_processAnalysis] Chunk ${i + 1} for ${analysisId} is empty. Skipping.`);
+          console.warn(`[Function_processAnalysis] Chunk ${i + 1} for ${analysisId} is empty. Skipping.`);
         } else {
-            const summarizeInput = { powerQualityDataCsv: chunk, languageCode };
-            const { output } = await summarizeDataChunkFlow(summarizeInput);
-            if (!output?.dataSummary) throw new Error(`AI failed to summarize chunk ${i+1}.`);
-            aggregatedSummary += (output.dataSummary || "") + "\n\n";
+          const summarizeInput = { powerQualityDataCsv: chunk, languageCode };
+          const { output } = await summarizeDataChunkFlow(summarizeInput);
+          if (!output?.dataSummary) throw new Error(`AI failed to summarize chunk ${i + 1}.`);
+          aggregatedSummary += (output.dataSummary || "") + "\n\n";
         }
         const currentChunkProgress = (i + 1) / chunks.length;
         await analysisRef.update({ progress: PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE + Math.round(currentChunkProgress * PROGRESS_SUMMARIZATION_TOTAL_SPAN) });
@@ -226,7 +226,7 @@ exports.processAnalysisOnUpdate = functions
         progress: PROGRESS_ANALYZE_COMPLIANCE_COMPLETE,
       });
       console.log(`[Function_processAnalysis] Initial compliance analysis complete. Report ready for review.`);
-      
+
       if (await checkCancellation(analysisRef)) return null;
 
       console.log(`[Function_processAnalysis] Reviewing structured report.`);
@@ -238,21 +238,21 @@ exports.processAnalysisOnUpdate = functions
       if (!reviewedStructuredReport) {
         console.warn(`[Function_processAnalysis] AI review failed. Using pre-review report for ${analysisId}.`);
         await analysisRef.update({
-            structuredReport: initialStructuredReport,
-            summary: initialStructuredReport.introduction?.overallResultsSummary,
-            progress: PROGRESS_REVIEW_REPORT_COMPLETE,
+          structuredReport: initialStructuredReport,
+          summary: initialStructuredReport.introduction?.overallResultsSummary,
+          progress: PROGRESS_REVIEW_REPORT_COMPLETE,
         });
       } else {
         await analysisRef.update({
-            structuredReport: reviewedStructuredReport,
-            summary: reviewedStructuredReport.introduction?.overallResultsSummary,
-            progress: PROGRESS_REVIEW_REPORT_COMPLETE,
+          structuredReport: reviewedStructuredReport,
+          summary: reviewedStructuredReport.introduction?.overallResultsSummary,
+          progress: PROGRESS_REVIEW_REPORT_COMPLETE,
         });
       }
       console.log(`[Function_processAnalysis] Report review complete.`);
 
       if (await checkCancellation(analysisRef)) return null;
-      
+
       const finalReportForMdx = reviewedStructuredReport || initialStructuredReport;
 
       const mdxContent = convertStructuredReportToMdx(finalReportForMdx, originalFileName);
@@ -281,20 +281,20 @@ exports.processAnalysisOnUpdate = functions
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
+
       try {
         const currentSnap = await analysisRef.get();
         if (currentSnap.exists()) {
           const data = currentSnap.data();
           if (data?.status !== 'cancelling' && data?.status !== 'cancelled') {
             await analysisRef.update({
-                status: 'error',
-                errorMessage: `Falha (Function): ${errorMessage.substring(0, MAX_ERROR_MSG_LENGTH)}`,
+              status: 'error',
+              errorMessage: `Falha (Function): ${errorMessage.substring(0, MAX_ERROR_MSG_LENGTH)}`,
             });
           }
         }
       } catch (updateError) {
-          console.error(`[Function_processAnalysis] CRITICAL: Failed to update Firestore with error state for ${analysisId}:`, updateError);
+        console.error(`[Function_processAnalysis] CRITICAL: Failed to update Firestore with error state for ${analysisId}:`, updateError);
       }
     }
     return null;

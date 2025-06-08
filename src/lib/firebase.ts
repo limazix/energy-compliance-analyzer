@@ -3,24 +3,30 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
-import { getDatabase, connectDatabaseEmulator } from 'firebase/database'; // Added
+import { getDatabase, connectDatabaseEmulator } from 'firebase/database';
 
-// Firebase SDK will throw its own errors if critical parts of firebaseConfig are missing/invalid.
-// We are relying on next.config.ts to provide these environment variables to the client.
-
+// Construct Firebase config from individual environment variables
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!,
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL!, // Ensure this is set in .env for RTDB
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Optional
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,     // For RTDB
 };
 
+// Basic check for essential config
+if (!firebaseConfig.projectId) {
+  console.error("Firebase projectId is not set. Firebase will not initialize correctly. Check your NEXT_PUBLIC_FIREBASE_PROJECT_ID environment variable.");
+}
+
 let app: FirebaseApp;
+
 if (getApps().length === 0) {
+  // Only initialize if essential keys are present, or let it attempt and potentially fail if some are missing
+  // Firebase SDK will throw its own errors if critical parts are missing.
   app = initializeApp(firebaseConfig);
 } else {
   app = getApp();
@@ -29,7 +35,7 @@ if (getApps().length === 0) {
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
-const rtdb = getDatabase(app); // Added
+const rtdb = getDatabase(app);
 const googleProvider = new GoogleAuthProvider();
 
 if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
@@ -52,7 +58,7 @@ if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
   } catch (e) {
     console.error('Firebase: Error connecting to Storage emulator.', e);
   }
-  try { // Added RTDB emulator connection
+  try { 
     connectDatabaseEmulator(rtdb, 'localhost', 9000);
     console.log('Firebase: Realtime Database emulator connected.');
   } catch (e) {
@@ -63,5 +69,4 @@ if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
 }
 
 
-export { app, auth, db, storage, rtdb, googleProvider }; // Added rtdb export
-
+export { app, auth, db, storage, rtdb, googleProvider };

@@ -1,4 +1,3 @@
-
 // @ts-check Convertido de TypeScript para JavaScript
 'use strict';
 
@@ -13,8 +12,3 @@ if (admin.apps.length === 0) {
 // Assumindo que processAnalysis.js exporta processAnalysisOnUpdate
 const { processAnalysisOnUpdate } = require('./processAnalysis');
 exports.processAnalysisOnUpdate = processAnalysisOnUpdate;
-
-// Se você tiver outras funções para exportar, adicione-as aqui.
-// Exemplo:
-// const { anotherFunction } = require('./anotherFunctionFile');
-// exports.anotherFunction = anotherFunction;
