@@ -247,7 +247,7 @@ if (typeof window !== 'undefined') {
         }
     }
     
-    return mockStyle as CSSStyleDeclaration;
+    return mockStyle;
   };
 }
 
@@ -319,3 +319,4 @@ if (global.EMULATORS_CONNECTED) {
 } else {
   console.warn('[JestSetup] Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail if they rely on emulator behavior.');
 }
+
