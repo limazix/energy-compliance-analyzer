@@ -28,9 +28,12 @@ if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
+const firebaseRuntimeConfig = functions.config();
+const geminiApiKeyFromConfig = firebaseRuntimeConfig && firebaseRuntimeConfig.gemini ? firebaseRuntimeConfig.gemini.apikey : undefined;
+
 const geminiApiKey = process.env.GEMINI_API_KEY ||
-  (functions.config().gemini ? functions.config().gemini.apikey : undefined) ||
-  process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+                     geminiApiKeyFromConfig ||
+                     process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
 if (!geminiApiKey) {
   console.warn("CRITICAL: GEMINI_API_KEY not found for Firebase Functions. Genkit AI calls WILL FAIL.");
@@ -96,7 +99,7 @@ async function checkCancellation(analysisRef) {
 }
 
 exports.processAnalysisOnUpdate = functions
-  .region(process.env.GCLOUD_REGION)
+  .region(process.env.GCLOUD_REGION || 'us-central1') // Default region if not set
   .runWith({
     timeoutSeconds: 540,
     memory: '1GB', // Pode ser ajustado conforme necessário
