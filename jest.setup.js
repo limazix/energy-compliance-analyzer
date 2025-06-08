@@ -1,3 +1,4 @@
+
 // Optional: configure or set up a testing framework before each test.
 // If you delete this file, remove `setupFilesAfterEnv` from `jest.config.js`
 
@@ -8,19 +9,17 @@ import { Timestamp } from 'firebase/firestore';
 import React from 'react'; // Import React for createElement
 
 // --- Mock Firebase Env Vars for Jest ---
-// These are documented in README.md and expected to be set by the testing environment/CI
-// For local testing, you might use a .env.test file loaded by Jest or set them in your shell.
-// process.env.NEXT_PUBLIC_FIREBASE_CONFIG = JSON.stringify({
-//   apiKey: "test-api-key",
-//   authDomain: "test-project.firebaseapp.com",
-//   projectId: "test-project",
-//   storageBucket: "test-project.appspot.com",
-//   messagingSenderId: "1234567890",
-//   appId: "test-app-id",
-//   measurementId: "test-measurement-id",
-//   databaseURL: "https://test-project-default-rtdb.firebaseio.com", // Crucial for RTDB
-// });
-// process.env.NEXT_PUBLIC_GEMINI_API_KEY = "test-gemini-api-key";
+process.env.NEXT_PUBLIC_FIREBASE_CONFIG = JSON.stringify({
+  apiKey: "test-api-key",
+  authDomain: "test-project.firebaseapp.com",
+  projectId: "test-project",
+  storageBucket: "test-project.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "test-app-id",
+  measurementId: "test-measurement-id",
+  databaseURL: "https://test-project-default-rtdb.firebaseio.com",
+});
+process.env.NEXT_PUBLIC_GEMINI_API_KEY = "test-gemini-api-key";
 // --- End Mock Firebase Env Vars ---
 
 // Mock Next.js router
@@ -181,6 +180,89 @@ global.requestAnimationFrame = jest.fn(cb => {
 });
 global.cancelAnimationFrame = jest.fn();
 
+// Mock PointerEvent for Radix UI in JSDOM
+if (typeof window !== 'undefined' && !window.PointerEvent) {
+  class PointerEvent extends MouseEvent {
+    constructor(type, params = {}) {
+      super(type, params);
+      this.pointerId = params.pointerId || 0;
+      this.width = params.width || 1;
+      this.height = params.height || 1;
+      this.pressure = params.pressure || 0;
+      this.tangentialPressure = params.tangentialPressure || 0;
+      this.tiltX = params.tiltX || 0;
+      this.tiltY = params.tiltY || 0;
+      this.twist = params.twist || 0;
+      this.pointerType = params.pointerType || 'mouse';
+      this.isPrimary = params.isPrimary === undefined ? true : params.isPrimary;
+    }
+  }
+  window.PointerEvent = PointerEvent;
+}
+
+// To deal with "Could not parse CSS stylesheet" from Radix UI in tests
+if (typeof window !== 'undefined') {
+  const originalGetComputedStyle = window.getComputedStyle;
+  window.getComputedStyle = (elt, pseudoElt) => {
+    let style;
+    try {
+      style = originalGetComputedStyle(elt, pseudoElt);
+      if (style && typeof style.getPropertyValue === 'function') {
+        return style;
+      }
+    } catch (e) {
+      // console.warn(`Original getComputedStyle failed for ${elt.tagName}: ${e.message}. Using fallback.`);
+    }
+
+    const properties = {
+      display: 'block',
+      opacity: '1',
+      visibility: 'visible',
+      position: 'static',
+      pointerEvents: 'auto',
+      animationName: 'none',
+      transitionProperty: 'none',
+      width: 'auto',
+      height: 'auto',
+      margin: '0px',
+      padding: '0px',
+      border: '0px none rgb(0, 0, 0)',
+      overflow: 'visible',
+    };
+
+    const mockStyle = {
+      ...properties,
+      getPropertyValue: (propertyName) => {
+        const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        return properties[camelCaseProperty] || '';
+      },
+      length: Object.keys(properties).length,
+      item: (index) => Object.keys(properties)[index] || '',
+      setProperty: (propertyName, value, priority) => {
+        const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        properties[camelCaseProperty] = value;
+        mockStyle.length = Object.keys(properties).length;
+      },
+      removeProperty: (propertyName) => {
+        const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        const oldValue = properties[camelCaseProperty];
+        delete properties[camelCaseProperty];
+        mockStyle.length = Object.keys(properties).length;
+        return oldValue || '';
+      },
+    };
+    
+    for (let i = 0; i < mockStyle.length; i++) {
+        const key = mockStyle.item(i);
+        if (key) {
+            mockStyle[i] = key;
+        }
+    }
+    
+    return mockStyle;
+  };
+}
+
 // Mock for document.createRange, sometimes needed by positioning libraries
 if (typeof document.createRange === 'undefined') {
   global.document.createRange = () => {
@@ -197,107 +279,6 @@ if (typeof document.createRange === 'undefined') {
   };
 }
 
-// Mock PointerEvent for Radix UI in JSDOM
-if (typeof window !== 'undefined' && !window.PointerEvent) {
-  class PointerEvent extends MouseEvent { // Can also extend UIEvent
-    public pointerId: number;
-    public width: number;
-    public height: number;
-    public pressure: number;
-    public tangentialPressure: number;
-    public tiltX: number;
-    public tiltY: number;
-    public twist: number;
-    public pointerType: string;
-    public isPrimary: boolean;
-
-    constructor(type: string, params: any = {}) {
-      super(type, params);
-      this.pointerId = params.pointerId || 0;
-      this.width = params.width || 1;
-      this.height = params.height || 1;
-      this.pressure = params.pressure || 0;
-      this.tangentialPressure = params.tangentialPressure || 0;
-      this.tiltX = params.tiltX || 0;
-      this.tiltY = params.tiltY || 0;
-      this.twist = params.twist || 0;
-      this.pointerType = params.pointerType || 'mouse';
-      this.isPrimary = params.isPrimary === undefined ? true : params.isPrimary;
-    }
-  }
-  window.PointerEvent = PointerEvent as any; // Cast to any to assign to window
-}
-
-
-// Refined window.getComputedStyle mock for Radix UI
-if (typeof window !== 'undefined') {
-  const originalGetComputedStyle = window.getComputedStyle;
-  window.getComputedStyle = (elt, pseudoElt) => {
-    let style;
-    try {
-      style = originalGetComputedStyle(elt, pseudoElt);
-      // If the original works and returns a valid style object, use it.
-      if (style && typeof style.getPropertyValue === 'function') {
-        return style;
-      }
-    } catch (e) {
-      // Original failed, fall through to mock
-      // console.warn(`Original getComputedStyle failed for ${elt.tagName}: ${e.message}. Using fallback.`);
-    }
-
-    // Fallback mock if originalGetComputedStyle fails or returns an unusable object
-    const properties = {
-      display: 'block',
-      opacity: '1',
-      visibility: 'visible',
-      position: 'static',
-      pointerEvents: 'auto',
-      animationName: 'none',
-      transitionProperty: 'none',
-      width: 'auto',
-      height: 'auto',
-      margin: '0px',
-      padding: '0px',
-      border: '0px none rgb(0, 0, 0)',
-      overflow: 'visible',
-      // Add other common properties with default "non-interfering" values
-    };
-
-    const mockStyle = {
-      ...properties,
-      getPropertyValue: (propertyName) => {
-        const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-        return properties[camelCaseProperty] || '';
-      },
-      length: Object.keys(properties).length,
-      item: (index) => Object.keys(properties)[index] || '',
-      setProperty: (propertyName, value, priority) => {
-        const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-        properties[camelCaseProperty] = value;
-        (mockStyle as any).length = Object.keys(properties).length;
-      },
-      removeProperty: (propertyName) => {
-        const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-        const oldValue = properties[camelCaseProperty];
-        delete properties[camelCaseProperty];
-        (mockStyle as any).length = Object.keys(properties).length;
-        return oldValue || '';
-      },
-    };
-    
-    // Ensure it behaves somewhat like CSSStyleDeclaration for iteration if needed
-    for (let i = 0; i < mockStyle.length; i++) {
-        const key = mockStyle.item(i);
-        if (key) {
-            mockStyle[i] = key;
-        }
-    }
-    
-    return mockStyle as CSSStyleDeclaration;
-  };
-}
-
-
 // Clear all mocks before each test
 beforeEach(() => {
   mockRouterPush.mockClear();
@@ -309,40 +290,40 @@ beforeEach(() => {
   global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
   global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
   global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps = [];
-  (global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis as jest.Mock).mockClear();
-  (global.mockUseAnalysisManagerReturnValue.setTagInput as jest.Mock).mockClear();
-  (global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock).mockClear().mockResolvedValue(undefined);
-  (global.mockUseAnalysisManagerReturnValue.startAiProcessing as jest.Mock).mockClear().mockResolvedValue(undefined);
-  (global.mockUseAnalysisManagerReturnValue.handleAddTag as jest.Mock).mockClear().mockResolvedValue(undefined);
-  (global.mockUseAnalysisManagerReturnValue.handleRemoveTag as jest.Mock).mockClear().mockResolvedValue(undefined);
-  (global.mockUseAnalysisManagerReturnValue.handleDeleteAnalysis as jest.Mock).mockClear().mockImplementation((id, cb) => { cb?.(); return Promise.resolve(); });
-  (global.mockUseAnalysisManagerReturnValue.handleCancelAnalysis as jest.Mock).mockClear().mockResolvedValue(undefined);
-  (global.mockUseAnalysisManagerReturnValue.downloadReportAsTxt as jest.Mock).mockClear();
+  global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis.mockClear();
+  global.mockUseAnalysisManagerReturnValue.setTagInput.mockClear();
+  global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses.mockClear().mockResolvedValue(undefined);
+  global.mockUseAnalysisManagerReturnValue.startAiProcessing.mockClear().mockResolvedValue(undefined);
+  global.mockUseAnalysisManagerReturnValue.handleAddTag.mockClear().mockResolvedValue(undefined);
+  global.mockUseAnalysisManagerReturnValue.handleRemoveTag.mockClear().mockResolvedValue(undefined);
+  global.mockUseAnalysisManagerReturnValue.handleDeleteAnalysis.mockClear().mockImplementation((id, cb) => { cb?.(); return Promise.resolve(); });
+  global.mockUseAnalysisManagerReturnValue.handleCancelAnalysis.mockClear().mockResolvedValue(undefined);
+  global.mockUseAnalysisManagerReturnValue.downloadReportAsTxt.mockClear();
 
   // Reset global useFileUploadManager mock state
   global.mockUseFileUploadManagerReturnValue.fileToUpload = null;
   global.mockUseFileUploadManagerReturnValue.isUploading = false;
   global.mockUseFileUploadManagerReturnValue.uploadProgress = 0;
   global.mockUseFileUploadManagerReturnValue.uploadError = null;
-  (global.mockUseFileUploadManagerReturnValue.handleFileSelection as jest.Mock).mockClear();
-  (global.mockUseFileUploadManagerReturnValue.uploadFileAndCreateRecord as jest.Mock).mockClear().mockResolvedValue({ analysisId: 'mock-analysis-upload-id', fileName: 'mock-file.csv', error: null });
+  global.mockUseFileUploadManagerReturnValue.handleFileSelection.mockClear();
+  global.mockUseFileUploadManagerReturnValue.uploadFileAndCreateRecord.mockClear().mockResolvedValue({ analysisId: 'mock-analysis-upload-id', fileName: 'mock-file.csv', error: null });
 
   // Reset server action mocks
-  (jest.requireMock('@/features/analysis-listing/actions/analysisListingActions').getPastAnalysesAction as jest.Mock).mockClear().mockResolvedValue([]);
-  (jest.requireMock('@/features/file-upload/actions/fileUploadActions').createInitialAnalysisRecordAction as jest.Mock).mockClear().mockImplementation(
+  jest.requireMock('@/features/analysis-listing/actions/analysisListingActions').getPastAnalysesAction.mockClear().mockResolvedValue([]);
+  jest.requireMock('@/features/file-upload/actions/fileUploadActions').createInitialAnalysisRecordAction.mockClear().mockImplementation(
     (userId, fileName) => Promise.resolve({ analysisId: `mock-analysis-id-for-${fileName}` })
   );
-  (jest.requireMock('@/features/report-viewing/actions/reportViewingActions').getAnalysisReportAction as jest.Mock).mockClear().mockResolvedValue(
+  jest.requireMock('@/features/report-viewing/actions/reportViewingActions').getAnalysisReportAction.mockClear().mockResolvedValue(
     { mdxContent: '# Mock Report Default', fileName: 'mock-report-default.csv', analysisId: 'default-mock-analysis-id', error: null }
   );
-  (jest.requireMock('@/features/report-chat/actions/reportChatActions').askReportOrchestratorAction as jest.Mock).mockClear().mockResolvedValue(
+  jest.requireMock('@/features/report-chat/actions/reportChatActions').askReportOrchestratorAction.mockClear().mockResolvedValue(
     { success: true, aiMessageRtdbKey: 'mock-ai-key-default' }
   );
-  (jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').deleteAnalysisAction as jest.Mock).mockClear().mockResolvedValue(undefined);
-  (jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').cancelAnalysisAction as jest.Mock).mockClear().mockResolvedValue({ success: true });
-  (jest.requireMock('@/features/analysis-processing/actions/analysisProcessingActions').processAnalysisFile as jest.Mock).mockClear().mockResolvedValue({ success: true, analysisId: 'mock-analysis-id' });
-  (jest.requireMock('@/features/tag-management/actions/tagActions').addTagToAction as jest.Mock).mockClear().mockResolvedValue(undefined);
-  (jest.requireMock('@/features/tag-management/actions/tagActions').removeTagAction as jest.Mock).mockClear().mockResolvedValue(undefined);
+  jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').deleteAnalysisAction.mockClear().mockResolvedValue(undefined);
+  jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').cancelAnalysisAction.mockClear().mockResolvedValue({ success: true });
+  jest.requireMock('@/features/analysis-processing/actions/analysisProcessingActions').processAnalysisFile.mockClear().mockResolvedValue({ success: true, analysisId: 'mock-analysis-id' });
+  jest.requireMock('@/features/tag-management/actions/tagActions').addTagToAction.mockClear().mockResolvedValue(undefined);
+  jest.requireMock('@/features/tag-management/actions/tagActions').removeTagAction.mockClear().mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -358,9 +339,9 @@ export const mockAuthContext = (user, loading = false) => {
 
 global.EMULATORS_CONNECTED = !!process.env.FIRESTORE_EMULATOR_HOST;
 
-console.info(`[JestSetup] EMULATORS_CONNECTED: ${global.EMULATORS_CONNECTED}`);
+console.log(`EMULATORS_CONNECTED: ${global.EMULATORS_CONNECTED}`);
 if (global.EMULATORS_CONNECTED) {
-  console.info('[JestSetup] Firebase SDKs should connect to emulators.');
+  console.log('Jest setup: Firebase SDKs should connect to emulators.');
 } else {
-  console.warn('[JestSetup] Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail if they rely on emulator behavior.');
+  console.warn('Jest setup: Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail.');
 }
