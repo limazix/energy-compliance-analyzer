@@ -23,6 +23,7 @@ const customJestConfig = {
   ],
   // Automatically clear mock calls, instances, contexts and results before every test
   clearMocks: true,
+  bail: true, // Stop running tests after the first failure
 };
 
 module.exports = createJestConfig(customJestConfig);
