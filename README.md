@@ -83,10 +83,10 @@ graph TD
     ServerActions -- "Interage com Agente Orquestrador IA<br>(usando relatório estruturado e MDX)" --> AIEngineServerActions
     AIEngineServerActions -- "Resposta da IA / Sugestão de Modificação no Relatório Estruturado (se houver)" --> ServerActions
     ServerActions -- "Salva Mensagem do Chat (usuário e IA)" --> RTDB
-    ServerActions -- "Se Relatório Modificado:<br>- Atualiza Relatório Estruturado (JSON) no Firestore<br>- Gera e Salva novo MDX no Storage" --> Firestore
-    ServerActions -- " " --> Storage %% Empty label for the second arrow to Storage
+    ServerActions -- "Se Relatório Modificado:<br>Atualiza Relatório Estruturado (JSON)" --> Firestore
+    ServerActions -- "Se Relatório Modificado:<br>Gera e Salva novo MDX" --> Storage
     RTDB -- "Sincroniza Chat em Tempo Real com UI" --> UI
-    Firestore -.-> UI %% (Opcional) Notifica UI de mudanças no relatório via listener
+    Firestore -- "(Opcional) Notifica UI de mudanças no relatório via listener"-.-> UI
 
     %% Styling (optional, for clarity in renderers that support it)
     classDef userInteraction fill:#E6E6FA,stroke:#333,stroke-width:2px;
@@ -243,5 +243,7 @@ Consulte o [**Guia de Deployment**](docs/DEPLOYMENT.md) para detalhes sobre depl
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
+
+    
 
     
