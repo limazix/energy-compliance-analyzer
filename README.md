@@ -36,15 +36,15 @@ O Energy Compliance Analyzer simplifica a verificação de conformidade para o s
 
 ```mermaid
 graph TD
-    subgraph UserInteraction["Interação do Usuário"]
+    subgraph "UserInteraction" ["Interação do Usuário"]
         UI["Frontend Next.js/React<br>(ShadCN, TailwindCSS)<br>Hosted on Firebase App Hosting"]
     end
 
-    subgraph BackendNextJs["Backend (Next.js)"]
+    subgraph "BackendNextJs" ["Backend (Next.js)"]
         ServerActions["Next.js Server Actions<br>(Disparador Upload, Orquestrador Chat)"]
     end
 
-    subgraph FirebasePlatform["Plataforma Firebase"]
+    subgraph "FirebasePlatform" ["Plataforma Firebase"]
         Auth["Firebase Authentication<br>(Google Sign-In)"]
         Firestore["Firebase Firestore<br>(Metadados Análises, Tags, Status, Relatório Estruturado)"]
         Storage["Firebase Storage<br>(Upload CSVs, Relatórios MDX)"]
@@ -52,7 +52,7 @@ graph TD
         Functions["Firebase Functions<br>(Processamento Pesado, AI Pipeline Principal)"]
     end
 
-    subgraph GenAI["Inteligência Artificial (Genkit & Gemini)"]
+    subgraph "GenAI" ["Inteligência Artificial (Genkit & Gemini)"]
         AIEngineFunctions["AI Engine - Functions<br>(Pipeline: Analista de Dados, Engenheiro Elétrico, Relator, Revisor)"]
         AIEngineServerActions["AI Engine - Server Actions<br>(Agente Orquestrador do Chat Interativo)"]
     end
@@ -98,6 +98,7 @@ graph TD
     class ServerActions,BackendNextJs backendNextJs;
     class Auth,Firestore,Storage,RTDB,Functions,FirebasePlatform firebasePlatform;
     class AIEngineFunctions,AIEngineServerActions,GenAI genAI;
+    %% End of diagram
 ```
 *<p align="center" data-ai-hint="architecture diagram">Diagrama da Arquitetura da Aplicação</p>*
 
@@ -241,5 +242,3 @@ Consulte o [**Guia de Deployment**](docs/DEPLOYMENT.md) para detalhes sobre depl
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
-
-```
