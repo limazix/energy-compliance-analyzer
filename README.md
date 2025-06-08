@@ -58,35 +58,35 @@ graph TD
     end
 
     %% User Flows
-    UI --"1. Login via Google"--> Auth
-    UI --"2. Upload CSV<br>(Título, Descrição)"--> ServerActions
-    ServerActions --"3. Cria Registro Inicial na Análise<br>(Status: 'uploading')"--> Firestore
-    ServerActions --"4. Faz Upload do CSV para o Caminho da Análise"--> Storage
-    ServerActions --"5. Finaliza Registro Análise<br>(URL CSV, Status: 'summarizing_data')"--> Firestore
+    UI -- "Login via Google" --> Auth
+    UI -- "Upload CSV<br>(Título, Descrição)" --> ServerActions
+    ServerActions -- "Cria Registro Inicial na Análise<br>(Status: 'uploading')" --> Firestore
+    ServerActions -- "Faz Upload do CSV para o Caminho da Análise" --> Storage
+    ServerActions -- "Finaliza Registro Análise<br>(URL CSV, Status: 'summarizing_data')" --> Firestore
 
     %% Background Processing Flow (Triggered by Firestore update)
-    Firestore --"6. Gatilho (onUpdate: status='summarizing_data')"--> Functions
-    Functions --"7. Lê CSV do Storage"--> Storage
-    Functions --"8. Executa Pipeline de Agentes IA"--> AIEngineFunctions
-    AIEngineFunctions --"9. Gera Relatório Estruturado (JSON)"--> Functions
-    Functions --"10. Salva Relatório Estruturado (JSON)"--> Firestore
-    Functions --"11. Converte Estruturado para MDX e Salva"--> Storage
-    Functions --"12. Atualiza Status/Progresso para 'completed'"--> Firestore
+    Firestore -- "Gatilho (onUpdate: status='summarizing_data')" --> Functions
+    Functions -- "Lê CSV do Storage" --> Storage
+    Functions -- "Executa Pipeline de Agentes IA" --> AIEngineFunctions
+    AIEngineFunctions -- "Gera Relatório Estruturado (JSON)" --> Functions
+    Functions -- "Salva Relatório Estruturado (JSON)" --> Firestore
+    Functions -- "Converte Estruturado para MDX e Salva" --> Storage
+    Functions -- "Atualiza Status/Progresso para 'completed'" --> Firestore
 
     %% Report Viewing & Chat Flow
-    UI --"13. Visualizar Relatório (solicita MDX)"--> ServerActions
-    ServerActions --"14. Lê Caminho do MDX"--> Firestore
-    ServerActions --"15. Lê Conteúdo MDX"--> Storage
-    Storage --"16. Retorna Conteúdo MDX"--> ServerActions
-    ServerActions --"17. Envia MDX para UI"--> UI
-    UI --"18. Envia Mensagem de Chat<br>(com contexto do relatório)"--> ServerActions
-    ServerActions --"19. Interage com Agente Orquestrador IA<br>(usando relatório estruturado e MDX)"--> AIEngineServerActions
-    AIEngineServerActions --"20. Resposta da IA / Sugestão de Modificação no Relatório Estruturado (se houver)"--> ServerActions
-    ServerActions --"21. Salva Mensagem do Chat (usuário e IA)"--> RTDB
-    ServerActions --"22. Se Relatório Modificado:<br>- Atualiza Relatório Estruturado (JSON) no Firestore<br>- Gera e Salva novo MDX no Storage"--> Firestore
-    ServerActions --" "--> Storage
-    RTDB --"23. Sincroniza Chat em Tempo Real com UI"--> UI
-    Firestore --"(Opcional) Notifica UI de mudanças no relatório via listener"-.-> UI
+    UI -- "Visualizar Relatório (solicita MDX)" --> ServerActions
+    ServerActions -- "Lê Caminho do MDX" --> Firestore
+    ServerActions -- "Lê Conteúdo MDX" --> Storage
+    Storage -- "Retorna Conteúdo MDX" --> ServerActions
+    ServerActions -- "Envia MDX para UI" --> UI
+    UI -- "Envia Mensagem de Chat<br>(com contexto do relatório)" --> ServerActions
+    ServerActions -- "Interage com Agente Orquestrador IA<br>(usando relatório estruturado e MDX)" --> AIEngineServerActions
+    AIEngineServerActions -- "Resposta da IA / Sugestão de Modificação no Relatório Estruturado (se houver)" --> ServerActions
+    ServerActions -- "Salva Mensagem do Chat (usuário e IA)" --> RTDB
+    ServerActions -- "Se Relatório Modificado:<br>- Atualiza Relatório Estruturado (JSON) no Firestore<br>- Gera e Salva novo MDX no Storage" --> Firestore
+    ServerActions -- " " --> Storage %% Empty label for the second arrow to Storage
+    RTDB -- "Sincroniza Chat em Tempo Real com UI" --> UI
+    Firestore -.-> UI %% (Opcional) Notifica UI de mudanças no relatório via listener
 
     %% Styling (optional, for clarity in renderers that support it)
     classDef userInteraction fill:#E6E6FA,stroke:#333,stroke-width:2px;
@@ -100,7 +100,8 @@ graph TD
     class AIEngineFunctions,AIEngineServerActions,GenAI genAI;
     %% End of diagram
 ```
-*<p align="center" data-ai-hint="architecture diagram">Diagrama da Arquitetura da Aplicação</p>*
+
+<p align="center" data-ai-hint="architecture diagram">Diagrama da Arquitetura da Aplicação</p>
 
 ## Executando Localmente
 
@@ -242,3 +243,5 @@ Consulte o [**Guia de Deployment**](docs/DEPLOYMENT.md) para detalhes sobre depl
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
+
+    
