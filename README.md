@@ -53,34 +53,29 @@ O Energy Compliance Analyzer simplifica a verificação de conformidade para o s
 2.  **Instale as dependências do Next.js:** `npm install`
 3.  **Instale as dependências das Firebase Functions:** `cd functions && npm install && cd ..`
 4.  **Configure as variáveis de ambiente:**
-    Crie um arquivo `.env` na raiz do projeto e adicione as seguintes variáveis (obtenha os valores do Firebase Console e Google AI Studio):
+    Crie um arquivo `.env` na raiz do projeto. Este arquivo será usado para desenvolvimento local (incluindo o servidor de desenvolvimento do Next.js e os Firebase Emulators).
     ```env
-    NEXT_PUBLIC_FIREBASE_API_KEY="SUA_API_KEY_DO_FIREBASE"
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="SEU_AUTH_DOMAIN_DO_FIREBASE"
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID="electric-magnitudes-analizer"
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="SEU_STORAGE_BUCKET_DO_FIREBASE"
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="SEU_MESSAGING_SENDER_ID_DO_FIREBASE"
-    NEXT_PUBLIC_FIREBASE_APP_ID="SEU_APP_ID_DO_FIREBASE"
-    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID="SEU_MEASUREMENT_ID_DO_FIREBASE" # Opcional
-    NEXT_PUBLIC_FIREBASE_DATABASE_URL="SUA_DATABASE_URL_DO_FIREBASE" # Ex: https://electric-magnitudes-analizer-default-rtdb.firebaseio.com
+    # Configuração consolidada do Firebase para o cliente Next.js
+    # DEVE ser um JSON stringificado válido.
+    NEXT_PUBLIC_FIREBASE_CONFIG='{"apiKey":"SUA_API_KEY_DO_FIREBASE","authDomain":"SEU_AUTH_DOMAIN_DO_FIREBASE","projectId":"electric-magnitudes-analizer","storageBucket":"SEU_STORAGE_BUCKET_DO_FIREBASE","messagingSenderId":"SEU_MESSAGING_SENDER_ID_DO_FIREBASE","appId":"SEU_APP_ID_DO_FIREBASE","measurementId":"SEU_MEASUREMENT_ID_DO_FIREBASE","databaseURL":"SUA_DATABASE_URL_DO_FIREBASE"}'
 
-    # Esta chave será usada pelos fluxos Genkit.
-    # Para desenvolvimento local (Server Actions do Next.js e `genkit:dev`), defina-a no seu .env.
-    # Para Firebase Functions, ela deve ser configurada como um secret no ambiente de deploy
-    # (ex: via Secret Manager ou variáveis de ambiente da função, acessada como process.env.GEMINI_API_KEY).
+    # Chave de API do Gemini para fluxos Genkit no Next.js (Server Actions) e Firebase Functions (quando emuladas localmente)
+    # Para Firebase Functions implantadas, esta chave é configurada como secret no ambiente de deploy.
     NEXT_PUBLIC_GEMINI_API_KEY="SUA_API_KEY_DO_GEMINI"
     ```
     **Importante:**
-    * `NEXT_PUBLIC_FIREBASE_PROJECT_ID` deve ser `electric-magnitudes-analizer`.
-    * `NEXT_PUBLIC_FIREBASE_DATABASE_URL` é essencial para o Realtime Database (chat).
-    * `NEXT_PUBLIC_GEMINI_API_KEY` é usada pelos fluxos Genkit tanto no Next.js (para o chat) quanto nas Firebase Functions.
+    *   `NEXT_PUBLIC_FIREBASE_CONFIG`:
+        *   O valor para `projectId` DEVE ser `electric-magnitudes-analizer`.
+        *   O valor para `databaseURL` é essencial para o Realtime Database (chat), ex: `https://electric-magnitudes-analizer-default-rtdb.firebaseio.com`.
+        *   Assegure-se de que todo o valor desta variável seja uma string JSON válida e única, entre aspas simples ou duplas, conforme a sintaxe do seu shell/`.env`.
+    *   `NEXT_PUBLIC_GEMINI_API_KEY`: Usada pelos fluxos Genkit tanto no Next.js (para o chat) quanto nas Firebase Functions (durante a emulação local).
 
 5.  **Domínios Autorizados no Firebase Authentication:**
     No Firebase Console (`electric-magnitudes-analizer` > Authentication > Settings > Authorized domains), adicione `localhost` e outros domínios de desenvolvimento (ex: `*.cloudworkstations.dev`).
 
 6.  **Regras de Segurança do Firebase:**
-    Revise e, se necessário, implante as regras de segurança para Firestore (`rules/firestore.rules`), Storage (`rules/storage.rules`) e Realtime Database (`rules/database.rules.json`) antes de executar localmente ou testar, para garantir que os emuladores ou o projeto Firebase real tenham as permissões corretas.
-    Implantação manual (se ainda não feita pelo CI/CD ou se quiser forçar uma atualização):
+    Revise e, se necessário, implante as regras de segurança para Firestore (`rules/firestore.rules`), Storage (`rules/storage.rules`) e Realtime Database (`rules/database.rules.json`) antes de executar localmente ou testar.
+    Implantação manual (se ainda não feita pelo CI/CD):
     `firebase deploy --only firestore,storage,database --project electric-magnitudes-analizer`
 
 ### Executando a Aplicação com Emuladores (Recomendado)
@@ -117,13 +112,60 @@ O projeto está configurado para conectar-se aos Firebase Emulators (Auth, Fires
     ```
     Isso iniciará a UI de desenvolvimento da Genkit (geralmente em `http://localhost:4000/flows`).
 
-### Testando
+## Testando
 
 Para rodar os testes de UI e integração (que usam os Firebase Emulators), execute:
 ```bash
 npm test
 ```
 Isso utilizará o script `firebase emulators:exec --import=./firebase-emulator-data jest` para executar os testes Jest em um ambiente com os emuladores ativos. Certifique-se de que as functions foram compiladas (`npm run build --prefix functions`) antes.
+
+### Configuração do Ambiente de Teste para Jest (Local)
+
+Os testes Jest precisam que certas variáveis de ambiente sejam definidas para interagir corretamente com os emuladores Firebase e para a inicialização do Firebase em si.
+As variáveis de ambiente necessárias são as mesmas utilizadas pelo workflow de CI em `.github/workflows/tests.yml`.
+
+**Opções para configurar variáveis de ambiente para testes Jest locais:**
+
+1.  **Arquivo `.env.test` (Recomendado se seu setup Jest o suporta):**
+    Algumas configurações Jest (especialmente com `dotenv`) podem carregar automaticamente um arquivo `.env.test`. Se for o caso, crie este arquivo na raiz do projeto:
+    ```env
+    # .env.test
+    # Configuração consolidada do Firebase para testes (pode usar valores dummy se as chamadas reais são mockadas)
+    NEXT_PUBLIC_FIREBASE_CONFIG='{"apiKey":"test-api-key","authDomain":"localhost","projectId":"electric-magnitudes-analizer","storageBucket":"localhost","messagingSenderId":"test-sender-id","appId":"test-app-id","databaseURL":"http://localhost:9000/?ns=electric-magnitudes-analizer"}'
+    NEXT_PUBLIC_GEMINI_API_KEY="test-gemini-key-for-jest"
+
+    # Configurações do Emulador (correspondem a firebase.json e ao que o CI usa)
+    FIRESTORE_EMULATOR_HOST="localhost:8080"
+    FIREBASE_AUTH_EMULATOR_HOST="localhost:9099"
+    FIREBASE_STORAGE_EMULATOR_HOST="localhost:9199" # Ou 127.0.0.1:9199
+    FIREBASE_DATABASE_EMULATOR_HOST="localhost:9000"
+    FUNCTIONS_EMULATOR_HOST="localhost:5001"
+    FIREBASE_FUNCTIONS_EMULATOR_ORIGIN="http://localhost:5001" # Ou http://127.0.0.1:5001
+
+    # Outras variáveis que podem ser necessárias dependendo dos testes
+    GCLOUD_PROJECT="electric-magnitudes-analizer" # Mesmo que NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    GCP_REGION="us-central1" # Região padrão para functions
+
+    # FIREBASE_CONFIG é uma string JSON usada por firebase-admin nos emuladores.
+    # O conteúdo de FIREBASE_CONFIG é tipicamente {"databaseURL": "http://localhost:9000/?ns=PROJECT_ID", "storageBucket": "localhost", "projectId": "PROJECT_ID"}
+    # Mas para os emuladores de functions, o CLI do Firebase geralmente o define automaticamente.
+    # Se você tiver problemas, pode precisar defini-lo explicitamente.
+    # FIREBASE_CONFIG='{"projectId":"electric-magnitudes-analizer","databaseURL":"http://localhost:9000/?ns=electric-magnitudes-analizer","storageBucket":"localhost"}'
+    ```
+    *Nota: O `jest.setup.js` neste projeto NÃO mocka mais `NEXT_PUBLIC_FIREBASE_CONFIG`. Você DEVE fornecê-lo através do seu ambiente.*
+
+2.  **Prefixando o comando de teste:**
+    Você pode definir as variáveis diretamente no comando:
+    ```bash
+    NEXT_PUBLIC_FIREBASE_CONFIG='{...}' FIRESTORE_EMULATOR_HOST="localhost:8080" npm test
+    ```
+    (Isso pode se tornar verboso).
+
+3.  **Configuração do Ambiente Shell/IDE:**
+    Exporte as variáveis no seu terminal antes de rodar `npm test`, ou configure-as nas configurações de execução da sua IDE para os testes Jest.
+
+Consulte a seção `env:` do job `test_production` em `.github/workflows/tests.yml` para a lista completa de variáveis de ambiente que o ambiente de CI utiliza e que você pode precisar replicar para testes locais consistentes.
 
 ## Deployment
 
@@ -134,3 +176,4 @@ Consulte o [**Guia de Deployment**](docs/DEPLOYMENT.md) para detalhes sobre depl
 ## Licença
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+

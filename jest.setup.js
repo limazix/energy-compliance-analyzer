@@ -7,6 +7,16 @@ import '@testing-library/jest-dom';
 import { Timestamp } from 'firebase/firestore';
 import React from 'react'; // Import React for createElement
 
+// --- IMPORTANTE: Configuração de Variáveis de Ambiente para Testes ---
+// Para executar os testes localmente, especialmente aqueles que interagem com
+// a inicialização do Firebase ou os emuladores, você precisará configurar
+// variáveis de ambiente semelhantes às definidas em .github/workflows/tests.yml.
+// Consulte a seção "Configuração do Ambiente de Teste" no README.md para detalhes.
+// NÃO defina process.env diretamente neste arquivo. Use um arquivo .env.test
+// ou configure seu ambiente de shell/IDE.
+// ----------------------------------------------------------------------
+
+
 // Mock Next.js router
 const mockRouterPush = jest.fn();
 const mockRouterReplace = jest.fn();
@@ -23,7 +33,7 @@ jest.mock('next/navigation', () => ({
   }),
   usePathname: jest.fn(() => '/'),
   useSearchParams: jest.fn(() => new URLSearchParams()),
-  useParams: jest.fn(() => ({})), // Mock useParams, useful for dynamic routes like report/[analysisId]
+  useParams: jest.fn(() => ({})),
 }));
 
 // Mock lucide-react icons
@@ -32,10 +42,8 @@ jest.mock('lucide-react', () => {
     const handler = {
         get: (_target, prop) => {
             if (prop === '__esModule') return true;
-            // Return a mock component for any icon name
             const MockLucideIcon = (props) => {
               const { children, ...restProps } = props || {};
-              // Use React.createElement to create the SVG element
               return React.createElement(
                 'svg',
                 { 'data-lucide-mock': String(prop), ...restProps },
@@ -59,7 +67,6 @@ jest.mock('@/hooks/use-toast', () => ({
 
 // Mock next-mdx-remote/rsc
 jest.mock('next-mdx-remote/rsc', () => {
-  // const React = require('react'); // React is already imported at the top
   return {
     MDXRemote: jest.fn((props) => {
       let content = '';
@@ -76,7 +83,6 @@ jest.mock('next-mdx-remote/rsc', () => {
 // Mock remark plugins that are ESM-only
 jest.mock('remark-gfm', () => jest.fn());
 jest.mock('remark-mermaidjs', () => jest.fn());
-
 
 // Server Actions Mocks
 jest.mock('@/features/analysis-listing/actions/analysisListingActions', () => ({
@@ -106,7 +112,6 @@ jest.mock('@/features/tag-management/actions/tagActions', () => ({
     removeTagAction: jest.fn(() => Promise.resolve()),
 }));
 
-
 // Mock useAnalysisManager
 global.mockUseAnalysisManagerReturnValue = {
   currentAnalysis: null,
@@ -126,11 +131,9 @@ global.mockUseAnalysisManagerReturnValue = {
   downloadReportAsTxt: jest.fn(),
   displayedAnalysisSteps: [],
 };
-
 jest.mock('@/hooks/useAnalysisManager', () => ({
   useAnalysisManager: jest.fn(() => global.mockUseAnalysisManagerReturnValue),
 }));
-
 
 // Mock useFileUploadManager
 const mockUploadFileAndCreateRecord = jest.fn(() => Promise.resolve({ analysisId: 'mock-analysis-upload-id', fileName: 'mock-file.csv', error: null }));
@@ -146,8 +149,64 @@ jest.mock('@/features/file-upload/hooks/useFileUploadManager', () => ({
   useFileUploadManager: jest.fn(() => global.mockUseFileUploadManagerReturnValue),
 }));
 
-
 global.Timestamp = Timestamp;
+
+// JSDOM API Mocks for Radix UI and other libraries
+global.ResizeObserver = jest.fn().mockImplementation(() => ({
+  observe: jest.fn(),
+  unobserve: jest.fn(),
+  disconnect: jest.fn(),
+}));
+
+window.matchMedia = jest.fn().mockImplementation(query => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener: jest.fn(), // deprecated
+  removeListener: jest.fn(), // deprecated
+  addEventListener: jest.fn(),
+  removeEventListener: jest.fn(),
+  dispatchEvent: jest.fn(),
+}));
+
+global.requestAnimationFrame = jest.fn(cb => {
+  if (typeof cb === 'function') cb(0);
+  return 0; // return a number
+});
+global.cancelAnimationFrame = jest.fn();
+
+// To deal with "Could not parse CSS stylesheet" from Radix UI in tests
+if (typeof window !== 'undefined') {
+  const originalGetComputedStyle = window.getComputedStyle;
+  window.getComputedStyle = (elt, pseudoElt) => {
+    try {
+      return originalGetComputedStyle(elt, pseudoElt);
+    } catch (error) {
+      // Fallback for environments where getComputedStyle might fail with certain elements
+      console.warn('jsdom.getComputedStyle failed for element, returning a mock CSSStyleDeclaration. Error:', error.message);
+      const style = {
+        animationName: 'none',
+        transitionProperty: 'none',
+        display: 'block',
+        getPropertyValue: (prop) => {
+          // Provide default values for common properties Radix might check
+          if (prop === 'animation-name') return 'none';
+          if (prop === 'transition-property') return 'none';
+          return '';
+        },
+        length: 0,
+        parentRule: null,
+        item: () => '',
+        setProperty: () => {},
+        removeProperty: () => {},
+        ...Array.from({ length: 0 }).reduce((acc, _, i) => ({ ...acc, [i]: undefined }), {})
+      };
+      // Make it look more like a CSSStyleDeclaration
+      Object.setPrototypeOf(style, CSSStyleDeclaration.prototype);
+      return style;
+    }
+  };
+}
 
 
 // Clear all mocks before each test
@@ -171,34 +230,32 @@ beforeEach(() => {
   global.mockUseAnalysisManagerReturnValue.handleCancelAnalysis.mockClear().mockResolvedValue(undefined);
   global.mockUseAnalysisManagerReturnValue.downloadReportAsTxt.mockClear();
 
-
   // Reset global useFileUploadManager mock state
-   global.mockUseFileUploadManagerReturnValue.fileToUpload = null;
-   global.mockUseFileUploadManagerReturnValue.isUploading = false;
-   global.mockUseFileUploadManagerReturnValue.uploadProgress = 0;
-   global.mockUseFileUploadManagerReturnValue.uploadError = null;
+  global.mockUseFileUploadManagerReturnValue.fileToUpload = null;
+  global.mockUseFileUploadManagerReturnValue.isUploading = false;
+  global.mockUseFileUploadManagerReturnValue.uploadProgress = 0;
+  global.mockUseFileUploadManagerReturnValue.uploadError = null;
   global.mockUseFileUploadManagerReturnValue.handleFileSelection.mockClear();
   global.mockUseFileUploadManagerReturnValue.uploadFileAndCreateRecord.mockClear().mockResolvedValue({ analysisId: 'mock-analysis-upload-id', fileName: 'mock-file.csv', error: null });
-
 
   // Reset server action mocks
   jest.requireMock('@/features/analysis-listing/actions/analysisListingActions').getPastAnalysesAction.mockClear().mockResolvedValue([]);
   jest.requireMock('@/features/file-upload/actions/fileUploadActions').createInitialAnalysisRecordAction.mockClear().mockImplementation(
     (userId, fileName) => Promise.resolve({ analysisId: `mock-analysis-id-for-${fileName}` })
   );
-   jest.requireMock('@/features/report-viewing/actions/reportViewingActions').getAnalysisReportAction.mockClear().mockResolvedValue(
-     { mdxContent: '# Mock Report Default', fileName: 'mock-report-default.csv', analysisId: 'default-mock-analysis-id', error: null }
-   );
-   jest.requireMock('@/features/report-chat/actions/reportChatActions').askReportOrchestratorAction.mockClear().mockResolvedValue(
-     { success: true, aiMessageRtdbKey: 'mock-ai-key-default' }
-   );
-   jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').deleteAnalysisAction.mockClear().mockResolvedValue(undefined);
-   jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').cancelAnalysisAction.mockClear().mockResolvedValue({ success: true });
-   jest.requireMock('@/features/analysis-processing/actions/analysisProcessingActions').processAnalysisFile.mockClear().mockResolvedValue({ success: true, analysisId: 'mock-analysis-id' });
-   jest.requireMock('@/features/tag-management/actions/tagActions').addTagToAction.mockClear().mockResolvedValue(undefined);
-   jest.requireMock('@/features/tag-management/actions/tagActions').removeTagAction.mockClear().mockResolvedValue(undefined);
-
+  jest.requireMock('@/features/report-viewing/actions/reportViewingActions').getAnalysisReportAction.mockClear().mockResolvedValue(
+    { mdxContent: '# Mock Report Default', fileName: 'mock-report-default.csv', analysisId: 'default-mock-analysis-id', error: null }
+  );
+  jest.requireMock('@/features/report-chat/actions/reportChatActions').askReportOrchestratorAction.mockClear().mockResolvedValue(
+    { success: true, aiMessageRtdbKey: 'mock-ai-key-default' }
+  );
+  jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').deleteAnalysisAction.mockClear().mockResolvedValue(undefined);
+  jest.requireMock('@/features/analysis-management/actions/analysisManagementActions').cancelAnalysisAction.mockClear().mockResolvedValue({ success: true });
+  jest.requireMock('@/features/analysis-processing/actions/analysisProcessingActions').processAnalysisFile.mockClear().mockResolvedValue({ success: true, analysisId: 'mock-analysis-id' });
+  jest.requireMock('@/features/tag-management/actions/tagActions').addTagToAction.mockClear().mockResolvedValue(undefined);
+  jest.requireMock('@/features/tag-management/actions/tagActions').removeTagAction.mockClear().mockResolvedValue(undefined);
 });
+
 afterEach(() => {
   jest.clearAllMocks();
 });
@@ -217,21 +274,4 @@ if (global.EMULATORS_CONNECTED) {
   console.log('Jest setup: Firebase SDKs should connect to emulators.');
 } else {
   console.warn('Jest setup: Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail.');
-}
-
-// To deal with "Could not parse CSS stylesheet" from Radix UI in tests
-// See: https://github.com/radix-ui/primitives/issues/2269
-if (typeof window !== 'undefined') {
-  const originalGetComputedStyle = window.getComputedStyle;
-  window.getComputedStyle = (elt, pseudoElt) => {
-    try {
-      return originalGetComputedStyle(elt, pseudoElt);
-    } catch (error) {
-      // Fallback for environments where getComputedStyle might fail with certain elements
-      console.warn('jsdom.getComputedStyle failed, returning empty CSSStyleDeclaration', error);
-      const style = {};
-      // Populate with some common properties if necessary, or just return empty
-      return style;
-    }
-  };
 }
