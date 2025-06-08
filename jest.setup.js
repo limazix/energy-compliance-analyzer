@@ -1,3 +1,4 @@
+
 // Optional: configure or set up a testing framework before each test.
 // If you delete this file, remove `setupFilesAfterEnv` from `jest.config.js`
 
@@ -6,16 +7,6 @@
 import '@testing-library/jest-dom';
 import { Timestamp } from 'firebase/firestore';
 import React from 'react'; // Import React for createElement
-
-// --- IMPORTANTE: Configuração de Variáveis de Ambiente para Testes ---
-// Para executar os testes localmente, especialmente aqueles que interagem com
-// a inicialização do Firebase ou os emuladores, você precisará configurar
-// variáveis de ambiente semelhantes às definidas em .github/workflows/tests.yml.
-// Consulte a seção "Configuração do Ambiente de Teste" no README.md para detalhes.
-// NÃO defina process.env diretamente neste arquivo. Use um arquivo .env.test
-// ou configure seu ambiente de shell/IDE.
-// ----------------------------------------------------------------------
-
 
 // Mock Next.js router
 const mockRouterPush = jest.fn();
@@ -180,31 +171,70 @@ if (typeof window !== 'undefined') {
   const originalGetComputedStyle = window.getComputedStyle;
   window.getComputedStyle = (elt, pseudoElt) => {
     try {
-      return originalGetComputedStyle(elt, pseudoElt);
-    } catch (error) {
-      // Fallback for environments where getComputedStyle might fail with certain elements
-      console.warn('jsdom.getComputedStyle failed for element, returning a mock CSSStyleDeclaration. Error:', error.message);
-      const style = {
-        animationName: 'none',
-        transitionProperty: 'none',
-        display: 'block',
-        getPropertyValue: (prop) => {
-          // Provide default values for common properties Radix might check
-          if (prop === 'animation-name') return 'none';
-          if (prop === 'transition-property') return 'none';
-          return '';
-        },
-        length: 0,
-        parentRule: null,
-        item: () => '',
-        setProperty: () => {},
-        removeProperty: () => {},
-        ...Array.from({ length: 0 }).reduce((acc, _, i) => ({ ...acc, [i]: undefined }), {})
-      };
-      // Make it look more like a CSSStyleDeclaration
-      Object.setPrototypeOf(style, CSSStyleDeclaration.prototype);
-      return style;
+      // Attempt to use the real getComputedStyle first
+      const actualStyle = originalGetComputedStyle(elt, pseudoElt);
+      // If it returns something, and doesn't throw, use it.
+      // Radix might be causing an error with specific elements (like <template> if used internally).
+      if (actualStyle) return actualStyle;
+    } catch (e) {
+      // If the original getComputedStyle throws, then fall back to the mock.
+      // This happens with some elements in JSDOM that Radix might interact with.
+      // console.warn(`jsdom.getComputedStyle error for element ${elt.tagName}, falling back to mock. Error: ${e.message}`);
     }
+    
+    // Fallback mock, ensuring it's a compliant CSSStyleDeclaration-like object
+    const mockStyle = Object.create(CSSStyleDeclaration.prototype);
+    
+    // Essential properties Radix UI might check for layout/visibility
+    mockStyle.display = 'block'; 
+    mockStyle.opacity = '1';
+    mockStyle.visibility = 'visible';
+    mockStyle.position = 'static'; // Common default
+    mockStyle.pointerEvents = 'auto'; // Common default
+    mockStyle.animationName = 'none';
+    mockStyle.transitionProperty = 'none';
+    // Add other common properties with default "non-interfering" values
+    mockStyle.width = 'auto';
+    mockStyle.height = 'auto';
+    mockStyle.margin = '0px';
+    mockStyle.padding = '0px';
+    mockStyle.border = '0px none rgb(0, 0, 0)';
+    mockStyle.overflow = 'visible';
+    
+    // This function needs to exist and return something.
+    mockStyle.getPropertyValue = (propertyName) => {
+      // Convert kebab-case to camelCase for direct property access
+      const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+      if (mockStyle.hasOwnProperty(camelCaseProperty)) {
+        return mockStyle[camelCaseProperty];
+      }
+      // console.debug(`getPropertyValue for unmocked CSS property: ${propertyName}, returning empty string`);
+      return ''; // Default for unmocked properties
+    };
+
+    // Ensure 'length' and 'item' are present as Radix might iterate
+    const ownProperties = Object.keys(mockStyle);
+    mockStyle.length = ownProperties.length;
+    mockStyle.item = (index) => ownProperties[index] || '';
+    
+    mockStyle.setProperty = (property, value, priority) => {
+      const camelCaseProperty = property.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+      mockStyle[camelCaseProperty] = value;
+      // Re-calculate length if needed, though unlikely to be critical for most tests
+      const currentOwnProperties = Object.keys(mockStyle);
+      mockStyle.length = currentOwnProperties.length;
+    };
+    mockStyle.removeProperty = (property) => {
+      const camelCaseProperty = property.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+      const oldValue = mockStyle[camelCaseProperty];
+      delete mockStyle[camelCaseProperty];
+      // Re-calculate length
+      const currentOwnProperties = Object.keys(mockStyle);
+      mockStyle.length = currentOwnProperties.length;
+      return oldValue || '';
+    };
+    
+    return mockStyle;
   };
 }
 
@@ -267,11 +297,15 @@ export const mockAuthContext = (user, loading = false) => {
   return useAuthActual;
 };
 
+// Environment variables for tests are expected to be set externally (e.g., via .env.test or shell)
+// Refer to README.md for required variables.
 global.EMULATORS_CONNECTED = !!process.env.FIRESTORE_EMULATOR_HOST;
 
 console.log(`EMULATORS_CONNECTED: ${global.EMULATORS_CONNECTED}`);
 if (global.EMULATORS_CONNECTED) {
   console.log('Jest setup: Firebase SDKs should connect to emulators.');
 } else {
-  console.warn('Jest setup: Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail.');
+  console.warn('Jest setup: Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail if they rely on emulator behavior.');
 }
+
+    
