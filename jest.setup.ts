@@ -1,12 +1,48 @@
 
-// Optional: configure or set up a testing framework before each test.
-// If you delete this file, remove `setupFilesAfterEnv` from `jest.config.js`
-
 // Used for __tests__/testing-library.js
 // Learn more: https://github.com/testing-library/jest-dom
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/extend-expect';
 import { Timestamp } from 'firebase/firestore';
 import React from 'react';
+
+
+class MockPointerEvent extends Event {
+  button: number | undefined;
+  ctrlKey: boolean | undefined;
+  constructor(type: string, props: PointerEventInit | undefined) {
+    super(type, props);
+    if (props) {
+      if (props.button != null) {
+        this.button = props.button;
+      }
+      if (props.ctrlKey != null) {
+        this.ctrlKey = props.ctrlKey;
+      }
+    }
+  }
+}
+
+window.PointerEvent = MockPointerEvent as any;
+
+window.HTMLElement.prototype.scrollIntoView = jest.fn();
+window.HTMLElement.prototype.hasPointerCapture = jest.fn();
+window.HTMLElement.prototype.releasePointerCapture = jest.fn();
+
+const createResizeObserver = () => {
+  return (global.ResizeObserver = class ResizeObserver {
+    [x: string]: any;
+    constructor(cb: any) {
+      this.cb = cb;
+    }
+    observe() {
+      this.cb([{ borderBoxSize: { inlineSize: 0, blockSize: 0 } }]);
+    }
+    unobserve() {}
+    disconnect() {}
+  });
+};
+
+createResizeObserver();
 
 // Mock Next.js router
 const mockRouterPush = jest.fn();

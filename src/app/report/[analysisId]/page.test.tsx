@@ -1,5 +1,6 @@
 
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import ReportPage from './page';
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
 import { useParams as originalUseParams } from 'next/navigation';
@@ -22,18 +23,12 @@ jest.mock('next/navigation', () => ({
 }));
 const useParams = originalUseParams as jest.Mock;
 
-
-// Server action mocks are in jest.setup.js
 const getAnalysisReportActionMock = jest.requireMock('@/features/report-viewing/actions/reportViewingActions').getAnalysisReportAction;
 const askReportOrchestratorActionMock = jest.requireMock('@/features/report-chat/actions/reportChatActions').askReportOrchestratorAction;
 
-
-// --- Mocking firebase/database ---
 jest.mock('firebase/database', () => {
   const originalModule = jest.requireActual('firebase/database');
-  // Estas são as funções que serão retornadas pelo mock.
-  // São instâncias jest.fn() novas para cada execução de teste devido ao funcionamento do jest.mock.
-  const _mockGetDatabase = jest.fn(() => ({})); // Mock getDatabase para retornar um objeto dummy
+  const _mockGetDatabase = jest.fn(() => ({}));
   const _mockRef = jest.fn((db, path) => ({ db, path, key: path.split('/').pop(), toString: () => path }));
   const _mockOnValue = jest.fn();
   const _mockPush = jest.fn();
@@ -47,7 +42,7 @@ jest.mock('firebase/database', () => {
 
   return {
     __esModule: true,
-    ...originalModule, // Mantém outras exportações (como constantes) do módulo real
+    ...originalModule,
     getDatabase: _mockGetDatabase,
     ref: _mockRef,
     onValue: _mockOnValue,
@@ -58,10 +53,7 @@ jest.mock('firebase/database', () => {
     child: _mockChild,
   };
 });
-// --- End Mocking firebase/database ---
 
-
-// Updated to match firebase-emulator-data/auth_export/accounts.json
 const mockUser = {
   uid: 'test-user-001',
   displayName: 'Test User One',
@@ -69,12 +61,9 @@ const mockUser = {
   photoURL: 'https://placehold.co/100x100.png?text=TU1'
 };
 
-// Updated to match an ID from firebase-emulator-data/firestore_export/firestore_export.json
-// and firebase-emulator-data/database_export/database.json
 const mockAnalysisId = 'analysis-id-completed-01';
-const mockFileName = 'aneel_data_report_alpha.csv'; // From seed data for analysis-id-completed-01
+const mockFileName = 'aneel_data_report_alpha.csv';
 
-// MDX content will still be mocked by getAnalysisReportActionMock as Storage isn't seeded
 const mockMdxContent = `
 # Relatório de Conformidade Alpha
 Arquivo: ${mockFileName}
@@ -82,8 +71,6 @@ Arquivo: ${mockFileName}
 Os níveis de tensão mantiveram-se dentro dos limites adequados.
 `;
 
-// This structuredReport should be consistent with firebase-emulator-data/firestore_export.json
-// for analysis-id-completed-01. This will be fetched by ReportPage via direct getDoc/onSnapshot.
 const mockSeedStructuredReport = {
   reportMetadata: {
     title: 'Relatório de Conformidade da Qualidade de Energia Elétrica - Alpha',
@@ -110,8 +97,6 @@ const mockSeedStructuredReport = {
   bibliography: [{ text: 'ANEEL. PRODIST Módulo 8 - Qualidade da Energia Elétrica.', link: 'https://www.aneel.gov.br' }],
 };
 
-
-// Helper to simulate RTDB data changes for onValue
 let onValueCallbackStore: ((snapshot: any) => void) | null = null;
 let mockRtdbMessagesStore: Record<string, any> = {};
 
@@ -124,9 +109,7 @@ const simulateRtdbChangeAndNotify = () => {
   }
 };
 
-
 describe('ReportPage', () => {
-  // Importar as funções mockadas aqui para acessá-las nos testes
   let mockFbGetDatabase: jest.Mock;
   let mockFbRef: jest.Mock;
   let mockFbOnValue: jest.Mock;
@@ -136,10 +119,7 @@ describe('ReportPage', () => {
   let mockFbOff: jest.Mock;
   let mockFbChild: jest.Mock;
 
-
   beforeEach(() => {
-    // Importar dinamicamente ou requerer as funções mockadas para cada teste
-    // para garantir que obtemos os mocks frescos da factory do jest.mock
     const {
       getDatabase,
       ref,
@@ -159,7 +139,6 @@ describe('ReportPage', () => {
     mockFbServerTimestamp = serverTimestamp as jest.Mock;
     mockFbOff = off as jest.Mock;
     mockFbChild = child as jest.Mock;
-
 
     useAuth.mockReturnValue({ user: mockUser, loading: false });
     useParams.mockReturnValue({ analysisId: mockAnalysisId });
@@ -181,13 +160,12 @@ describe('ReportPage', () => {
     mockRtdbMessagesStore = {};
     onValueCallbackStore = null;
 
-    // Limpar e definir implementações padrão para mocks RTDB
-    mockFbGetDatabase.mockClear().mockImplementation(() => ({})); // Garantir que retorna um objeto DB dummy
+    mockFbGetDatabase.mockClear().mockImplementation(() => ({}));
     mockFbRef.mockClear().mockImplementation((db, path) => ({ db, path, key: path.split('/').pop(), toString: () => path }));
     mockFbOnValue.mockClear().mockImplementation((refPassedToOnValue, callback) => {
       onValueCallbackStore = callback;
       Promise.resolve().then(() => simulateRtdbChangeAndNotify());
-      return mockFbOff; // Retornar o mock para unsubscribe
+      return mockFbOff;
     });
     mockFbPush.mockClear().mockImplementation(async (refPassedToPush, payload) => {
       const key = `test-msg-${Date.now()}-${Object.keys(mockRtdbMessagesStore).length}`;
@@ -212,8 +190,6 @@ describe('ReportPage', () => {
   });
 
   afterEach(() => {
-    // jest.clearAllMocks() deve lidar com mocks criados por jest.fn() e jest.mock
-    // mas limpar explicitamente pode ser mais seguro para mocks atribuídos no beforeEach
     mockFbGetDatabase.mockClear();
     mockFbRef.mockClear();
     mockFbOnValue.mockClear();
@@ -227,7 +203,6 @@ describe('ReportPage', () => {
   test('renders loading state initially, then report content and chat interface (fetches structuredReport from Firestore emulator)', async () => {
     render(<ReportPage />);
     expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'true');
-
 
     await waitFor(() => {
       expect(getAnalysisReportActionMock).toHaveBeenCalledWith(mockUser.uid, mockAnalysisId);
@@ -270,13 +245,12 @@ describe('ReportPage', () => {
         expect(screen.getByText(new RegExp("Olá! Sou seu assistente", "i"))).toBeInTheDocument();
     }, { timeout: 7000 });
 
-
     const chatInput = screen.getByRole('textbox', { name: /Caixa de texto para interagir com o relatório/i });
     const sendButton = screen.getByRole('button', { name: /Enviar/i });
     const userMessage = "Can you explain section 1 in more detail?";
 
-    fireEvent.change(chatInput, { target: { value: userMessage } });
-    fireEvent.click(sendButton);
+    await userEvent.type(chatInput, userMessage);
+    await userEvent.click(sendButton);
 
     await waitFor(() => {
         const sentUserMsg = Object.values(mockRtdbMessagesStore).find((msg: any) => msg.sender === 'user' && msg.text === userMessage);
@@ -329,8 +303,8 @@ describe('ReportPage', () => {
     await waitFor(() => expect(screen.getByText(/Seção de Tensão/i)).toBeInTheDocument() , { timeout: 7000 });
 
     const chatInput = screen.getByRole('textbox', { name: /Caixa de texto para interagir com o relatório/i });
-    fireEvent.change(chatInput, { target: { value: "Please revise section 1." } });
-    fireEvent.click(screen.getByRole('button', { name: /Enviar/i }));
+    await userEvent.type(chatInput, "Please revise section 1.");
+    await userEvent.click(screen.getByRole('button', { name: /Enviar/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Seção de Tensão - Revisada")).toBeInTheDocument();
@@ -371,5 +345,4 @@ describe('ReportPage', () => {
       expect(jest.requireMock('next/navigation').useRouter().replace).toHaveBeenCalledWith('/login');
     }, { timeout: 7000 });
   });
-
 });

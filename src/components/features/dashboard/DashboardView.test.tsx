@@ -1,5 +1,6 @@
 
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { DashboardView } from './DashboardView';
 
 describe('DashboardView', () => {
@@ -44,7 +45,7 @@ describe('DashboardView', () => {
     expect(screen.getByRole('button', { name: /Iniciar Nova Análise/i })).toBeInTheDocument();
   });
 
-  it('calls onStartNewAnalysis when "Iniciar Nova Análise" button is clicked', () => {
+  it('calls onStartNewAnalysis when "Iniciar Nova Análise" button is clicked', async () => {
     render(
       <DashboardView
         userName={mockUserName}
@@ -53,12 +54,10 @@ describe('DashboardView', () => {
       />
     );
     const startButton = screen.getByRole('button', { name: /Iniciar Nova Análise/i });
-    fireEvent.click(startButton);
+    await userEvent.click(startButton);
     expect(mockOnStartNewAnalysis).toHaveBeenCalledTimes(1);
   });
 
-  // Example for isLoadingPastAnalyses, though it's not visually represented directly in the current component
-  // If a loader was shown, this test would be more meaningful.
   it('renders correctly when isLoadingPastAnalyses is true (no visual change currently)', () => {
     render(
       <DashboardView
@@ -67,7 +66,6 @@ describe('DashboardView', () => {
         isLoadingPastAnalyses={true}
       />
     );
-    // Assert that the main elements are still there
     expect(screen.getByText(`Bem-vindo(a), ${mockUserName}!`)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Iniciar Nova Análise/i })).toBeInTheDocument();
   });

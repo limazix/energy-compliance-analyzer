@@ -1,9 +1,10 @@
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import LoginPage from './page';
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
-import { auth, googleProvider } from '@/lib/firebase'; // auth object is passed to the mocked functions
-import { useToast as originalUseToast } from '@/hooks/use-toast'; // Mocked
+import { auth, googleProvider } from '@/lib/firebase';
+import { useToast as originalUseToast } from '@/hooks/use-toast';
 import { signInWithPopup as firebaseSignInWithPopupModule } from 'firebase/auth';
 
 // Mock useAuth hook
@@ -26,17 +27,14 @@ jest.mock('firebase/auth', () => {
   const actualFirebaseAuth = jest.requireActual('firebase/auth');
   return {
     ...actualFirebaseAuth,
-    signInWithPopup: jest.fn(), // This is the key change
-    // Keep other functions real if needed, or mock as necessary
+    signInWithPopup: jest.fn(),
     GoogleAuthProvider: actualFirebaseAuth.GoogleAuthProvider,
-    onAuthStateChanged: jest.fn(() => jest.fn()), // Mock onAuthStateChanged if LoginPage indirectly uses it via useAuth initialization
-    signOut: jest.fn(), // Add signOut if it could be called indirectly
+    onAuthStateChanged: jest.fn(() => jest.fn()),
+    signOut: jest.fn(),
   };
 });
 
-// Assign the mocked function to a variable for use in tests
 const mockSignInWithPopup = firebaseSignInWithPopupModule as jest.Mock;
-
 
 // Mock Next.js router
 const mockRouterReplace = jest.fn();
@@ -51,7 +49,7 @@ jest.mock('next/navigation', () => ({
 describe('LoginPage', () => {
   beforeEach(() => {
     useAuth.mockClear();
-    mockSignInWithPopup.mockClear(); // Now this should work
+    mockSignInWithPopup.mockClear();
     mockRouterReplace.mockClear();
     useToast.mockReturnValue({ toast: mockToastFn });
     mockToastFn.mockClear();
@@ -69,10 +67,7 @@ describe('LoginPage', () => {
   it('shows loading/redirecting state if auth is loading', () => {
     useAuth.mockReturnValue({ user: null, loading: true });
     const { container } = render(<LoginPage />);
-    // Check for absence of main content or presence of a loader (if one was explicitly added)
-    // For now, it renders an empty div, so we check for that or the content not being there.
     expect(screen.queryByText(/Energy Compliance Analyzer/i)).not.toBeInTheDocument();
-     // The component renders a div with p-4, even in loading state
     expect(container.firstChild).toHaveClass('bg-background');
   });
 
@@ -84,14 +79,13 @@ describe('LoginPage', () => {
 
   it('calls signInWithPopup and redirects on successful login', async () => {
     useAuth.mockReturnValue({ user: null, loading: false });
-    mockSignInWithPopup.mockResolvedValueOnce({ user: { uid: 'test-uid' } }); // Simulate successful login
+    mockSignInWithPopup.mockResolvedValueOnce({ user: { uid: 'test-uid' } });
 
     render(<LoginPage />);
     const loginButton = screen.getByRole('button', { name: /Entrar com Google/i });
-    fireEvent.click(loginButton);
+    await userEvent.click(loginButton);
 
     expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
-    // auth object and googleProvider are imported from @/lib/firebase and passed to the function
     expect(mockSignInWithPopup).toHaveBeenCalledWith(auth, googleProvider);
 
     await waitFor(() => {
@@ -112,16 +106,13 @@ describe('LoginPage', () => {
 
     render(<LoginPage />);
     const loginButton = screen.getByRole('button', { name: /Entrar com Google/i });
-    fireEvent.click(loginButton);
+    await userEvent.click(loginButton);
     
     await waitFor(() => {
          expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
     });
     
-    // Check if the mocked function (which throws an error) was called with the correct arguments.
-    // This needs to be handled carefully with promises that reject.
     await expect(mockSignInWithPopup(auth, googleProvider)).rejects.toThrow('Login failed');
-
 
     await waitFor(() => {
       expect(consoleErrorSpy).toHaveBeenCalledWith('Erro no login com Google:', expect.any(Error));

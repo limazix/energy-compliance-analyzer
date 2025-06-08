@@ -1,5 +1,6 @@
 
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { AppHeader } from './app-header';
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
 import { useRouter as originalUseRouter, usePathname as originalUsePathname } from 'next/navigation';
@@ -21,7 +22,6 @@ const usePathname = originalUsePathname as jest.Mock;
 
 const mockRouterPush = jest.fn();
 const mockRouterReplace = jest.fn();
-
 
 describe('AppHeader', () => {
   const mockUser = {
@@ -61,9 +61,9 @@ describe('AppHeader', () => {
       expect(screen.getByRole('button', { name: /Nova Análise/i })).toBeInTheDocument();
     });
 
-    it('calls onStartNewAnalysis when "Nova Análise" button is clicked (if prop provided)', () => {
+    it('calls onStartNewAnalysis when "Nova Análise" button is clicked (if prop provided)', async () => {
       render(<AppHeader onStartNewAnalysis={mockOnStartNewAnalysis} />);
-      fireEvent.click(screen.getByRole('button', { name: /Nova Análise/i }));
+      await userEvent.click(screen.getByRole('button', { name: /Nova Análise/i }));
       expect(mockOnStartNewAnalysis).toHaveBeenCalledTimes(1);
     });
 
@@ -71,12 +71,11 @@ describe('AppHeader', () => {
       render(<AppHeader />);
       const newAnalysisButton = screen.getByRole('link', { name: /Nova Análise/i });
       expect(newAnalysisButton).toBeInTheDocument();
-      expect(newAnalysisButton).toHaveAttribute('href', '/'); // Assuming it links to home to trigger the form there
+      expect(newAnalysisButton).toHaveAttribute('href', '/');
     });
 
     it('renders the AuthButton (showing user avatar/name)', () => {
       render(<AppHeader />);
-      // AuthButton will show user info when logged in
       expect(screen.getByText(mockUser.displayName.split(' ')[0])).toBeInTheDocument();
     });
   });
@@ -99,16 +98,14 @@ describe('AppHeader', () => {
 
     it('renders the AuthButton (showing login)', () => {
       render(<AppHeader />);
-      // AuthButton will show login button when logged out
       expect(screen.getByRole('button', { name: /Login com Google/i })).toBeInTheDocument();
     });
   });
 
-  it('calls onNavigateToDashboard when logo is clicked (if prop provided)', () => {
+  it('calls onNavigateToDashboard when logo is clicked (if prop provided)', async () => {
     useAuth.mockReturnValue({ user: mockUser, loading: false });
     render(<AppHeader onNavigateToDashboard={mockOnNavigateToDashboard} />);
-    fireEvent.click(screen.getByAltText('EMA - Electric Magnitudes Analizer Logo'));
+    await userEvent.click(screen.getByAltText('EMA - Electric Magnitudes Analizer Logo'));
     expect(mockOnNavigateToDashboard).toHaveBeenCalledTimes(1);
   });
 });
-
