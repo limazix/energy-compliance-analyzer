@@ -3,7 +3,7 @@ name: 3. Build for Deployment (Development)
 
 on:
   workflow_run:
-    workflows: ["Run Integration Tests"] # Updated to new unified test workflow name
+    workflows: ["Run Integration Tests"] # Matches the name in tests.yml
     types:
       - completed
 
@@ -104,5 +104,3 @@ jobs:
           path: functions_artifact_staging_deploy/ 
           retention-days: 1
           if-no-files-found: error
-
-    

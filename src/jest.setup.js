@@ -1,22 +1,4 @@
 
-// jest.setup.js at the VERY TOP
-// Provide placeholder Firebase config for Jest tests to prevent initialization errors
-process.env.NEXT_PUBLIC_FIREBASE_API_KEY = 'TEST_API_KEY';
-process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = 'test-project.firebaseapp.com';
-process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = 'test-project-id';
-process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'test-project.appspot.com';
-process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = '1234567890';
-process.env.NEXT_PUBLIC_FIREBASE_APP_ID = '1:1234567890:web:testappidforjest';
-process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL = 'https://test-project-default-rtdb.firebaseio.com';
-// NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID is often optional for basic initialization
-process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID = 'G-TESTMEASUREMENTID';
-// END: Placeholder Firebase config for Jest
-
-// Optional: configure or set up a testing framework before each test.
-// If you delete this file, remove `setupFilesAfterEnv` from `jest.config.js`
-
-// Used for __tests__/testing-library.js
-// Learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
 import { Timestamp } from 'firebase/firestore';
 import React from 'react'; // Import React for createElement

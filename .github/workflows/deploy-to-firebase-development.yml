@@ -3,7 +3,7 @@ name: 4. Deploy to Firebase (Development)
 
 on:
   workflow_run:
-    workflows: ["3. Build for Deployment (Development)"] 
+    workflows: ["3. Build for Deployment (Development)"] # Matches the name in build-for-deployment-development.yml
     types:
       - completed
 
@@ -53,7 +53,7 @@ jobs:
         uses: firebase-tools/action-apphosting-deploy@v0
         with:
           projectId: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }} # Or secrets.NEXT_PUBLIC_PROJECT_ID_DEVELOPMENT
-          backendId: ${{ secrets.FIREBASE_BACKEND_ID }}
+          backendId: ${{ secrets.FIREBASE_BACKEND_ID_DEVELOPMENT }}
           region: ${{ secrets.GCP_REGION }}
         env:
            FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }} 
@@ -76,5 +76,3 @@ jobs:
             --non-interactive
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_path }}
-
-    
