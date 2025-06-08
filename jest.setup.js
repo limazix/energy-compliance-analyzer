@@ -1,4 +1,3 @@
-
 // Optional: configure or set up a testing framework before each test.
 // If you delete this file, remove `setupFilesAfterEnv` from `jest.config.js`
 
@@ -183,6 +182,23 @@ global.requestAnimationFrame = jest.fn(cb => {
 });
 global.cancelAnimationFrame = jest.fn();
 
+// Mock for document.createRange, sometimes needed by positioning libraries
+if (typeof document.createRange === 'undefined') {
+  global.document.createRange = () => {
+    const range = new Range();
+    range.getBoundingClientRect = jest.fn(() => ({
+      x: 0, y: 0, width: 0, height: 0, top: 0, right: 0, bottom: 0, left: 0,
+    }));
+    range.getClientRects = jest.fn(() => ({
+      item: () => null,
+      length: 0,
+      [Symbol.iterator]: jest.fn()
+    }));
+    return range;
+  };
+}
+
+
 // Refined window.getComputedStyle mock for Radix UI
 if (typeof window !== 'undefined') {
   const originalGetComputedStyle = window.getComputedStyle;
@@ -310,13 +326,11 @@ export const mockAuthContext = (user, loading = false) => {
   return useAuthActual;
 };
 
-// Ensure EMULATORS_CONNECTED is available globally for tests if needed
 global.EMULATORS_CONNECTED = !!process.env.FIRESTORE_EMULATOR_HOST;
 
-console.debug(`[JestSetup] EMULATORS_CONNECTED: ${global.EMULATORS_CONNECTED}`);
+console.info(`[JestSetup] EMULATORS_CONNECTED: ${global.EMULATORS_CONNECTED}`);
 if (global.EMULATORS_CONNECTED) {
   console.info('[JestSetup] Firebase SDKs should connect to emulators.');
 } else {
   console.warn('[JestSetup] Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail if they rely on emulator behavior.');
 }
-
