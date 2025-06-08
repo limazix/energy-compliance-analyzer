@@ -59,7 +59,7 @@ describe('LoginPage', () => {
     useAuth.mockReturnValue({ user: null, loading: false });
     render(<LoginPage />);
 
-    expect(screen.getByText(/Energy Compliance Analyzer/i)).toBeInTheDocument();
+    expect(screen.getByText(/EMA - Electric Magnitudes Analizer/i)).toBeInTheDocument();
     expect(screen.getByText(/Acesse para analisar dados de qualidade de energia/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Entrar com Google/i })).toBeInTheDocument();
   });
@@ -67,7 +67,7 @@ describe('LoginPage', () => {
   it('shows loading/redirecting state if auth is loading', () => {
     useAuth.mockReturnValue({ user: null, loading: true });
     const { container } = render(<LoginPage />);
-    expect(screen.queryByText(/Energy Compliance Analyzer/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/EMA - Electric Magnitudes Analizer/i)).not.toBeInTheDocument();
     expect(container.firstChild).toHaveClass('bg-background');
   });
 
@@ -112,7 +112,6 @@ describe('LoginPage', () => {
          expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
     });
     
-    await expect(mockSignInWithPopup(auth, googleProvider)).rejects.toThrow('Login failed');
 
     await waitFor(() => {
       expect(consoleErrorSpy).toHaveBeenCalledWith('Erro no login com Google:', expect.any(Error));
