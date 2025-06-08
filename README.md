@@ -34,7 +34,71 @@ O Energy Compliance Analyzer simplifica a verificação de conformidade para o s
 
 ## Arquitetura de Alto Nível
 
-![Arquitetura da Aplicação](https://placehold.co/800x400.png?text=Diagrama+da+Arquitetura)
+```mermaid
+graph TD
+    subgraph UserInteraction["Interação do Usuário"]
+        UI[Frontend Next.js/React<br>(ShadCN, TailwindCSS)<br>Hosted on Firebase App Hosting]
+    end
+
+    subgraph BackendNextJs["Backend (Next.js)"]
+        ServerActions[Next.js Server Actions<br>(Disparador Upload, Orquestrador Chat)]
+    end
+
+    subgraph FirebasePlatform["Plataforma Firebase"]
+        Auth[Firebase Authentication<br>(Google Sign-In)]
+        Firestore[Firebase Firestore<br>(Metadados Análises, Tags, Status, Relatório Estruturado)]
+        Storage[Firebase Storage<br>(Upload CSVs, Relatórios MDX)]
+        RTDB[Firebase Realtime Database<br>(Histórico Chat)]
+        Functions[Firebase Functions<br>(Processamento Pesado, AI Pipeline Principal)]
+    end
+
+    subgraph GenAI["Inteligência Artificial (Genkit & Gemini)"]
+        AIEngineFunctions[AI Engine - Functions<br>(Pipeline: Analista de Dados, Engenheiro Elétrico, Relator, Revisor)]
+        AIEngineServerActions[AI Engine - Server Actions<br>(Agente Orquestrador do Chat Interativo)]
+    end
+
+    %% User Flows
+    UI --"1. Login via Google"--> Auth
+    UI --"2. Upload CSV<br>(Título, Descrição)"--> ServerActions
+    ServerActions --"3. Cria Registro Inicial na Análise<br>(Status: 'uploading')"--> Firestore
+    ServerActions --"4. Faz Upload do CSV para o Caminho da Análise"--> Storage
+    ServerActions --"5. Finaliza Registro Análise<br>(URL CSV, Status: 'summarizing_data')"--> Firestore
+
+    %% Background Processing Flow (Triggered by Firestore update)
+    Firestore --"6. Gatilho (onUpdate: status='summarizing_data')"--> Functions
+    Functions --"7. Lê CSV do Storage"--> Storage
+    Functions --"8. Executa Pipeline de Agentes IA"--> AIEngineFunctions
+    AIEngineFunctions --"9. Gera Relatório Estruturado (JSON)"--> Functions
+    Functions --"10. Salva Relatório Estruturado (JSON)"--> Firestore
+    Functions --"11. Converte Estruturado para MDX e Salva"--> Storage
+    Functions --"12. Atualiza Status/Progresso para 'completed'"--> Firestore
+
+    %% Report Viewing & Chat Flow
+    UI --"13. Visualizar Relatório (solicita MDX)"--> ServerActions
+    ServerActions --"14. Lê Caminho do MDX"--> Firestore
+    ServerActions --"15. Lê Conteúdo MDX"--> Storage
+    Storage --"16. Retorna Conteúdo MDX"--> ServerActions
+    ServerActions --"17. Envia MDX para UI"--> UI
+    UI --"18. Envia Mensagem de Chat<br>(com contexto do relatório)"--> ServerActions
+    ServerActions --"19. Interage com Agente Orquestrador IA<br>(usando relatório estruturado e MDX)"--> AIEngineServerActions
+    AIEngineServerActions --"20. Resposta da IA / Sugestão de Modificação no Relatório Estruturado (se houver)"--> ServerActions
+    ServerActions --"21. Salva Mensagem do Chat (usuário e IA)"--> RTDB
+    ServerActions --"22. Se Relatório Modificado:<br>- Atualiza Relatório Estruturado (JSON) no Firestore<br>- Gera e Salva novo MDX no Storage"--> Firestore
+    ServerActions --" "--> Storage
+    RTDB --"23. Sincroniza Chat em Tempo Real com UI"--> UI
+    Firestore --"(Opcional) Notifica UI de mudanças no relatório via listener"-.-> UI
+
+    %% Styling (optional, for clarity in renderers that support it)
+    classDef userInteraction fill:#E6E6FA,stroke:#333,stroke-width:2px;
+    classDef backendNextJs fill:#ADD8E6,stroke:#333,stroke-width:2px;
+    classDef firebasePlatform fill:#FFFACD,stroke:#333,stroke-width:2px;
+    classDef genAI fill:#98FB98,stroke:#333,stroke-width:2px;
+
+    class UI,UserInteraction userInteraction;
+    class ServerActions,BackendNextJs backendNextJs;
+    class Auth,Firestore,Storage,RTDB,Functions,FirebasePlatform firebasePlatform;
+    class AIEngineFunctions,AIEngineServerActions,GenAI genAI;
+```
 *<p align="center" data-ai-hint="architecture diagram">Diagrama da Arquitetura da Aplicação</p>*
 
 ## Executando Localmente
