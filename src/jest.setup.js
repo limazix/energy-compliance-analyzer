@@ -1,4 +1,21 @@
 
+// Set up dummy environment variables for Firebase initialization in tests
+// This should now be a JSON string for NEXT_PUBLIC_FIREBASE_CONFIG
+process.env.NEXT_PUBLIC_FIREBASE_CONFIG = JSON.stringify({
+  apiKey: 'test-api-key',
+  authDomain: 'test-project.firebaseapp.com',
+  projectId: 'test-project',
+  storageBucket: 'test-project.appspot.com',
+  messagingSenderId: '1234567890',
+  appId: 'test-app-id',
+  measurementId: 'G-TESTMEASUREMENTID',
+  databaseURL: 'https://test-project-default-rtdb.firebaseio.com', // Crucial for getDatabase()
+});
+
+// Keep NEXT_PUBLIC_GEMINI_API_KEY if your tests might indirectly need it,
+// or if any code under test tries to access it directly.
+process.env.NEXT_PUBLIC_GEMINI_API_KEY = 'test-gemini-api-key';
+
 import '@testing-library/jest-dom';
 import { Timestamp } from 'firebase/firestore';
 import React from 'react'; // Import React for createElement
