@@ -1,5 +1,5 @@
 
-name: 3. Build for Deployment (Development)
+name: 3. Build for Deployment (Production)
 
 on:
   workflow_run:
@@ -8,13 +8,13 @@ on:
       - completed
 
 jobs:
-  build_development_package:
+  build_production_package:
     runs-on: ubuntu-latest
-    environment: development 
+    environment: production 
     if: >
       github.event.workflow_run.workflow.name == 'Run Integration Tests' && # Ensure it's from the correct workflow
       github.event.workflow_run.conclusion == 'success' &&
-      (github.event.workflow_run.head_branch == 'development' || (github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.pull_requests[0].base.ref == 'development'))
+      (github.event.workflow_run.head_branch == 'main' || (github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.pull_requests[0].base.ref == 'main'))
 
     permissions:
       contents: read
@@ -34,10 +34,9 @@ jobs:
       - name: Install Next.js app dependencies
         run: npm ci
 
-      - name: Build Next.js application (Development)
+      - name: Build Next.js application
         run: npm run build
         env:
-          # Configure these secrets in your GitHub "development" environment
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }}
@@ -60,10 +59,10 @@ jobs:
           cp apphosting.yaml nextjs-deploy-artifact/
           if [ -f "tsconfig.json" ]; then cp tsconfig.json nextjs-deploy-artifact/; fi
 
-      - name: Upload Next.js deployment artifact (Development)
+      - name: Upload Next.js deployment artifact (Production)
         uses: actions/upload-artifact@v4
         with:
-          name: nextjs-build-development
+          name: nextjs-build-production
           path: nextjs-deploy-artifact/
           retention-days: 1
 
@@ -78,30 +77,44 @@ jobs:
       - name: Prepare Functions deployment artifact
         run: |
           set -e 
+          echo "Preparing Functions deployment artifact staging directory..."
           mkdir -p functions_artifact_staging_deploy/src
           mkdir -p functions_artifact_staging_deploy/lib/shared 
           mkdir -p functions_artifact_staging_deploy/node_modules 
+          
+          echo "Copying functions/src..."
           cp -r functions/src/* functions_artifact_staging_deploy/src/
+          
+          echo "Checking for functions/lib/shared..."
           if [ -d "functions/lib/shared" ]; then
+            echo "Copying functions/lib/shared..."
             cp -r functions/lib/shared/* functions_artifact_staging_deploy/lib/shared/
           else
-            echo "Error: functions/lib/shared not found after build:shared."
+            echo "Error: functions/lib/shared not found after build:shared. Cannot prepare deploy artifact."
             exit 1
           fi
+          
+          echo "Copying functions/package.json and package-lock.json..."
           cp functions/package.json functions_artifact_staging_deploy/
           cp functions/package-lock.json functions_artifact_staging_deploy/
+          
+          echo "Copying functions/node_modules..."
           if [ -d "functions/node_modules" ]; then
             cp -r functions/node_modules/* functions_artifact_staging_deploy/node_modules/
           else
-            echo "Warning: functions/node_modules not found."
+            echo "Warning: functions/node_modules not found. This might be an issue for deployment if dependencies are expected."
           fi
+          
+          echo "Listing contents of Functions deployment staging directory:"
           ls -R functions_artifact_staging_deploy
         shell: bash
 
-      - name: Upload Functions deployment artifact (Development)
+      - name: Upload Functions deployment artifact (Production)
         uses: actions/upload-artifact@v4
         with:
-          name: functions-build-development
+          name: functions-build-production
           path: functions_artifact_staging_deploy/ 
           retention-days: 1
           if-no-files-found: error
+
+    

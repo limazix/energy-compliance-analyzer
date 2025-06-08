@@ -184,3 +184,5 @@ jobs:
           FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
           FIREBASE_PROJECT_ID_INTERNAL: ${{ secrets.GCLOUD_PROJECT }}
           NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
+
+    
