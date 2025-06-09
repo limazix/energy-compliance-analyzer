@@ -7,7 +7,7 @@ import { useAnalysisManager as originalUseAnalysisManagerHook } from '@/hooks/us
 import { useFileUploadManager as originalUseFileUploadManager } from '@/features/file-upload/hooks/useFileUploadManager';
 import type { Analysis, AnalysisStep } from '@/types/analysis';
 import { Timestamp } from 'firebase/firestore';
-import { calculateDisplayedAnalysisSteps } from '@/features/analysis-processing/utils/analysisStepsUtils'; // Import the utility
+import { calculateDisplayedAnalysisSteps } from '@/features/analysis-processing/utils/analysisStepsUtils';
 
 // Mocks
 jest.mock('@/contexts/auth-context', () => ({
@@ -114,7 +114,7 @@ describe('HomePage - Navigation and Views', () => {
     mockRouterPush.mockClear();
     mockRouterReplace.mockClear();
 
-    currentPastAnalysesState = []; // Reset for each test
+    currentPastAnalysesState = [];
 
     global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
     global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
@@ -132,9 +132,8 @@ describe('HomePage - Navigation and Views', () => {
     global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps = [];
 
     mockFetchPastAnalysesInTest = jest.fn().mockImplementation(async (seedData?: Analysis[]) => {
-      await act(async () => { // Ensure state update is wrapped in act
+      await act(async () => {
         currentPastAnalysesState = seedData || [];
-        // Simulate the hook updating its internal state based on the fetch
         global.mockUseAnalysisManagerReturnValue.pastAnalyses = currentPastAnalysesState;
         global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
       });
@@ -153,7 +152,7 @@ describe('HomePage - Navigation and Views', () => {
       const currentGlobalAnalysis = global.mockUseAnalysisManagerReturnValue.currentAnalysis;
       return {
         ...global.mockUseAnalysisManagerReturnValue,
-        pastAnalyses: currentPastAnalysesState, // Use the state managed by the mock fetch
+        pastAnalyses: currentPastAnalysesState,
         fetchPastAnalyses: (dataToSeed?: Analysis[]) => mockFetchPastAnalysesInTest(dataToSeed),
         startAiProcessing: mockStartAiProcessingInTest,
         handleDeleteAnalysis: mockHandleDeleteAnalysisInTest,
@@ -165,6 +164,7 @@ describe('HomePage - Navigation and Views', () => {
 
     useAuth.mockReturnValue({ user: mockUser, loading: false });
     
+    // Default mock for useFileUploadManager, can be overridden per test
     useFileUploadManager.mockImplementation(() => ({
       ...global.mockUseFileUploadManagerReturnValue,
       uploadFileAndCreateRecord: mockUploadFileAndCreateRecordInTest,
@@ -181,7 +181,7 @@ describe('HomePage - Navigation and Views', () => {
 
   test('redirects to /login if user is not authenticated', async () => {
     useAuth.mockReturnValue({ user: null, loading: false });
-    await act(async () => { // Wrap render in act if it causes state updates
+    await act(async () => {
       render(<HomePage />);
     });
     await waitFor(() => {
@@ -190,12 +190,10 @@ describe('HomePage - Navigation and Views', () => {
   });
 
   test('renders default view (Past Analyses Accordion) for authenticated user, including AppHeader with "Nova Análise" button', async () => {
-    // No need to mock fetch again here if the beforeEach setup is sufficient for this initial state
-    await act(async () => { // Wrap render in act
+    await act(async () => {
       render(<HomePage />);
     });
     
-    // fetchPastAnalyses is called on mount by the hook
     await waitFor(() => expect(mockFetchPastAnalysesInTest).toHaveBeenCalled());
 
     expect(screen.getByRole('button', { name: /Nova Análise/i })).toBeInTheDocument(); 
@@ -204,7 +202,7 @@ describe('HomePage - Navigation and Views', () => {
   });
 
   test('navigates to NewAnalysisForm when "Nova Análise" is clicked and back to Dashboard on cancel', async () => {
-    await act(async () => { // Wrap render in act
+    await act(async () => {
       render(<HomePage />);
     });
     await userEvent.click(screen.getByRole('button', { name: /Nova Análise/i }));
@@ -218,16 +216,14 @@ describe('HomePage - Navigation and Views', () => {
   test('displays past analyses from seed data in accordion and expands to show AnalysisView', async () => {
     const mockPastAnalysesFromSeed = [mockAnalysisItemCompleted, mockAnalysisItemInProgress];
     
-    await act(async () => { // Wrap render in act
+    await act(async () => {
       render(<HomePage />);
     });
 
-    // Trigger the fetch with seed data
     await act(async () => {
         await mockFetchPastAnalysesInTest(mockPastAnalysesFromSeed);
     });
     
-    // Use findByText to wait for the elements to appear after async state update
     expect(await screen.findByText(mockAnalysisItemCompleted.title!)).toBeInTheDocument();
     expect(await screen.findByText(mockAnalysisItemInProgress.title!)).toBeInTheDocument();
 
@@ -243,18 +239,18 @@ describe('HomePage - Navigation and Views', () => {
         const analysisViewTitle = screen.getByText(new RegExp(mockAnalysisItemCompleted.title!, 'i'));
         expect(analysisViewTitle).toBeInTheDocument();
         expect(screen.getByText(/Análise Concluída com Sucesso!/i)).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: /Visualizar Relatório Detalhado/i})).toBeInTheDocument(); // Check for link
+        expect(screen.getByRole('link', { name: /Visualizar Relatório Detalhado/i})).toBeInTheDocument();
     }, { timeout: 5000 });
   });
 
   test('navigates to ReportPage when "Visualizar Relatório Detalhado" is clicked', async () => {
-    await act(async () => { // Wrap act around setting up state for this test
+    await act(async () => {
       global.mockUseAnalysisManagerReturnValue.currentAnalysis = mockAnalysisItemCompleted;
-      currentPastAnalysesState = [mockAnalysisItemCompleted]; // Ensure the mock state reflects this
+      currentPastAnalysesState = [mockAnalysisItemCompleted];
       global.mockUseAnalysisManagerReturnValue.pastAnalyses = [mockAnalysisItemCompleted];
     });
 
-    await act(async () => { // Wrap render in act
+    await act(async () => {
       render(<HomePage />);
     });
     
@@ -277,34 +273,57 @@ describe('HomePage - Navigation and Views', () => {
     const newFileName = 'uploaded-test-file.csv';
     const newAnalysisId = `mock-analysis-id-for-${newFileName}`;
     const newAnalysisTitle = 'Freshly Uploaded Analysis';
+    const mockFile = new File(['col1,col2\nval1,val2'], newFileName, { type: 'text/csv' });
     
     mockUploadFileAndCreateRecordInTest.mockResolvedValue({
       analysisId: newAnalysisId,
       fileName: newFileName,
-      title: newAnalysisTitle,
+      title: newAnalysisTitle, // Assuming uploadFileAndCreateRecord might return this
       error: null,
     });
     
-    const handleFileSelectionMock = jest.fn((event) => {
-      if (event.target.files && event.target.files[0]) {
-        act(() => { // Wrap state update in act
-            (useFileUploadManager.mock.results[0].value as any).fileToUpload = event.target.files[0];
-        });
+    // This mock setup is key for the test
+    const handleFileSelectionMock = jest.fn((eventOrFile) => {
+      let fileToSet: File | null = null;
+      if (eventOrFile instanceof File) { // Direct file object
+        fileToSet = eventOrFile;
+      } else if (eventOrFile && eventOrFile.target && eventOrFile.target.files && eventOrFile.target.files[0]) { // Event object
+        fileToSet = eventOrFile.target.files[0];
       }
+      act(() => {
+          (global.mockUseFileUploadManagerReturnValue as any).fileToUpload = fileToSet;
+      });
     });
+
     useFileUploadManager.mockImplementationOnce(() => ({
         ...global.mockUseFileUploadManagerReturnValue,
-        fileToUpload: new File(['col1,col2\nval1,val2'], newFileName, { type: 'text/csv' }),
+        fileToUpload: null, // Start with no file
         handleFileSelection: handleFileSelectionMock,
         uploadFileAndCreateRecord: mockUploadFileAndCreateRecordInTest,
     }));
 
-    await act(async () => { // Wrap render in act
+    await act(async () => {
       render(<HomePage />);
     });
 
     await userEvent.click(screen.getByRole('button', { name: /Nova Análise/i }));
-    await screen.findByText('Nova Análise de Conformidade');
+    const newAnalysisFormTitle = await screen.findByText('Nova Análise de Conformidade');
+    expect(newAnalysisFormTitle).toBeInTheDocument();
+    
+    // Simulate file selection
+    const fileInput = screen.getByLabelText(/Arquivo CSV de Dados/i);
+    await act(async () => {
+      await userEvent.upload(fileInput, mockFile);
+      // Call the mock handleFileSelection if userEvent.upload doesn't trigger the hook's one
+      // This depends on how userEvent.upload interacts with the Input component's onChange
+      // Forcing the call to ensure the hook's state is updated:
+      handleFileSelectionMock({ target: { files: [mockFile] } } as any); 
+    });
+
+    // Wait for the title to be auto-populated from filename
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Título da Análise/i)).toHaveValue(newFileName);
+    });
     
     const titleInput = screen.getByLabelText(/Título da Análise/i);
     await userEvent.clear(titleInput);
@@ -312,7 +331,7 @@ describe('HomePage - Navigation and Views', () => {
 
     const submitButton = screen.getByRole('button', { name: /Enviar e Iniciar Análise/i });
     
-    await act(async () => { // Wrap interaction causing state update in act
+    await act(async () => {
       await userEvent.click(submitButton);
     });
     
@@ -320,8 +339,8 @@ describe('HomePage - Navigation and Views', () => {
       expect(mockUploadFileAndCreateRecordInTest).toHaveBeenCalledWith(
         mockUser, 
         newAnalysisTitle, 
-        '', 
-        expect.any(String) 
+        '', // description
+        expect.any(String) // languageCode
       );
     });
     
@@ -340,30 +359,30 @@ describe('HomePage - Navigation and Views', () => {
         expect(mockStartAiProcessingInTest).toHaveBeenCalledWith(newAnalysisId, mockUser.uid);
     });
     
-    await waitFor(() => {
-      const analysisViewForNew = screen.getByText(new RegExp(newAnalysisTitle, "i"));
+    await waitFor(async () => {
+      const analysisViewForNew = await screen.findByText(new RegExp(newAnalysisTitle, "i"));
       expect(analysisViewForNew).toBeInTheDocument();
-      // Check for a step that indicates processing has started
+      expect(screen.getByText(/Upload do Arquivo e Preparação/i)).toBeInTheDocument();
       expect(screen.getByText(/Sumarizando Dados da Qualidade de Energia/i)).toBeInTheDocument(); 
     });
   });
 
   test('can delete an analysis from the AnalysisView', async () => {
-     await act(async () => { // Wrap state setup in act
+     await act(async () => {
         global.mockUseAnalysisManagerReturnValue.currentAnalysis = mockAnalysisItemCompleted;
         currentPastAnalysesState = [mockAnalysisItemCompleted];
         global.mockUseAnalysisManagerReturnValue.pastAnalyses = [mockAnalysisItemCompleted];
      });
     
     mockFetchPastAnalysesInTest.mockImplementation(async () => {
-      await act(async () => { // Wrap state update in act
+      await act(async () => {
         currentPastAnalysesState = [];
         global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
       });
       return Promise.resolve(undefined);
     });
 
-    await act(async () => { // Wrap render in act
+    await act(async () => {
       render(<HomePage />);
     });
 
@@ -381,7 +400,7 @@ describe('HomePage - Navigation and Views', () => {
     });
     const confirmButton = screen.getByRole('button', { name: 'Confirmar Exclusão' });
     
-    await act(async () => { // Wrap interaction in act
+    await act(async () => {
       await userEvent.click(confirmButton);
     });
 
@@ -392,8 +411,9 @@ describe('HomePage - Navigation and Views', () => {
         expect(mockFetchPastAnalysesInTest).toHaveBeenCalled();
     });
     await waitFor(() => {
-        // Check for the "No analysis found" message instead of absence of title
         expect(screen.getByText(/Nenhuma análise anterior encontrada./i)).toBeInTheDocument();
     });
   });
 });
+
+    
