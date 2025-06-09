@@ -111,11 +111,14 @@ describe('HomePage - Navigation and Views', () => {
 
   // Mock for function returned by useFileUploadManager
   let mockUploadFileAndCreateRecordGlobal: jest.Mock;
+  let mockHandleFileSelectionGlobal: jest.Mock;
 
 
   beforeEach(() => {
     mockRouterPush.mockClear();
     mockRouterReplace.mockClear();
+
+    useAuth.mockReturnValue({ user: mockUser, loading: false });
 
     // Clear and set up global mocks for useAnalysisManager functions
     mockFetchPastAnalysesGlobal = (global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock).mockClear();
@@ -128,7 +131,7 @@ describe('HomePage - Navigation and Views', () => {
     (global.mockUseAnalysisManagerReturnValue.handleRemoveTag as jest.Mock).mockClear();
     (global.mockUseAnalysisManagerReturnValue.downloadReportAsTxt as jest.Mock).mockClear();
     
-    // Reset state part of the global mock
+    // Reset state part of the global mock for useAnalysisManager
     act(() => {
       global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
       global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
@@ -137,18 +140,16 @@ describe('HomePage - Navigation and Views', () => {
       global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps = [];
     });
 
-    // Clear and set up global mock for useFileUploadManager function
+    // Clear and set up global mock for useFileUploadManager functions
     mockUploadFileAndCreateRecordGlobal = (global.mockUseFileUploadManagerReturnValue.uploadFileAndCreateRecord as jest.Mock).mockClear();
-    (global.mockUseFileUploadManagerReturnValue.handleFileSelection as jest.Mock).mockClear();
+    mockHandleFileSelectionGlobal = (global.mockUseFileUploadManagerReturnValue.handleFileSelection as jest.Mock).mockClear();
+
     act(()=>{
       global.mockUseFileUploadManagerReturnValue.fileToUpload = null;
       global.mockUseFileUploadManagerReturnValue.isUploading = false;
       global.mockUseFileUploadManagerReturnValue.uploadProgress = 0;
       global.mockUseFileUploadManagerReturnValue.uploadError = null;
     });
-
-
-    useAuth.mockReturnValue({ user: mockUser, loading: false });
     
     // Default mock for getAnalysisReportAction (can be overridden in specific tests)
     const { getAnalysisReportAction } = jest.requireMock('@/features/report-viewing/actions/reportViewingActions');
@@ -171,26 +172,26 @@ describe('HomePage - Navigation and Views', () => {
   });
 
   test('renders default view (Past Analyses Accordion) for authenticated user, including AppHeader with "Nova Análise" button', async () => {
-    // Mock fetchPastAnalyses to return empty initially and set loading states
     const fetchAnalysesPromise = new Promise<void>(resolve => {
         mockFetchPastAnalysesGlobal.mockImplementation(async () => {
-            await act(async () => {
+            act(() => { // Use act for state updates inside the mock
                 global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = true;
             });
-            await act(async () => { // Simulate async data fetching
+            // Simulate async data fetching
+            await new Promise(r => setTimeout(r, 0)); // Short delay to simulate async
+            act(() => { // Use act for state updates inside the mock
                 global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
                 global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
             });
             resolve();
-            return Promise.resolve(undefined);
         });
     });
     
     await act(async () => {
-      render(<HomePage />); // This will call fetchPastAnalyses via useEffect
+      render(<HomePage />); 
     });
     
-    await act(async () => { // Wait for the fetch and subsequent state updates to complete
+    await act(async () => { 
       await fetchAnalysesPromise;
     });
 
@@ -200,6 +201,14 @@ describe('HomePage - Navigation and Views', () => {
   });
 
   test('navigates to NewAnalysisForm when "Nova Análise" is clicked and back to Dashboard on cancel', async () => {
+    mockFetchPastAnalysesGlobal.mockImplementation(async () => { // Ensure fetchPastAnalyses is mocked for initial render
+      act(() => {
+        global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
+        global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
+      });
+      return Promise.resolve(undefined);
+    });
+
     await act(async () => {
       render(<HomePage />);
     });
@@ -216,36 +225,35 @@ describe('HomePage - Navigation and Views', () => {
     
     const fetchAnalysesPromise = new Promise<void>(resolve => {
       mockFetchPastAnalysesGlobal.mockImplementation(async () => {
-        await act(async () => {
+        act(() => {
           global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = true;
         });
-        // Simulate the hook's behavior: set loading true, then update data and set loading false
-        await act(async () => { // This act is for the actual data update
+        await new Promise(r => setTimeout(r, 0));
+        act(() => { 
           global.mockUseAnalysisManagerReturnValue.pastAnalyses = mockPastAnalysesFromSeed;
           global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
         });
-        resolve(); // Signal that data is "loaded"
-        return Promise.resolve(undefined);
+        resolve(); 
       });
     });
     
     await act(async () => {
-      render(<HomePage />); // HomePage mounts and its useEffect calls fetchPastAnalyses
+      render(<HomePage />); 
     });
 
-    await act(async () => { // Wait for the fetch and subsequent state updates to complete
+    await act(async () => { 
       await fetchAnalysesPromise;
     });
     
-    // Use findByText to wait for the elements to appear after async state update
     expect(await screen.findByText(mockAnalysisItemCompleted.title!)).toBeInTheDocument();
     expect(await screen.findByText(mockAnalysisItemInProgress.title!)).toBeInTheDocument();
 
     const completedAnalysisAccordionTrigger = await screen.findByText(mockAnalysisItemCompleted.title!);
-    await userEvent.click(completedAnalysisAccordionTrigger);
     
-    // After click, setCurrentAnalysis is called by HomePage's handleAccordionChange
-    // We need to reflect this in the mock for AnalysisView to get the correct prop.
+    await act(async () => {
+      await userEvent.click(completedAnalysisAccordionTrigger);
+    });
+    
     await act(async () => {
         global.mockUseAnalysisManagerReturnValue.currentAnalysis = mockAnalysisItemCompleted;
         global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps = calculateDisplayedAnalysisSteps(mockAnalysisItemCompleted);
@@ -253,37 +261,38 @@ describe('HomePage - Navigation and Views', () => {
     
     await waitFor(() => {
         const analysisViewTitle = screen.getByText(new RegExp(mockAnalysisItemCompleted.title!, 'i'));
-        expect(analysisViewTitle).toBeInTheDocument(); // Check for the title within AnalysisView
+        expect(analysisViewTitle).toBeInTheDocument(); 
         expect(screen.getByText(/Análise Concluída com Sucesso!/i)).toBeInTheDocument();
         expect(screen.getByRole('link', { name: /Visualizar Relatório Detalhado/i})).toBeInTheDocument();
-    }, { timeout: 5000 });
+    });
   });
 
 
   test('navigates to ReportPage when "Visualizar Relatório Detalhado" is clicked', async () => {
-    // Setup: currentAnalysis is the completed one, and it's in pastAnalyses
-    act(() => {
-      global.mockUseAnalysisManagerReturnValue.pastAnalyses = [mockAnalysisItemCompleted];
-      global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
-      // currentAnalysis will be set when accordion opens
-    });
-
-    // Mock fetchPastAnalyses to do nothing further for this specific test, data is already set
-    mockFetchPastAnalysesGlobal.mockImplementation(async () => {
-      await act(async () => {
-        global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
+    const fetchAnalysesPromise = new Promise<void>(resolve => {
+      mockFetchPastAnalysesGlobal.mockImplementation(async () => {
+        act(() => {
+          global.mockUseAnalysisManagerReturnValue.pastAnalyses = [mockAnalysisItemCompleted];
+          global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
+        });
+        resolve();
+        return Promise.resolve(undefined);
       });
-      return Promise.resolve(undefined);
     });
 
     await act(async () => {
       render(<HomePage />);
     });
     
+    await act(async () => {
+      await fetchAnalysesPromise;
+    });
+    
     const completedAnalysisAccordionTrigger = await screen.findByText(mockAnalysisItemCompleted.title!);
-    await userEvent.click(completedAnalysisAccordionTrigger);
+    await act(async () => {
+      await userEvent.click(completedAnalysisAccordionTrigger);
+    });
 
-    // Simulate setCurrentAnalysis being called by handleAccordionChange
     await act(async () => {
       global.mockUseAnalysisManagerReturnValue.currentAnalysis = mockAnalysisItemCompleted;
       global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps = calculateDisplayedAnalysisSteps(mockAnalysisItemCompleted);
@@ -293,8 +302,8 @@ describe('HomePage - Navigation and Views', () => {
         expect(screen.getByText(/Análise Concluída com Sucesso!/i)).toBeInTheDocument();
     });
 
-    const viewReportLink = screen.getByRole('link', { name: /Visualizar Relatório Detalhado/i });
-    await userEvent.click(viewReportLink);
+    const viewReportButton = screen.getByRole('link', { name: /Visualizar Relatório Detalhado/i });
+    await userEvent.click(viewReportButton);
 
     await waitFor(() => {
       expect(mockRouterPush).toHaveBeenCalledWith(`/report/${mockAnalysisItemCompleted.id}`);
@@ -314,8 +323,16 @@ describe('HomePage - Navigation and Views', () => {
       error: null,
     });
 
-    // Mock startAiProcessing, as it's called after upload
     mockStartAiProcessingGlobal.mockResolvedValue(undefined);
+    
+    // Ensure fetchPastAnalyses is mocked for the initial render of HomePage
+    mockFetchPastAnalysesGlobal.mockImplementation(async () => {
+      act(() => {
+        global.mockUseAnalysisManagerReturnValue.pastAnalyses = []; // Start with no past analyses
+        global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
+      });
+      return Promise.resolve(undefined);
+    });
     
     const handleFileSelectionMock = jest.fn((eventOrFile) => {
       let fileToSet: File | null = null;
@@ -328,6 +345,7 @@ describe('HomePage - Navigation and Views', () => {
           (global.mockUseFileUploadManagerReturnValue as any).fileToUpload = fileToSet;
       });
     });
+    // Correctly assign to useFileUploadManager's handleFileSelection
     (global.mockUseFileUploadManagerReturnValue.handleFileSelection as jest.Mock).mockImplementation(handleFileSelectionMock);
 
 
@@ -341,7 +359,8 @@ describe('HomePage - Navigation and Views', () => {
     
     const fileInput = screen.getByLabelText(/Arquivo CSV de Dados/i);
     await userEvent.upload(fileInput, mockFile);
-    handleFileSelectionMock({ target: { files: [mockFile] } } as any); // Ensure hook's state updates
+    // Directly call the mocked function to ensure state update in the hook
+    handleFileSelectionMock({ target: { files: [mockFile] } } as any);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/Título da Análise/i)).toHaveValue(newFileName);
@@ -353,7 +372,6 @@ describe('HomePage - Navigation and Views', () => {
 
     const submitButton = screen.getByRole('button', { name: /Enviar e Iniciar Análise/i });
     
-    // Wrap the click and subsequent async operations in act
     await act(async () => {
       await userEvent.click(submitButton);
     });
@@ -379,13 +397,8 @@ describe('HomePage - Navigation and Views', () => {
         tags: []
     };
 
-    // Simulate the effect of setCurrentAnalysis and startAiProcessing for the UI
-    // This will be done by the HomePage's handleUploadResult -> which calls setCurrentAnalysis
-    // and startAiProcessing, which are mocked on useAnalysisManager
     await waitFor(() => {
         expect(mockSetCurrentAnalysisGlobal).toHaveBeenCalledWith(expect.objectContaining({ id: newAnalysisId }));
-        // The actual state update for currentAnalysis for the test to see will happen via the global mock.
-        // So, we set it here after confirming the component tried to set it.
         act(() => {
             global.mockUseAnalysisManagerReturnValue.currentAnalysis = uploadedAnalysisData as Analysis;
             global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps = calculateDisplayedAnalysisSteps(uploadedAnalysisData as Analysis);
@@ -401,63 +414,74 @@ describe('HomePage - Navigation and Views', () => {
       expect(analysisViewForNew).toBeInTheDocument();
       expect(screen.getByText(/Upload do Arquivo e Preparação/i)).toBeInTheDocument();
       expect(screen.getByText(/Sumarizando Dados da Qualidade de Energia/i)).toBeInTheDocument(); 
-    }, {timeout: 7000});
+    });
   });
 
   test('can delete an analysis from the AnalysisView', async () => {
-    // 1. Initial state for useAnalysisManager: HomePage should show this item.
-    await act(async () => {
-      global.mockUseAnalysisManagerReturnValue.pastAnalyses = [mockAnalysisItemCompleted];
-      global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
+    let resolveFetchAnalysesFirstCall: () => void;
+    const fetchAnalysesFirstCallPromise = new Promise<void>(resolve => {
+      resolveFetchAnalysesFirstCall = resolve;
     });
-  
-    // 2. Mock fetchPastAnalyses behavior for different calls
+
+    let resolveFetchAnalysesSecondCall: () => void;
+    const fetchAnalysesSecondCallPromise = new Promise<void>(resolve => {
+      resolveFetchAnalysesSecondCall = resolve;
+    });
+    
     mockFetchPastAnalysesGlobal
-      .mockImplementationOnce(async () => { // First call on HomePage mount
-        await act(async () => {
-          // This ensures that isLoadingPastAnalyses is set to false after "loading".
-          // The actual pastAnalyses data is already set above for the initial render.
+      .mockImplementationOnce(async () => {
+        act(() => {
+          global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = true;
+        });
+        await new Promise(r => setTimeout(r,0)); // simulate async
+        act(() => {
+          global.mockUseAnalysisManagerReturnValue.pastAnalyses = [mockAnalysisItemCompleted];
           global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
         });
+        resolveFetchAnalysesFirstCall();
         return Promise.resolve(undefined);
       })
-      .mockImplementationOnce(async () => { // Second call after deletion
-        await act(async () => {
-          global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
-          global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
-          global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
+      .mockImplementationOnce(async () => {
+        act(() => {
+          global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = true;
         });
+        await new Promise(r => setTimeout(r,0)); // simulate async
+        act(() => {
+          global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
+          global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
+          global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
+        });
+        resolveFetchAnalysesSecondCall();
         return Promise.resolve(undefined);
       });
   
     mockHandleDeleteAnalysisGlobal.mockImplementation(async (id, cb) => {
-      cb?.(); // This will call fetchPastAnalyses (which will use the second mock implementation)
+      cb?.(); // This will call fetchPastAnalyses (which uses the second mock)
       return Promise.resolve();
     });
   
-    // 3. Render HomePage
     await act(async () => {
       render(<HomePage />);
     });
+
+    await act(async () => {
+      await fetchAnalysesFirstCallPromise;
+    });
     
-    // HomePage's useEffect calls fetchPastAnalyses (first mock implementation).
-    // The UI should now render with mockAnalysisItemCompleted.
     const accordionTrigger = await screen.findByText(mockAnalysisItemCompleted.title!);
-    await userEvent.click(accordionTrigger);
+    await act(async () => {
+      await userEvent.click(accordionTrigger);
+    });
   
-    // After click, setCurrentAnalysis is called internally by HomePage's handleAccordionChange.
-    // Reflect this in the mock for AnalysisView to render correctly.
     await act(async () => {
         global.mockUseAnalysisManagerReturnValue.currentAnalysis = mockAnalysisItemCompleted;
         global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps = calculateDisplayedAnalysisSteps(mockAnalysisItemCompleted);
     });
   
-    // Now, the AnalysisView should be visible with the delete button
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Excluir Análise/i })).toBeInTheDocument();
     });
   
-    // 4. Perform delete action
     await userEvent.click(screen.getByRole('button', { name: /Excluir Análise/i }));
   
     await waitFor(() => {
@@ -465,18 +489,23 @@ describe('HomePage - Navigation and Views', () => {
     });
     const confirmButton = screen.getByRole('button', { name: 'Confirmar Exclusão' });
   
-    await userEvent.click(confirmButton);
+    await act(async () => {
+      await userEvent.click(confirmButton);
+    });
   
-    // 5. Assertions after deletion
     await waitFor(() => {
       expect(mockHandleDeleteAnalysisGlobal).toHaveBeenCalledWith(mockAnalysisItemCompleted.id, expect.any(Function));
     });
-    // The callback in handleDeleteAnalysis calls fetchPastAnalyses (second mock implementation).
+
+    await act(async () => {
+      await fetchAnalysesSecondCallPromise;
+    });
+
     await waitFor(() => {
-      // Expect the list to be empty now.
       expect(screen.getByText(/Nenhuma análise anterior encontrada./i)).toBeInTheDocument();
     });
-    // Ensure currentAnalysis is also cleared from the mock's perspective
     expect(global.mockUseAnalysisManagerReturnValue.currentAnalysis).toBeNull();
   });
 });
+
+    
