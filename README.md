@@ -37,24 +37,24 @@ O Energy Compliance Analyzer simplifica a verificação de conformidade para o s
 ```mermaid
 graph TD
     subgraph "UserInteraction" ["User Interaction"]
-        UI["Frontend Next.js/React<br>(ShadCN, TailwindCSS)<br>Hosted on Firebase App Hosting"]
+        UI["fa:fa-desktop Frontend Next.js/React<br>(ShadCN, TailwindCSS)<br>Hosted on Firebase App Hosting"]
     end
 
     subgraph "BackendLogic" ["Backend (Next.js)"]
-        ServerActions["Next.js Server Actions<br>(Upload Trigger, Chat Orchestrator)"]
+        ServerActions["fa:fa-cogs Next.js Server Actions<br>(Upload Trigger, Chat Orchestrator)"]
     end
 
     subgraph "FirebasePlatform" ["Firebase Platform"]
-        Auth["Firebase Authentication<br>(Google Sign-In)"]
-        Firestore["Firebase Firestore<br>(Analyses Metadata, Tags, Status, Structured Report)"]
-        Storage["Firebase Storage<br>(Upload CSVs, MDX Reports)"]
-        RTDB["Firebase Realtime Database<br>(Chat History)"]
-        Functions["Firebase Functions<br>(Heavy Processing, Main AI Pipeline)"]
+        Auth["fa:fa-key Firebase Authentication<br>(Google Sign-In)"]
+        Firestore["fa:fa-database Firebase Firestore<br>(Analyses Metadata, Tags, Status, Structured Report)"]
+        Storage["fa:fa-archive Firebase Storage<br>(Upload CSVs, MDX Reports)"]
+        RTDB["fa:fa-comments Firebase Realtime Database<br>(Chat History)"]
+        Functions["fa:fa-bolt Firebase Functions<br>(Heavy Processing, Main AI Pipeline)"]
     end
 
     subgraph "GenAIServices" ["Artificial Intelligence (Genkit & Gemini)"]
-        AIEngineFunctions["AI Engine - Functions<br>(Pipeline: Data Analyst, Electrical Engineer, Reporter, Reviewer)"]
-        AIEngineServerActions["AI Engine - Server Actions<br>(Interactive Chat Orchestrator Agent)"]
+        AIEngineFunctions["fa:fa-brain AI Engine - Functions<br>(Pipeline: Data Analyst, Electrical Engineer, Reporter, Reviewer)"]
+        AIEngineServerActions["fa:fa-brain AI Engine - Server Actions<br>(Interactive Chat Orchestrator Agent)"]
     end
 
     %% User Flows
