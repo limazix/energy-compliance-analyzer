@@ -1,130 +1,133 @@
-# Guia de Deployment do Energy Compliance Analyzer
 
-Este documento detalha os processos de deploy manual e automático (via GitHub Actions) para o projeto Energy Compliance Analyzer, que utiliza Firebase App Hosting para a aplicação Next.js e Firebase Functions para o processamento em backend.
+# Energy Compliance Analyzer Deployment Guide
 
-## Visão Geral do Deployment
+This document details the manual and automated deployment processes (via GitHub Actions) for the Energy Compliance Analyzer project, which uses Firebase App Hosting for the Next.js application and Firebase Functions for backend processing.
 
-O projeto é implantado no projeto Firebase `electric-magnitudes-analizer` e consiste em quatro partes principais para deploy:
+## Deployment Overview
 
-1.  **Aplicação Next.js:** Implantada no Firebase App Hosting.
-2.  **Funções de Backend (AI, Processamento):** Implantadas como Firebase Functions.
-3.  **Regras de Segurança:** Regras do Firestore, Storage e Realtime Database.
-4.  **Índices do Firestore:** (Se houver, gerenciados por `rules/firestore.indexes.json`).
+The project is deployed to the Firebase project `electric-magnitudes-analizer` and consists of four main parts for deployment:
 
-O workflow de GitHub Actions (`.github/workflows/firebase-deploy.yml`) está configurado para automatizar o deploy de todas essas partes.
+1.  **Next.js Application:** Deployed to Firebase App Hosting.
+2.  **Backend Functions (AI, Processing):** Deployed as Firebase Functions.
+3.  **Security Rules:** Firestore, Storage, and Realtime Database rules.
+4.  **Firestore Indexes:** (If any, managed by `rules/firestore.indexes.json`).
 
-## Deployment Automático com GitHub Actions (Recomendado)
+The GitHub Actions workflow (`.github/workflows/firebase-deploy.yml`) is configured to automate the deployment of all these parts.
 
-Este projeto inclui um workflow de GitHub Actions para automatizar o deploy.
+## Automated Deployment with GitHub Actions (Recommended)
 
-### Configuração do GitHub Actions
+This project includes a GitHub Actions workflow to automate deployment.
 
-1.  **ID do Backend do App Hosting:**
-    *   No arquivo `.github/workflows/firebase-deploy.yml`, localize a linha:
+### GitHub Actions Setup
+
+1.  **App Hosting Backend ID:**
+    *   In the `.github/workflows/firebase-deploy.yml` file, locate the line:
         `firebase apphosting:backends:deploy YOUR_APP_HOSTING_BACKEND_ID`
-    *   **Substitua `YOUR_APP_HOSTING_BACKEND_ID` pelo ID real do seu backend do App Hosting.**
-    *   Você pode obter este ID no Firebase Console (App Hosting > seu backend) após criá-lo (seja manualmente pela primeira vez ou via CLI). Por exemplo, pode ser algo como `energy-compliance-analyzer-backend`.
+    *   **Replace `YOUR_APP_HOSTING_BACKEND_ID` with the actual ID of your App Hosting backend.**
+    *   You can get this ID from the Firebase Console (App Hosting > your backend) after creating it (either manually for the first time or via CLI). For example, it might be something like `energy-compliance-analyzer-backend`.
 
-2.  **Segredos do GitHub:**
-    Configure os seguintes segredos no seu repositório GitHub ("Settings" > "Secrets and variables" > "Actions"):
+2.  **GitHub Secrets:**
+    Configure the following secrets in your GitHub repository ("Settings" > "Secrets and variables" > "Actions"):
 
-    *   **Para Autenticação GCP (Workload Identity Federation):**
-        *   `GCP_PROJECT_NUMBER`: O número do seu projeto GCP (ex: `123456789012`).
-        *   `GCP_WORKLOAD_IDENTITY_POOL_ID`: O ID do seu Workload Identity Pool no GCP.
-        *   `GCP_WORKLOAD_IDENTITY_PROVIDER_ID`: O ID do seu Provider dentro do pool.
-        *   `GCP_SERVICE_ACCOUNT_EMAIL`: O email da conta de serviço do GCP que o GitHub Actions usará. Esta conta de serviço precisa ter as seguintes permissões mínimas no GCP:
-            *   `Firebase App Hosting Admin` (roles/firebaseapphosting.admin) - Para deploy do App Hosting.
-            *   `Firebase Functions Developer` (roles/cloudfunctions.developer) ou Admin - Para deploy das Functions.
-            *   `Firebase Rules System` (roles/firebaserules.system) - Para deploy das regras.
-            *   `Service Account User` (roles/iam.serviceAccountUser) - Para permitir que as Functions executem como a conta de serviço delas.
-            *   `Service Account Token Creator` (roles/iam.serviceAccountTokenCreator) - Para o GitHub Actions impersonar a conta de serviço.
-            *   `Cloud Build Editor` (roles/cloudbuild.builds.editor) - Firebase Functions usam Cloud Build para o deploy.
-            *   (Opcional, mas recomendado para Functions) `Logs Writer` (roles/logging.logWriter) e `Monitoring Metric Writer` (roles/monitoring.metricWriter).
+    *   **For GCP Authentication (Workload Identity Federation):**
+        *   `GCP_PROJECT_NUMBER`: Your GCP project number (e.g., `123456789012`).
+        *   `GCP_WORKLOAD_IDENTITY_POOL_ID`: The ID of your Workload Identity Pool in GCP.
+        *   `GCP_WORKLOAD_IDENTITY_PROVIDER_ID`: The ID of your Provider within the pool.
+        *   `GCP_SERVICE_ACCOUNT_EMAIL`: The email of the GCP service account that GitHub Actions will use. This service account needs the following minimum permissions in GCP:
+            *   `Firebase App Hosting Admin` (roles/firebaseapphosting.admin) - For App Hosting deployment.
+            *   `Firebase Functions Developer` (roles/cloudfunctions.developer) or Admin - For Functions deployment.
+            *   `Firebase Rules System` (roles/firebaserules.system) - For rules deployment.
+            *   `Service Account User` (roles/iam.serviceAccountUser) - To allow Functions to run as their service account.
+            *   `Service Account Token Creator` (roles/iam.serviceAccountTokenCreator) - For GitHub Actions to impersonate the service account.
+            *   `Cloud Build Editor` (roles/cloudbuild.builds.editor) - Firebase Functions use Cloud Build for deployment.
+            *   (Optional, but recommended for Functions) `Logs Writer` (roles/logging.logWriter) and `Monitoring Metric Writer` (roles/monitoring.metricWriter).
 
-    *   **Para o Build do Next.js (Variáveis `NEXT_PUBLIC_`):**
-        *   `NEXT_PUBLIC_FIREBASE_API_KEY`: Sua chave de API do Firebase para o cliente web.
-        *   `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`: Seu domínio de autenticação do Firebase.
-        *   `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`: Seu bucket do Firebase Storage.
-        *   `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`: Seu ID de remetente do Firebase Messaging.
-        *   `NEXT_PUBLIC_FIREBASE_APP_ID`: Seu ID do aplicativo Firebase.
-        *   `NEXT_PUBLIC_FIREBASE_DATABASE_URL`: A URL do seu Firebase Realtime Database.
-        *   `NEXT_PUBLIC_GEMINI_API_KEY`: A chave de API do Google AI (Gemini) **se for usada diretamente no código do cliente Next.js**. Se for usada apenas no backend (Firebase Functions), este secret não é necessário aqui, mas sim na configuração das Functions.
-        *   `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`: (Opcional) Seu ID de medição do Google Analytics para Firebase.
+    *   **For Next.js Build (`NEXT_PUBLIC_` Variables):**
+        *   `NEXT_PUBLIC_FIREBASE_API_KEY`: Your Firebase API key for the web client.
+        *   `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`: Your Firebase authentication domain.
+        *   `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`: Your Firebase Storage bucket.
+        *   `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`: Your Firebase Messaging sender ID.
+        *   `NEXT_PUBLIC_FIREBASE_APP_ID`: Your Firebase application ID.
+        *   `NEXT_PUBLIC_FIREBASE_DATABASE_URL`: Your Firebase Realtime Database URL.
+        *   `NEXT_PUBLIC_GEMINI_API_KEY`: The Google AI (Gemini) API key **if used directly in Next.js client code**. If used only in the backend (Firebase Functions), this secret is not needed here but rather in the Functions configuration.
+        *   `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`: (Optional) Your Google Analytics for Firebase measurement ID.
 
-3.  **Secrets de Runtime das Firebase Functions (Ex: API Key do Gemini):**
-    *   A chave de API do Gemini (`GEMINI_API_KEY`) que suas Firebase Functions usam para chamar a IA **DEVE** ser configurada como um secret no ambiente de runtime das suas Firebase Functions no Google Cloud.
-    *   Isso pode ser feito via:
-        *   **Variáveis de ambiente na configuração da Function no Google Cloud Console.**
-        *   **Google Cloud Secret Manager:** E acessá-las programaticamente em suas functions.
-    *   O workflow do GitHub Actions *não* lida com a configuração desses secrets de runtime para as functions. Isso é uma configuração separada e essencial que você deve fazer no GCP. O código das functions (em `functions/src/processAnalysis.ts`) espera encontrar `process.env.GEMINI_API_KEY` ou `functions.config().gemini.apikey`.
+3.  **Firebase Functions Runtime Secrets (e.g., Gemini API Key):**
+    *   The Gemini API Key (`GEMINI_API_KEY`) that your Firebase Functions use to call the AI **MUST** be configured as a secret in your Firebase Functions' runtime environment in Google Cloud.
+    *   This can be done via:
+        *   **Environment variables in the Function's configuration in the Google Cloud Console.**
+        *   **Google Cloud Secret Manager:** And accessing them programmatically in your functions.
+    *   The GitHub Actions workflow *does not* handle setting these runtime secrets for the functions. This is a separate and essential configuration you must do in GCP. The functions code (in `functions/src/processAnalysis.ts`) expects to find `process.env.GEMINI_API_KEY` or `functions.config().gemini.apikey`.
 
-### Como Funciona o Workflow
+### How the Workflow Works
 
-*   Ao fazer um `git push` para a branch `main` (ou a branch configurada), ou ao abrir/sincronizar um Pull Request para `main`, a Action é disparada.
+*   When a `git push` is made to the `main` branch (or the configured branch), or when a Pull Request is opened/synchronized to `main`, the Action is triggered.
 *   **Job `test`**:
-    *   Instala dependências para o app Next.js e para as Firebase Functions.
-    *   Constrói as Firebase Functions (necessário para os emuladores).
-    *   Executa os testes Jest (`npm test`), que usam os Firebase Emulators.
-    *   Se os testes falharem, o workflow para aqui.
-*   **Job `build_and_deploy`** (só executa em `push` para `main` e se o job `test` passar):
-    *   Instala dependências e faz o build da aplicação Next.js, usando os secrets do GitHub para as variáveis `NEXT_PUBLIC_*`.
-    *   Autentica no Google Cloud usando Workload Identity Federation.
-    *   Faz o deploy da aplicação Next.js para o Firebase App Hosting.
-    *   Faz o build e deploy das Firebase Functions.
-    *   Faz o deploy das regras do Firestore, Storage e Realtime Database, e dos índices do Firestore.
+    *   Installs dependencies for the Next.js app and Firebase Functions.
+    *   Builds the Firebase Functions (necessary for emulators).
+    *   Runs Jest tests (`npm test`), which use Firebase Emulators.
+    *   If tests fail, the workflow stops here.
+*   **Job `build_and_deploy`** (only runs on `push` to `main` and if the `test` job passes):
+    *   Installs dependencies and builds the Next.js application, using GitHub secrets for `NEXT_PUBLIC_*` variables.
+    *   Authenticates to Google Cloud using Workload Identity Federation.
+    *   Deploys the Next.js application to Firebase App Hosting.
+    *   Builds and deploys Firebase Functions.
+    *   Deploys Firestore, Storage, and Realtime Database rules, and Firestore indexes.
 
-## Deployment Manual
+## Manual Deployment
 
-Se precisar fazer deploy manual:
+If you need to deploy manually:
 
-*   Certifique-se de ter o [Firebase CLI](https://firebase.google.com/docs/cli) instalado e estar logado (`firebase login`).
-*   Associe seu diretório de projeto local ao projeto `electric-magnitudes-analizer` (`firebase use electric-magnitudes-analizer`).
-*   Configure suas variáveis de ambiente locais no arquivo `.env` para o build do Next.js, se necessário.
+*   Ensure you have the [Firebase CLI](https://firebase.google.com/docs/cli) installed and are logged in (`firebase login`).
+*   Associate your local project directory with the `electric-magnitudes-analizer` project (`firebase use electric-magnitudes-analizer`).
+*   Configure your local environment variables in the `.env` file for the Next.js build, if necessary.
 
-### 1. Deploy da Aplicação Next.js (App Hosting)
+### 1. Deploy Next.js Application (App Hosting)
 
-1.  **Construa sua aplicação Next.js:**
+1.  **Build your Next.js application:**
     ```bash
     npm run build
     ```
-2.  **Implante usando o Firebase CLI:**
-    Substitua `YOUR_APP_HOSTING_BACKEND_ID` e `YOUR_REGION` (ex: `us-central1`):
+2.  **Deploy using the Firebase CLI:**
+    Replace `YOUR_APP_HOSTING_BACKEND_ID` and `YOUR_REGION` (e.g., `us-central1`):
     ```bash
     firebase apphosting:backends:deploy YOUR_APP_HOSTING_BACKEND_ID --project electric-magnitudes-analizer --region YOUR_REGION
     ```
-    Se for o primeiro deploy, o CLI pode ajudar a criar um backend.
+    If it's the first deployment, the CLI might help create a backend.
 
-### 2. Deploy das Firebase Functions
+### 2. Deploy Firebase Functions
 
-1.  **Navegue até o diretório das functions:**
+1.  **Navigate to the functions directory:**
     ```bash
     cd functions
     ```
-2.  **Instale as dependências das functions (se ainda não o fez):**
+2.  **Install functions dependencies (if not already done):**
     ```bash
     npm install
     ```
-3.  **Compile as functions (TypeScript para JavaScript):**
+3.  **Build the functions (TypeScript to JavaScript):**
     ```bash
     npm run build
     ```
-4.  **Volte para o diretório raiz do projeto:**
+4.  **Return to the project root directory:**
     ```bash
     cd ..
     ```
-5.  **Implante as functions usando o Firebase CLI:**
+5.  **Deploy functions using the Firebase CLI:**
     ```bash
     firebase deploy --only functions --project electric-magnitudes-analizer
     ```
-    **Lembre-se**: Configure a API Key do Gemini e outros secrets necessários diretamente no ambiente das Firebase Functions no Google Cloud Console.
+    **Remember**: Configure the Gemini API Key and other necessary secrets directly in the Firebase Functions environment in the Google Cloud Console.
 
-### 3. Deploy das Regras de Segurança e Índices do Firebase
+### 3. Deploy Firebase Security Rules and Indexes
 
-As regras de segurança para Firestore, Firebase Storage e Realtime Database, bem como os índices do Firestore, são cruciais.
+Security rules for Firestore, Firebase Storage, and Realtime Database, as well as Firestore indexes, are crucial.
 
-1.  **Implante as regras e índices:**
+1.  **Deploy rules and indexes:**
     ```bash
     firebase deploy --only firestore,storage,database --project electric-magnitudes-analizer
     ```
-    (O comando `firestore` inclui tanto `firestore:rules` quanto `firestore:indexes`. `database` cobre `database:rules`).
-2.  **Verifique as regras e índices no Firebase Console:** Após o deploy, confirme visualmente que as regras e índices no console correspondem aos seus arquivos locais (`rules/firestore.rules`, `rules/storage.rules`, `rules/database.rules.json`, `rules/firestore.indexes.json`).
+    (The `firestore` command includes both `firestore:rules` and `firestore:indexes`. `database` covers `database:rules`).
+2.  **Verify rules and indexes in Firebase Console:** After deployment, visually confirm that the rules and indexes in the console match your local files (`rules/firestore.rules`, `rules/storage.rules`, `rules/database.rules.json`, `rules/firestore.indexes.json`).
+
+    

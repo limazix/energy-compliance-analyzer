@@ -1,33 +1,35 @@
 
-# C3: Componente - Ações de Listagem de Análise (`analysisListActions`)
+# C3: Component - Analysis Listing Actions (`analysisListActions`)
 
-[<- Voltar para Componentes das Server Actions](./../02-server-actions-components.md)
+[<- Back to Server Actions Components](./../02-server-actions-components.md)
 
-## Descrição
+## Description
 
-O componente **Ações de Listagem de Análise** (`src/features/analysis-listing/actions/analysisListingActions.ts`) é um módulo de Server Actions focado em buscar e retornar a lista de análises passadas de um usuário a partir do Firebase Firestore.
+The **Analysis Listing Actions** component (`src/features/analysis-listing/actions/analysisListingActions.ts`) is a Server Actions module focused on fetching and returning a user's list of past analyses from Firebase Firestore.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Busca de Análises Anteriores (`getPastAnalysesAction`):**
-    *   Recebe o ID do usuário.
-    *   Constrói uma consulta ao Firebase Firestore para buscar todos os documentos na subcoleção `users/{userId}/analyses`.
-    *   Ordena os resultados, geralmente pela data de criação (`createdAt`) em ordem decrescente, para mostrar as análises mais recentes primeiro.
-    *   Filtra análises com status "deleted" para não exibi-las ao usuário.
-    *   Mapeia os dados dos documentos do Firestore para o tipo `Analysis` definido na aplicação, incluindo a conversão de Timestamps do Firestore para strings ISO ou objetos Date, conforme necessário para o frontend.
-    *   Retorna um array de objetos `Analysis`.
-    *   Trata erros de consulta, como permissões negadas ou problemas de rede.
+*   **Fetch Past Analyses (`getPastAnalysesAction`):**
+    *   Receives the user ID.
+    *   Constructs a Firebase Firestore query to fetch all documents in the `users/{userId}/analyses` subcollection.
+    *   Orders results, typically by creation date (`createdAt`) in descending order, to show the most recent analyses first.
+    *   Filters out analyses with a "deleted" status to not display them to the user.
+    *   Maps data from Firestore documents to the `Analysis` type defined in the application, including converting Firestore Timestamps to ISO strings or Date objects as needed for the frontend.
+    *   Returns an array of `Analysis` objects.
+    *   Handles query errors, such as permission denied or network issues.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
-*   **TypeScript:** Para tipagem dos dados da análise e dos parâmetros da ação.
-*   **Next.js Server Actions:** Para expor a funcionalidade de busca de forma segura.
+*   **TypeScript:** For typing analysis data and action parameters.
+*   **Next.js Server Actions:** To expose fetching functionality securely.
 *   **Firebase Firestore:**
-    *   `collection` para referenciar a subcoleção de análises do usuário.
-    *   `query` para construir a consulta.
-    *   `orderBy` para ordenar os resultados.
-    *   `where` para filtrar análises (ex: não mostrar as com status "deleted").
-    *   `getDocs` para executar a consulta e obter o snapshot dos documentos.
-    *   Manipulação de `Timestamp` do Firestore.
-*   **Tratamento de Erros:** Gerencia e propaga erros que possam ocorrer durante a consulta ao Firestore.
-*   **Tipagem de Dados:** Assegura que os dados retornados estejam em conformidade com a interface `Analysis`.
+    *   `collection` to reference the user's analyses subcollection.
+    *   `query` to build the query.
+    *   `orderBy` to sort results.
+    *   `where` to filter analyses (e.g., not show those with status "deleted").
+    *   `getDocs` to execute the query and get the document snapshot.
+    *   Handling of Firestore `Timestamp`.
+*   **Error Handling:** Manages and propagates errors that may occur during Firestore queries.
+*   **Data Typing:** Ensures returned data conforms to the `Analysis` interface.
+
+    

@@ -1,47 +1,47 @@
 
-# C3: Componentes das Firebase Functions (Contêiner)
+# C3: Firebase Functions Components (Container)
 
-Este diagrama detalha os principais componentes que compõem o contêiner "Processamento em Background (Firebase Functions)" do Energy Compliance Analyzer.
+This diagram details the main components that make up the "Background Processing (Firebase Functions)" container of the Energy Compliance Analyzer.
 
-[<- Voltar para Visão Geral dos Componentes (C3)](./index.md)
-[<- Voltar para Visão Geral dos Contêineres (C2)](../c2-containers/index.md)
+[<- Back to Component Overview (C3)](./index.md)
+[<- Back to Container Overview (C2)](../c2-containers/index.md)
 
 ```mermaid
 C4Component
-  title Componentes das Firebase Functions (Contêiner de Processamento em Background)
+  title Firebase Functions Components (Background Processing Container)
 
-  System_Ext(firestoreExt, "Firebase Firestore", "Fonte de gatilhos (onUpdate) e armazenamento de dados (status, relatório estruturado)", $sprite="fa:fa-database")
-  System_Ext(storageExt, "Firebase Storage", "Armazenamento de arquivos CSV de entrada e relatórios MDX de saída", $sprite="fa:fa-archive")
-  System_Ext(genkitFunc, "Genkit & Google AI", "Framework para IA e Modelos de Linguagem (Gemini) para processamento", $sprite="fa:fa-robot")
+  System_Ext(firestoreExt, "Firebase Firestore", "Trigger source (onUpdate) and data store (status, structured report)", $sprite="fa:fa-database")
+  System_Ext(storageExt, "Firebase Storage", "Storage for input CSV files and output MDX reports", $sprite="fa:fa-archive")
+  System_Ext(genkitFunc, "Genkit & Google AI", "AI framework and Language Models (Gemini) for processing", $sprite="fa:fa-robot")
 
-  Container_Boundary(functionsContainer, "Processamento em Background (Firebase Functions)") {
-    Component(trigger, "Gatilho do Firestore (`processAnalysisOnUpdate`)", "Firebase Functions SDK (`functions/src/index.js`)", "Observa atualizações no Firestore (status='summarizing_data') para iniciar o processamento da análise.", $sprite="fa:fa-bell")
-    Component(dataSummarizerAgent, "Agente: Analista de Dados (Sumarizador)", "Genkit Flow (`summarizePowerQualityDataFlow`), Gemini", "Lê CSV do Storage, pré-processa e sumariza dados do CSV em chunks. Utiliza `summarize-power-quality-data.ts`.", $sprite="fa:fa-calculator")
-    Component(regulationIdentifierAgent, "Agente: Identificador de Resoluções", "Genkit Flow (`identifyAEEEResolutionsFlow`), Gemini", "Identifica resoluções ANEEL pertinentes com base no sumário dos dados. Utiliza `identify-aneel-resolutions.ts`.", $sprite="fa:fa-search")
-    Component(complianceAnalyzerAgent, "Agente: Engenheiro de Conformidade (Relator Inicial)", "Genkit Flow (`analyzeComplianceReportFlow`), Gemini", "Gera o relatório estruturado (JSON) inicial de conformidade com base no sumário e nas resoluções. Utiliza `analyze-compliance-report.ts`.", $sprite="fa:fa-balance-scale")
-    Component(reportReviewerAgent, "Agente: Revisor de Relatório", "Genkit Flow (`reviewComplianceReportFlow`), Gemini", "Refina, corrige erros gramaticais e formata o relatório estruturado. Utiliza `review-compliance-report.ts`.", $sprite="fa:fa-user-check")
-    Component(mdxConverterUtil, "Utilitário de Conversão para MDX", "TypeScript (`reportUtils.ts`)", "Converte o relatório estruturado (JSON) final para formato MDX.", $sprite="fa:fa-file-export")
-    Component(statusUpdaterUtil, "Atualizador de Status/Progresso", "Firebase Admin SDK", "Atualiza o Firestore com o progresso da análise, status final (completed/error), e caminhos dos relatórios.", $sprite="fa:fa-sync-alt")
-    Component(gcsUtil, "Utilitário de Acesso ao Storage", "Firebase Admin SDK (`getFileContentFromStorage`)", "Responsável por ler o conteúdo do arquivo CSV do Firebase Storage.", $sprite="fa:fa-download")
-    Component(processAnalysisFn, "Orquestrador da Pipeline (`processAnalysis.js`)", "Firebase Functions SDK, TypeScript", "Orquestra a chamada sequencial dos agentes de IA e utilitários.", $sprite="fa:fa-cogs")
+  Container_Boundary(functionsContainer, "Background Processing (Firebase Functions)") {
+    Component(trigger, "Firestore Trigger (`processAnalysisOnUpdate`)", "Firebase Functions SDK (`functions/src/index.js`)", "Observes Firestore updates (status='summarizing_data') to start analysis processing.", $sprite="fa:fa-bell")
+    Component(dataSummarizerAgent, "Agent: Data Analyst (Summarizer)", "Genkit Flow (`summarizePowerQualityDataFlow`), Gemini", "Reads CSV from Storage, preprocesses and summarizes CSV data in chunks. Uses `summarize-power-quality-data.ts`.", $sprite="fa:fa-calculator")
+    Component(regulationIdentifierAgent, "Agent: Resolution Identifier", "Genkit Flow (`identifyAEEEResolutionsFlow`), Gemini", "Identifies pertinent ANEEL resolutions based on data summary. Uses `identify-aneel-resolutions.ts`.", $sprite="fa:fa-search")
+    Component(complianceAnalyzerAgent, "Agent: Compliance Engineer (Initial Reporter)", "Genkit Flow (`analyzeComplianceReportFlow`), Gemini", "Generates the initial structured compliance report (JSON) based on summary and resolutions. Uses `analyze-compliance-report.ts`.", $sprite="fa:fa-balance-scale")
+    Component(reportReviewerAgent, "Agent: Report Reviewer", "Genkit Flow (`reviewComplianceReportFlow`), Gemini", "Refines, corrects grammar, and formats the structured report. Uses `review-compliance-report.ts`.", $sprite="fa:fa-user-check")
+    Component(mdxConverterUtil, "MDX Conversion Utility", "TypeScript (`reportUtils.ts`)", "Converts the final structured report (JSON) to MDX format.", $sprite="fa:fa-file-export")
+    Component(statusUpdaterUtil, "Status/Progress Updater", "Firebase Admin SDK", "Updates Firestore with analysis progress, final status (completed/error), and report paths.", $sprite="fa:fa-sync-alt")
+    Component(gcsUtil, "Storage Access Utility", "Firebase Admin SDK (`getFileContentFromStorage`)", "Responsible for reading CSV file content from Firebase Storage.", $sprite="fa:fa-download")
+    Component(processAnalysisFn, "Pipeline Orchestrator (`processAnalysis.js`)", "Firebase Functions SDK, TypeScript", "Orchestrates the sequential call of AI agents and utilities.", $sprite="fa:fa-cogs")
   }
 
-  Rel(trigger, firestoreExt, "Acionado por atualizações em")
-  Rel(trigger, processAnalysisFn, "Invoca a função principal de orquestração")
-  Rel(processAnalysisFn, gcsUtil, "Usa para ler CSV")
-  Rel(gcsUtil, storageExt, "Lê arquivo de")
-  Rel(processAnalysisFn, dataSummarizerAgent, "Chama (1)")
-  Rel(dataSummarizerAgent, genkitFunc, "Usa")
-  Rel(processAnalysisFn, regulationIdentifierAgent, "Chama (2) com sumário de (1)")
-  Rel(regulationIdentifierAgent, genkitFunc, "Usa")
-  Rel(processAnalysisFn, complianceAnalyzerAgent, "Chama (3) com sumário e resoluções")
-  Rel(complianceAnalyzerAgent, genkitFunc, "Usa")
-  Rel(processAnalysisFn, reportReviewerAgent, "Chama (4) com relatório de (3)")
-  Rel(reportReviewerAgent, genkitFunc, "Usa")
-  Rel(processAnalysisFn, mdxConverterUtil, "Chama (5) com relatório de (4)")
-  Rel(mdxConverterUtil, storageExt, "Salva relatório MDX em")
-  Rel(processAnalysisFn, statusUpdaterUtil, "Usa para atualizar progresso/status")
-  Rel(statusUpdaterUtil, firestoreExt, "Atualiza dados em")
+  Rel(trigger, firestoreExt, "Triggered by updates in")
+  Rel(trigger, processAnalysisFn, "Invokes the main orchestration function")
+  Rel(processAnalysisFn, gcsUtil, "Uses to read CSV")
+  Rel(gcsUtil, storageExt, "Reads file from")
+  Rel(processAnalysisFn, dataSummarizerAgent, "Calls (1)")
+  Rel(dataSummarizerAgent, genkitFunc, "Uses")
+  Rel(processAnalysisFn, regulationIdentifierAgent, "Calls (2) with summary from (1)")
+  Rel(regulationIdentifierAgent, genkitFunc, "Uses")
+  Rel(processAnalysisFn, complianceAnalyzerAgent, "Calls (3) with summary and resolutions")
+  Rel(complianceAnalyzerAgent, genkitFunc, "Uses")
+  Rel(processAnalysisFn, reportReviewerAgent, "Calls (4) with report from (3)")
+  Rel(reportReviewerAgent, genkitFunc, "Uses")
+  Rel(processAnalysisFn, mdxConverterUtil, "Calls (5) with report from (4)")
+  Rel(mdxConverterUtil, storageExt, "Saves MDX report to")
+  Rel(processAnalysisFn, statusUpdaterUtil, "Uses to update progress/status")
+  Rel(statusUpdaterUtil, firestoreExt, "Updates data in")
 
 
   UpdateElementStyle(trigger, $fontColor="white", $bgColor="rgb(68, 158, 228)", $borderColor="rgb(68, 158, 228)")
@@ -58,28 +58,30 @@ C4Component
   UpdateElementStyle(genkitFunc, $fontColor="white", $bgColor="rgb(100, 100, 100)", $borderColor="rgb(100, 100, 100)")
 ```
 
-## Detalhes dos Componentes das Firebase Functions
+## Firebase Functions Component Details
 
-A seguir, uma lista dos principais componentes identificados no diagrama. Cada um terá sua própria página de detalhamento.
+The following is a list of the main components identified in the diagram. Each will have its own detail page.
 
-*   **Gatilho do Firestore (`trigger`)**:
-    *   [Detalhes](./firebase-functions/trigger.md)
-*   **Agente: Analista de Dados (Sumarizador) (`dataSummarizerAgent`)**:
-    *   [Detalhes](./firebase-functions/data-summarizer-agent.md)
-*   **Agente: Identificador de Resoluções (`regulationIdentifierAgent`)**:
-    *   [Detalhes](./firebase-functions/regulation-identifier-agent.md)
-*   **Agente: Engenheiro de Conformidade (Relator Inicial) (`complianceAnalyzerAgent`)**:
-    *   [Detalhes](./firebase-functions/compliance-analyzer-agent.md)
-*   **Agente: Revisor de Relatório (`reportReviewerAgent`)**:
-    *   [Detalhes](./firebase-functions/report-reviewer-agent.md)
-*   **Utilitário de Conversão para MDX (`mdxConverterUtil`)**:
-    *   [Detalhes](./firebase-functions/mdx-converter-util.md)
-*   **Atualizador de Status/Progresso (`statusUpdaterUtil`)**:
-    *   [Detalhes](./firebase-functions/status-updater-util.md)
-*   **Utilitário de Acesso ao Storage (`gcsUtil`)**:
-    *   [Detalhes](./firebase-functions/gcs-util.md)
-*   **Orquestrador da Pipeline (`processAnalysisFn`)**:
-    *   [Detalhes](./firebase-functions/process-analysis-fn.md)
+*   **Firestore Trigger (`trigger`)**:
+    *   [Details](./firebase-functions/trigger.md)
+*   **Agent: Data Analyst (Summarizer) (`dataSummarizerAgent`)**:
+    *   [Details](./firebase-functions/data-summarizer-agent.md)
+*   **Agent: Resolution Identifier (`regulationIdentifierAgent`)**:
+    *   [Details](./firebase-functions/regulation-identifier-agent.md)
+*   **Agent: Compliance Engineer (Initial Reporter) (`complianceAnalyzerAgent`)**:
+    *   [Details](./firebase-functions/compliance-analyzer-agent.md)
+*   **Agent: Report Reviewer (`reportReviewerAgent`)**:
+    *   [Details](./firebase-functions/report-reviewer-agent.md)
+*   **MDX Conversion Utility (`mdxConverterUtil`)**:
+    *   [Details](./firebase-functions/mdx-converter-util.md)
+*   **Status/Progress Updater (`statusUpdaterUtil`)**:
+    *   [Details](./firebase-functions/status-updater-util.md)
+*   **Storage Access Utility (`gcsUtil`)**:
+    *   [Details](./firebase-functions/gcs-util.md)
+*   **Pipeline Orchestrator (`processAnalysisFn`)**:
+    *   [Details](./firebase-functions/process-analysis-fn.md)
 
-[Anterior: Componentes das Server Actions](./02-server-actions-components.md)
-[Próximo: Diagrama de Código/Fluxo (C4)](../../c4-code/index.md)
+[Previous: Server Actions Components](./02-server-actions-components.md)
+[Next: Code/Flow Diagram (C4)](../../c4-code/index.md)
+
+    

@@ -1,36 +1,38 @@
 
-# C3: Componente - Utilitário de Acesso ao Storage (`gcsUtil`)
+# C3: Component - Storage Access Utility (`gcsUtil`)
 
-[<- Voltar para Componentes das Firebase Functions](./../03-firebase-functions-components.md)
+[<- Back to Firebase Functions Components](./../03-firebase-functions-components.md)
 
-## Descrição
+## Description
 
-O **Utilitário de Acesso ao Storage** (`getFileContentFromStorage` em `functions/src/processAnalysis.js`) é uma função dentro do ambiente das Firebase Functions que utiliza o Firebase Admin SDK para acessar e ler o conteúdo de arquivos armazenados no Firebase Storage (que é construído sobre o Google Cloud Storage - GCS).
+The **Storage Access Utility** (`getFileContentFromStorage` in `functions/src/processAnalysis.js`) is a function within the Firebase Functions environment that uses the Firebase Admin SDK to access and read the content of files stored in Firebase Storage (which is built on Google Cloud Storage - GCS).
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Leitura de Arquivos CSV:**
-    *   Recebe o caminho completo do arquivo CSV no Firebase Storage (ex: `user_uploads/{userId}/{analysisId}/{fileName}.csv`) como entrada.
-    *   Utiliza o Firebase Admin SDK para Storage para referenciar o bucket e o arquivo.
-    *   Baixa o conteúdo do arquivo.
-    *   Converte o conteúdo do arquivo (que é um buffer) para uma string UTF-8.
-*   **Retorno do Conteúdo:**
-    *   Retorna o conteúdo textual do arquivo CSV para o chamador (o `processAnalysisFn`).
-*   **Tratamento de Erros:**
-    *   Lida com possíveis erros durante o acesso ao Storage, como arquivo não encontrado, problemas de permissão (embora o Admin SDK geralmente tenha amplas permissões) ou falhas de download.
-    *   Propaga exceções para o chamador em caso de erro.
+*   **Reading CSV Files:**
+    *   Receives the full path of the CSV file in Firebase Storage (e.g., `user_uploads/{userId}/{analysisId}/{fileName}.csv`) as input.
+    *   Uses the Firebase Admin SDK for Storage to reference the bucket and file.
+    *   Downloads the file content.
+    *   Converts the file content (which is a buffer) to a UTF-8 string.
+*   **Returning Content:**
+    *   Returns the textual content of the CSV file to the caller (the `processAnalysisFn`).
+*   **Error Handling:**
+    *   Handles potential errors during Storage access, such as file not found, permission issues (though the Admin SDK usually has broad permissions), or download failures.
+    *   Propagates exceptions to the caller in case of an error.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
 *   **Firebase Admin SDK (Storage):**
-    *   `admin.storage()` para obter a instância do Storage.
-    *   `bucket().file(filePath).download()` para baixar o conteúdo do arquivo.
-*   **Node.js Buffers:** Lida com a conversão de buffers de dados para strings.
-*   **Interação com Firebase Storage:** Essencial para obter os dados brutos que serão processados pela pipeline de IA.
+    *   `admin.storage()` to get the Storage instance.
+    *   `bucket().file(filePath).download()` to download the file content.
+*   **Node.js Buffers:** Handles conversion of data buffers to strings.
+*   **Interaction with Firebase Storage:** Essential for obtaining the raw data that will be processed by the AI pipeline.
 
-## Interações
+## Interactions
 
-*   **Chamado por:** Orquestrador da Pipeline (`processAnalysisFn`) no início do processamento.
-*   **Interage com:** Firebase Storage.
-*   **Entrada:** Caminho do arquivo no Firebase Storage.
-*   **Saída:** Conteúdo do arquivo como uma string.
+*   **Called by:** Pipeline Orchestrator (`processAnalysisFn`) at the beginning of processing.
+*   **Interacts with:** Firebase Storage.
+*   **Input:** File path in Firebase Storage.
+*   **Output:** File content as a string.
+
+    

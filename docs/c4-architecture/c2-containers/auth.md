@@ -1,37 +1,39 @@
 
-# C2 Model: Detalhe do Contêiner - Serviço de Autenticação (Firebase Authentication)
+# C2 Model: Container Detail - Authentication Service (Firebase Authentication)
 
-[<- Voltar para Visão Geral dos Contêineres (C2)](./index.md)
+[<- Back to Container Overview (C2)](./index.md)
 
-## Descrição
+## Description
 
-O **Firebase Authentication** fornece serviços de backend, SDKs fáceis de usar e bibliotecas de UI prontas para autenticar usuários no aplicativo Energy Compliance Analyzer. Ele se integra diretamente com provedores de identidade populares, como o Google Sign-In.
+**Firebase Authentication** provides backend services, easy-to-use SDKs, and ready-made UI libraries to authenticate users in the Energy Compliance Analyzer application. It integrates directly with popular identity providers like Google Sign-In.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Autenticação de Usuários:**
-    *   Gerencia o fluxo de login de usuários através do Google Sign-In.
-    *   Verifica a identidade do usuário junto ao Google e emite tokens de ID do Firebase para o cliente.
-*   **Gerenciamento de Sessão:**
-    *   Mantém o estado de autenticação do usuário no Frontend Web App.
-    *   Fornece informações sobre o usuário atualmente logado (UID, nome de exibição, e-mail, URL da foto do perfil).
-*   **Fornecimento de Identidade para Regras de Segurança:**
-    *   O UID (User ID) do usuário autenticado é crucial para aplicar as Regras de Segurança do Firebase Firestore, Firebase Storage e Firebase Realtime Database.
-    *   As regras utilizam o `request.auth.uid` para garantir que os usuários só possam acessar ou modificar seus próprios dados.
-*   **Criação de Contas de Usuário:**
-    *   Automaticamente cria um registro de usuário no backend do Firebase Authentication na primeira vez que um usuário faz login com um provedor de identidade (como o Google).
+*   **User Authentication:**
+    *   Manages the user login flow via Google Sign-In.
+    *   Verifies user identity with Google and issues Firebase ID tokens to the client.
+*   **Session Management:**
+    *   Maintains the user's authentication state in the Frontend Web App.
+    *   Provides information about the currently logged-in user (UID, display name, email, profile picture URL).
+*   **Identity Provision for Security Rules:**
+    *   The UID (User ID) of the authenticated user is crucial for enforcing Firebase Firestore, Firebase Storage, and Firebase Realtime Database Security Rules.
+    *   The rules use `request.auth.uid` to ensure users can only access or modify their own data.
+*   **User Account Creation:**
+    *   Automatically creates a user record in the Firebase Authentication backend the first time a user logs in with an identity provider (like Google).
 
-## Tecnologias e Restrições
+## Technologies and Constraints
 
-*   **Tecnologia Principal:** Firebase Authentication.
-*   **Provedores de Identidade Suportados:** Configurado para usar o Google Sign-In. Poderia ser estendido para outros provedores OAuth (Facebook, Twitter, GitHub), e-mail/senha, número de telefone, etc.
+*   **Core Technology:** Firebase Authentication.
+*   **Supported Identity Providers:** Configured to use Google Sign-In. Could be extended to other OAuth providers (Facebook, Twitter, GitHub), email/password, phone number, etc.
 *   **SDKs:**
-    *   O Firebase SDK para cliente (web) é usado no Frontend Web App para iniciar o fluxo de login e observar mudanças no estado de autenticação.
-    *   O Firebase Admin SDK pode ser usado em ambientes de servidor (Next.js Server Actions, Firebase Functions) para verificar tokens de ID ou gerenciar usuários programaticamente (embora o gerenciamento de usuários não seja uma funcionalidade principal deste sistema).
-*   **Tokens de ID:** Utiliza tokens de ID JWT (JSON Web Tokens) para comunicar o estado de autenticação de forma segura entre o cliente e os serviços de backend (ou para validar o acesso em Server Actions).
-*   **Segurança:**
-    *   Lida com a complexidade dos fluxos OAuth e o armazenamento seguro de credenciais.
-    *   Ajuda a proteger contra vários vetores de ataque comuns relacionados à autenticação.
-*   **Integração com Firebase:** Fortemente integrado com outros serviços Firebase, permitindo um controle de acesso granular baseado na identidade do usuário.
-*   **Custos:** O Firebase Authentication possui um generoso nível gratuito para a maioria dos métodos de login (incluindo Google Sign-In). Custos podem ser aplicados para funcionalidades mais avançadas ou volumes muito altos de autenticação por telefone (SMS).
-*   **Interface do Usuário:** Embora o Firebase forneça o FirebaseUI (uma biblioteca de UI drop-in), este projeto implementa uma interface de login personalizada no Frontend Web App que invoca o SDK do Firebase Authentication diretamente.
+    *   The Firebase SDK for client (web) is used in the Frontend Web App to initiate the login flow and observe authentication state changes.
+    *   The Firebase Admin SDK can be used in server environments (Next.js Server Actions, Firebase Functions) to verify ID tokens or manage users programmatically (though user management is not a core feature of this system).
+*   **ID Tokens:** Uses JWT (JSON Web Tokens) ID tokens to securely communicate authentication state between the client and backend services (or to validate access in Server Actions).
+*   **Security:**
+    *   Handles the complexity of OAuth flows and secure credential storage.
+    *   Helps protect against various common attack vectors related to authentication.
+*   **Integration with Firebase:** Tightly integrated with other Firebase services, allowing granular access control based on user identity.
+*   **Costs:** Firebase Authentication has a generous free tier for most login methods (including Google Sign-In). Costs may apply for more advanced features or very high volumes of phone authentication (SMS).
+*   **User Interface:** Although Firebase provides FirebaseUI (a drop-in UI library), this project implements a custom login interface in the Frontend Web App that directly invokes the Firebase Authentication SDK.
+
+    

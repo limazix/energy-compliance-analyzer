@@ -1,35 +1,37 @@
 
-# C3: Componente - Ações de Gerenciamento de Análise (`analysisMgmtActions`)
+# C3: Component - Analysis Management Actions (`analysisMgmtActions`)
 
-[<- Voltar para Componentes das Server Actions](./../02-server-actions-components.md)
+[<- Back to Server Actions Components](./../02-server-actions-components.md)
 
-## Descrição
+## Description
 
-O componente **Ações de Gerenciamento de Análise** (`src/features/analysis-management/actions/analysisManagementActions.ts`) é um módulo de Server Actions que lida com operações de ciclo de vida de uma análise, como exclusão e cancelamento.
+The **Analysis Management Actions** component (`src/features/analysis-management/actions/analysisManagementActions.ts`) is a Server Actions module that handles lifecycle operations for an analysis, such as deletion and cancellation.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Exclusão de Análise (`deleteAnalysisAction`):**
-    *   Recebe o ID do usuário e o ID da análise a ser excluída.
-    *   Atualiza o documento da análise no Firestore, definindo o status como "deleted".
-    *   Pode opcionalmente limpar campos como `summary`, `structuredReport`, `mdxReportStoragePath`, `powerQualityDataUrl` para indicar que os dados não estão mais acessíveis ou para economizar espaço.
-    *   Dispara a exclusão dos arquivos associados (CSV original e relatório MDX) do Firebase Storage.
-    *   Loga a ação e trata possíveis erros durante o processo.
-*   **Cancelamento de Análise (`cancelAnalysisAction`):**
-    *   Recebe o ID do usuário e o ID da análise a ser cancelada.
-    *   Verifica se a análise está em um estado que permite cancelamento (ex: não 'completed', 'error', 'cancelled' ou 'deleted').
-    *   Atualiza o documento da análise no Firestore, definindo o status como "cancelling".
-    *   A Firebase Function responsável pelo processamento da análise deve observar esse status "cancelling" e interromper sua execução o mais breve possível, atualizando o status para "cancelled".
-    *   Pode registrar uma mensagem de erro inicial indicando que o cancelamento foi solicitado.
+*   **Delete Analysis (`deleteAnalysisAction`):**
+    *   Receives the user ID and the ID of the analysis to be deleted.
+    *   Updates the analysis document in Firestore, setting the status to "deleted".
+    *   May optionally clear fields like `summary`, `structuredReport`, `mdxReportStoragePath`, `powerQualityDataUrl` to indicate data is no longer accessible or to save space.
+    *   Triggers deletion of associated files (original CSV and MDX report) from Firebase Storage.
+    *   Logs the action and handles potential errors during the process.
+*   **Cancel Analysis (`cancelAnalysisAction`):**
+    *   Receives the user ID and the ID of the analysis to be canceled.
+    *   Checks if the analysis is in a state that allows cancellation (e.g., not 'completed', 'error', 'cancelled', or 'deleted').
+    *   Updates the analysis document in Firestore, setting the status to "cancelling".
+    *   The Firebase Function responsible for processing the analysis should observe this "cancelling" status and stop its execution as soon as possible, updating the status to "cancelled".
+    *   May record an initial error message indicating cancellation was requested.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
-*   **TypeScript:** Para tipagem e organização do código.
-*   **Next.js Server Actions:** Para executar lógica de backend de forma segura.
+*   **TypeScript:** For typing and code organization.
+*   **Next.js Server Actions:** To execute backend logic securely.
 *   **Firebase Firestore:**
-    *   `getDoc` para verificar o estado atual da análise.
-    *   `updateDoc` para alterar o status da análise para "deleted" ou "cancelling".
+    *   `getDoc` to check the current state of the analysis.
+    *   `updateDoc` to change the analysis status to "deleted" or "cancelling".
 *   **Firebase Storage:**
-    *   `deleteObject` e `ref` (de `firebase/storage`) para remover os arquivos associados (CSV, MDX) quando uma análise é excluída.
-*   **Gerenciamento de Estado:** As ações precisam lidar com diferentes estados da análise para determinar se a exclusão ou cancelamento é uma operação válida.
-*   **Tratamento de Erros:** Gerencia erros de forma robusta durante as interações com o Firestore e Storage.
+    *   `deleteObject` and `ref` (from `firebase/storage`) to remove associated files (CSV, MDX) when an analysis is deleted.
+*   **State Management:** Actions need to handle different analysis states to determine if deletion or cancellation is a valid operation.
+*   **Error Handling:** Robustly manages errors during interactions with Firestore and Storage.
+
+    

@@ -1,38 +1,40 @@
 
-# C3: Componente - Utilitário de Conversão para MDX (`mdxConverterUtil`)
+# C3: Component - MDX Conversion Utility (`mdxConverterUtil`)
 
-[<- Voltar para Componentes das Firebase Functions](./../03-firebase-functions-components.md)
+[<- Back to Firebase Functions Components](./../03-firebase-functions-components.md)
 
-## Descrição
+## Description
 
-O **Utilitário de Conversão para MDX** é um módulo TypeScript (`src/lib/reportUtils.ts`, especificamente a função `convertStructuredReportToMdx`) responsável por transformar o relatório de conformidade estruturado (em formato JSON, após revisão pelo `reportReviewerAgent`) em um formato MDX (Markdown com JSX). Este arquivo MDX é então salvo no Firebase Storage e usado para exibição na interface do usuário.
+The **MDX Conversion Utility** is a TypeScript module (`src/lib/reportUtils.ts`, specifically the function `convertStructuredReportToMdx`) responsible for transforming the structured compliance report (in JSON format, after review by `reportReviewerAgent`) into MDX (Markdown with JSX) format. This MDX file is then saved to Firebase Storage and used for display in the user interface.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Transformação de JSON para MDX:**
-    *   Recebe o objeto JSON do relatório estruturado final e o nome do arquivo original como entrada.
-    *   Itera sobre a estrutura do objeto JSON (metadados, introdução, seções de análise, considerações finais, bibliografia).
-    *   Converte cada parte do relatório em sua representação Markdown equivalente.
-    *   Formata títulos, subtítulos, listas, texto em negrito/itálico e outros elementos Markdown.
-*   **Inclusão de Metadados (Frontmatter):**
-    *   Gera um bloco de frontmatter YAML no início do arquivo MDX, contendo metadados como título, subtítulo, autor, data de geração e nome do arquivo.
-*   **Incorporação de Diagramas Mermaid:**
-    *   Se as seções do relatório estruturado contiverem sugestões de diagramas na sintaxe Mermaid (`chartOrImageSuggestion`), este utilitário as inclui no MDX de forma que possam ser renderizadas (geralmente dentro de blocos de código com a linguagem `mermaid`).
-*   **Sanitização de Conteúdo:**
-    *   Realiza uma sanitização básica do texto para garantir que caracteres especiais (como `<`, `>`) sejam escapados corretamente para MDX/HTML, prevenindo problemas de renderização ou XSS.
-*   **Formato de Saída:**
-    *   Produz uma string contendo o conteúdo completo do relatório em formato MDX.
+*   **JSON to MDX Transformation:**
+    *   Receives the final structured JSON report object and the original filename as input.
+    *   Iterates over the JSON object's structure (metadata, introduction, analysis sections, final considerations, bibliography).
+    *   Converts each part of the report into its equivalent Markdown representation.
+    *   Formats titles, subtitles, lists, bold/italic text, and other Markdown elements.
+*   **Inclusion of Metadata (Frontmatter):**
+    *   Generates a YAML frontmatter block at the beginning of the MDX file, containing metadata such as title, subtitle, author, generation date, and filename.
+*   **Embedding Mermaid Diagrams:**
+    *   If the structured report sections contain diagram suggestions in Mermaid syntax (`chartOrImageSuggestion`), this utility includes them in the MDX so they can be rendered (usually within code blocks with the `mermaid` language).
+*   **Content Sanitization:**
+    *   Performs basic text sanitization to ensure special characters (like `<`, `>`) are correctly escaped for MDX/HTML, preventing rendering issues or XSS.
+*   **Output Format:**
+    *   Produces a string containing the complete report content in MDX format.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
-*   **TypeScript:** Para a lógica de conversão.
-*   **Manipulação de Strings e Objetos:** A função realiza extensive manipulação de strings para construir o documento MDX e navega pela estrutura do objeto JSON do relatório.
-*   **MDX (Markdown com JSX):** O formato de saída alvo, que combina a simplicidade do Markdown com a capacidade de incorporar componentes React (embora este utilitário foque principalmente na geração de Markdown padrão e inclusão de blocos Mermaid).
-*   **Mermaid.js:** Suporta a inclusão de sintaxe Mermaid para diagramas.
+*   **TypeScript:** For the conversion logic.
+*   **String and Object Manipulation:** The function performs extensive string manipulation to construct the MDX document and navigates the JSON report object structure.
+*   **MDX (Markdown with JSX):** The target output format, combining Markdown's simplicity with the ability to embed React components (though this utility primarily focuses on generating standard Markdown and including Mermaid blocks).
+*   **Mermaid.js:** Supports including Mermaid syntax for diagrams.
 
-## Interações
+## Interactions
 
-*   **Chamado por:** Orquestrador da Pipeline (`processAnalysisFn`).
-*   **Usa:** Nenhum serviço externo; é uma função de transformação de dados pura.
-*   **Entrada:** Objeto JSON do relatório estruturado revisado, nome do arquivo original.
-*   **Saída:** String contendo o relatório em formato MDX.
+*   **Called by:** Pipeline Orchestrator (`processAnalysisFn`).
+*   **Uses:** No external services; it's a pure data transformation function.
+*   **Input:** Revised structured JSON report object, original filename.
+*   **Output:** String containing the report in MDX format.
+
+    

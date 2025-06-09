@@ -1,46 +1,46 @@
 
-# C3: Componentes do Frontend Web App (Contêiner)
+# C3: Frontend Web App Components (Container)
 
-Este diagrama detalha os principais componentes que compõem o contêiner "Frontend Web App" do Energy Compliance Analyzer.
+This diagram details the main components that make up the "Frontend Web App" container of the Energy Compliance Analyzer.
 
-[<- Voltar para Visão Geral dos Componentes (C3)](./index.md)
-[<- Voltar para Visão Geral dos Contêineres (C2)](../c2-containers/index.md)
+[<- Back to Component Overview (C3)](./index.md)
+[<- Back to Container Overview (C2)](../c2-containers/index.md)
 
 ```mermaid
 C4Component
-  title Componentes do Frontend Web App (Contêiner)
+  title Frontend Web App Components (Container)
 
   Container_Boundary(frontendContainer, "Frontend Web App") {
-    Component(authUI, "Componentes de Autenticação", "React Components, Firebase SDK", "Interface para login/logout (AuthButton), exibição de perfil, utiliza AuthProvider.", $sprite="fa:fa-sign-in-alt")
-    Component(fileUploadUI, "Componentes de Upload", "React Components (NewAnalysisForm), ShadCN UI, useFileUploadManager Hook", "Formulário para seleção de arquivo CSV, título, descrição, e lógica de upload.", $sprite="fa:fa-upload")
-    Component(analysisListUI, "Listagem de Análises", "React Components (Accordion), ShadCN UI", "Exibe análises passadas, com status e tags. Utiliza useAnalysisManager.", $sprite="fa:fa-list-alt")
-    Component(analysisViewUI, "Visualização de Análise", "React Components (AnalysisView, AnalysisProgressDisplay, AnalysisResultsDisplay), ShadCN UI", "Mostra o progresso de análises em andamento e resultados de análises concluídas. Utiliza useAnalysisManager.", $sprite="fa:fa-eye")
-    Component(reportViewUI, "Visualização de Relatório", "React Component (ReportPage), next-mdx-remote", "Renderiza o conteúdo do relatório MDX e a interface de chat.", $sprite="fa:fa-file-alt")
-    Component(reportChatUI, "Interface de Chat do Relatório", "React Components, ShadCN UI, Firebase RTDB SDK", "Permite ao usuário interagir com o agente orquestrador sobre o relatório. Utiliza ReportPage.", $sprite="fa:fa-comments")
-    Component(stateMgmt, "Gerenciamento de Estado e Lógica de UI", "React Contexts (AuthProvider), Custom Hooks (useAuth, useAnalysisManager, useFileUploadManager, useToast)", "Gerencia o estado da aplicação, autenticação, dados de análise e notificações.", $sprite="fa:fa-project-diagram")
-    Component(routing, "Roteamento", "Next.js App Router", "Gerencia a navegação entre páginas (Login, Home, Relatório).", $sprite="fa:fa-route")
-    Component(uiComponents, "Componentes de UI Reutilizáveis", "ShadCN UI, TailwindCSS", "Botões, Cards, Inputs, etc., usados em toda a aplicação.", $sprite="fa:fa-puzzle-piece")
-    Component(firebaseClient, "Cliente Firebase", "Firebase SDK (`firebase.ts`)", "Inicializa e configura o SDK do Firebase para o cliente.", $sprite="fa:fa-plug")
+    Component(authUI, "Authentication Components", "React Components, Firebase SDK", "Interface for login/logout (AuthButton), profile display, uses AuthProvider.", $sprite="fa:fa-sign-in-alt")
+    Component(fileUploadUI, "Upload Components", "React Components (NewAnalysisForm), ShadCN UI, useFileUploadManager Hook", "Form for CSV file selection, title, description, and upload logic.", $sprite="fa:fa-upload")
+    Component(analysisListUI, "Analysis Listing", "React Components (Accordion), ShadCN UI", "Displays past analyses, with status and tags. Uses useAnalysisManager.", $sprite="fa:fa-list-alt")
+    Component(analysisViewUI, "Analysis View", "React Components (AnalysisView, AnalysisProgressDisplay, AnalysisResultsDisplay), ShadCN UI", "Shows progress of ongoing analyses and results of completed ones. Uses useAnalysisManager.", $sprite="fa:fa-eye")
+    Component(reportViewUI, "Report View", "React Component (ReportPage), next-mdx-remote", "Renders MDX report content and chat interface.", $sprite="fa:fa-file-alt")
+    Component(reportChatUI, "Report Chat Interface", "React Components, ShadCN UI, Firebase RTDB SDK", "Allows user to interact with orchestrator agent about the report. Used by ReportPage.", $sprite="fa:fa-comments")
+    Component(stateMgmt, "State Management & UI Logic", "React Contexts (AuthProvider), Custom Hooks (useAuth, useAnalysisManager, useFileUploadManager, useToast)", "Manages application state, authentication, analysis data, and notifications.", $sprite="fa:fa-project-diagram")
+    Component(routing, "Routing", "Next.js App Router", "Manages navigation between pages (Login, Home, Report).", $sprite="fa:fa-route")
+    Component(uiComponents, "Reusable UI Components", "ShadCN UI, TailwindCSS", "Buttons, Cards, Inputs, etc., used throughout the application.", $sprite="fa:fa-puzzle-piece")
+    Component(firebaseClient, "Firebase Client", "Firebase SDK (`firebase.ts`)", "Initializes and configures Firebase SDK for the client.", $sprite="fa:fa-plug")
   }
 
-  System_Ext(serverActions, "Next.js Server Actions", "Backend API para interações com dados e IA.", $sprite="fa:fa-cogs")
-  System_Ext(firebaseAuthExt, "Firebase Authentication", "Serviço de autenticação externo.", $sprite="fa:fa-key")
-  System_Ext(firebaseRtdbExt, "Firebase Realtime DB", "Serviço de banco de dados para chat.", $sprite="fa:fa-comments")
+  System_Ext(serverActions, "Next.js Server Actions", "Backend API for data and AI interactions.", $sprite="fa:fa-cogs")
+  System_Ext(firebaseAuthExt, "Firebase Authentication", "External authentication service.", $sprite="fa:fa-key")
+  System_Ext(firebaseRtdbExt, "Firebase Realtime DB", "Database service for chat.", $sprite="fa:fa-comments")
 
-  Rel(authUI, firebaseAuthExt, "Usa para autenticar")
-  Rel(authUI, stateMgmt, "Atualiza estado de autenticação")
-  Rel(fileUploadUI, stateMgmt, "Usa/Atualiza estado de upload")
-  Rel(fileUploadUI, serverActions, "Chama ações para criar registro e finalizar upload")
-  Rel(analysisListUI, stateMgmt, "Usa estado de análises")
-  Rel(analysisListUI, serverActions, "Chama ações para buscar/gerenciar análises")
-  Rel(analysisViewUI, stateMgmt, "Usa estado da análise atual")
-  Rel(reportViewUI, serverActions, "Chama ação para buscar relatório MDX")
-  Rel(reportChatUI, serverActions, "Chama ação do orquestrador de chat")
-  Rel(reportChatUI, firebaseRtdbExt, "Sincroniza mensagens de chat")
-  Rel(routing, authUI, "Controla acesso baseado em autenticação")
-  Rel(routing, reportViewUI, "Navega para")
-  Rel(stateMgmt, firebaseClient, "Utiliza instância Firebase")
-  Rel(uiComponents, "*", "Usado por diversos componentes de UI")
+  Rel(authUI, firebaseAuthExt, "Uses to authenticate")
+  Rel(authUI, stateMgmt, "Updates authentication state")
+  Rel(fileUploadUI, stateMgmt, "Uses/Updates upload state")
+  Rel(fileUploadUI, serverActions, "Calls actions to create record and finalize upload")
+  Rel(analysisListUI, stateMgmt, "Uses analyses state")
+  Rel(analysisListUI, serverActions, "Calls actions to fetch/manage analyses")
+  Rel(analysisViewUI, stateMgmt, "Uses current analysis state")
+  Rel(reportViewUI, serverActions, "Calls action to fetch MDX report")
+  Rel(reportChatUI, serverActions, "Calls chat orchestrator action")
+  Rel(reportChatUI, firebaseRtdbExt, "Syncs chat messages")
+  Rel(routing, authUI, "Controls access based on authentication")
+  Rel(routing, reportViewUI, "Navigates to")
+  Rel(stateMgmt, firebaseClient, "Utilizes Firebase instance")
+  Rel(uiComponents, "*", "Used by various UI components")
 
   UpdateElementStyle(authUI, $fontColor="white", $bgColor="rgb(68, 158, 228)", $borderColor="rgb(68, 158, 228)")
   UpdateElementStyle(fileUploadUI, $fontColor="white", $bgColor="rgb(68, 158, 228)", $borderColor="rgb(68, 158, 228)")
@@ -57,29 +57,31 @@ C4Component
   UpdateElementStyle(firebaseRtdbExt, $fontColor="white", $bgColor="rgb(100, 100, 100)", $borderColor="rgb(100, 100, 100)")
 ```
 
-## Detalhes dos Componentes do Frontend
+## Frontend Component Details
 
-A seguir, uma lista dos principais componentes identificados no diagrama acima. Cada componente terá sua própria página de detalhamento (a ser criada).
+The following is a list of the main components identified in the diagram above. Each component will have its own detail page (to be created).
 
-*   **Componentes de Autenticação (`authUI`)**:
-    *   [Detalhes](./frontend/auth-ui.md) *(link a ser criado)*
-*   **Componentes de Upload (`fileUploadUI`)**:
-    *   [Detalhes](./frontend/file-upload-ui.md) *(link a ser criado)*
-*   **Listagem de Análises (`analysisListUI`)**:
-    *   [Detalhes](./frontend/analysis-list-ui.md) *(link a ser criado)*
-*   **Visualização de Análise (`analysisViewUI`)**:
-    *   [Detalhes](./frontend/analysis-view-ui.md) *(link a ser criado)*
-*   **Visualização de Relatório (`reportViewUI`)**:
-    *   [Detalhes](./frontend/report-view-ui.md) *(link a ser criado)*
-*   **Interface de Chat do Relatório (`reportChatUI`)**:
-    *   [Detalhes](./frontend/report-chat-ui.md) *(link a ser criado)*
-*   **Gerenciamento de Estado e Lógica de UI (`stateMgmt`)**:
-    *   [Detalhes](./frontend/state-mgmt.md) *(link a ser criado)*
-*   **Roteamento (`routing`)**:
-    *   [Detalhes](./frontend/routing.md) *(link a ser criado)*
-*   **Componentes de UI Reutilizáveis (`uiComponents`)**:
-    *   [Detalhes](./frontend/ui-components.md) *(link a ser criado)*
-*   **Cliente Firebase (`firebaseClient`)**:
-    *   [Detalhes](./frontend/firebase-client.md) *(link a ser criado)*
+*   **Authentication Components (`authUI`)**:
+    *   [Details](./frontend/auth-ui.md)
+*   **Upload Components (`fileUploadUI`)**:
+    *   [Details](./frontend/file-upload-ui.md)
+*   **Analysis Listing (`analysisListUI`)**:
+    *   [Details](./frontend/analysis-list-ui.md)
+*   **Analysis View (`analysisViewUI`)**:
+    *   [Details](./frontend/analysis-view-ui.md)
+*   **Report View (`reportViewUI`)**:
+    *   [Details](./frontend/report-view-ui.md)
+*   **Report Chat Interface (`reportChatUI`)**:
+    *   [Details](./frontend/report-chat-ui.md)
+*   **State Management & UI Logic (`stateMgmt`)**:
+    *   [Details](./frontend/state-mgmt.md)
+*   **Routing (`routing`)**:
+    *   [Details](./frontend/routing.md)
+*   **Reusable UI Components (`uiComponents`)**:
+    *   [Details](./frontend/ui-components.md)
+*   **Firebase Client (`firebaseClient`)**:
+    *   [Details](./frontend/firebase-client.md)
 
-[Próximo: Componentes das Server Actions](./02-server-actions-components.md)
+[Next: Server Actions Components](./02-server-actions-components.md)
+
+    

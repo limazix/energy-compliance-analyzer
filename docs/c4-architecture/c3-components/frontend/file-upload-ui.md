@@ -1,39 +1,41 @@
 
-# C3: Componente - Componentes de Upload (fileUploadUI)
+# C3: Component - Upload Components (fileUploadUI)
 
-[<- Voltar para Componentes do Frontend](./../01-frontend-app-components.md)
+[<- Back to Frontend Components](./../01-frontend-app-components.md)
 
-## Descrição
+## Description
 
-Os **Componentes de Upload** fornecem a interface do usuário para que os usuários possam selecionar arquivos CSV, adicionar metadados (título, descrição) e iniciar o processo de upload e análise.
+The **Upload Components** provide the user interface for users to select CSV files, add metadata (title, description), and initiate the upload and analysis process.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Seleção de Arquivo:**
-    *   Apresenta um input do tipo "file" para que o usuário possa selecionar um arquivo CSV do seu sistema local.
-    *   Valida o tipo de arquivo (permite apenas `.csv`).
-*   **Entrada de Metadados:**
-    *   Permite que o usuário insira um título para a análise (pré-preenchido com o nome do arquivo).
-    *   Permite que o usuário insira uma descrição opcional para a análise.
-*   **Lógica de Upload:**
-    *   Utiliza o hook customizado `useFileUploadManager` para gerenciar o estado do arquivo selecionado, o progresso do upload e os erros.
-    *   Ao submeter, invoca a função `uploadFileAndCreateRecord` do hook `useFileUploadManager`.
-    *   Esta função, por sua vez, chama Server Actions para:
-        1.  Criar um registro inicial da análise no Firestore (`createInitialAnalysisRecordAction`).
-        2.  Realizar o upload do arquivo para o Firebase Storage (via `uploadBytesResumable`).
-        3.  Atualizar o progresso do upload no Firestore (`updateAnalysisUploadProgressAction`).
-        4.  Finalizar o registro da análise no Firestore com a URL do arquivo e o status apropriado (`finalizeFileUploadRecordAction`).
-        5.  Em caso de falha no upload, marcar a análise como erro (`markUploadAsFailedAction`).
-*   **Feedback ao Usuário:**
-    *   Exibe o nome do arquivo selecionado.
-    *   Mostra uma barra de progresso durante o upload.
-    *   Apresenta mensagens de erro caso o upload falhe.
-    *   Permite o cancelamento do processo de upload antes do envio.
+*   **File Selection:**
+    *   Presents a file input for the user to select a CSV file from their local system.
+    *   Validates the file type (allows only `.csv`).
+*   **Metadata Input:**
+    *   Allows the user to enter a title for the analysis (pre-filled with the filename).
+    *   Allows the user to enter an optional description for the analysis.
+*   **Upload Logic:**
+    *   Uses the custom hook `useFileUploadManager` to manage the state of the selected file, upload progress, and errors.
+    *   On submission, invokes the `uploadFileAndCreateRecord` function from the `useFileUploadManager` hook.
+    *   This function, in turn, calls Server Actions to:
+        1.  Create an initial analysis record in Firestore (`createInitialAnalysisRecordAction`).
+        2.  Upload the file to Firebase Storage (via `uploadBytesResumable`).
+        3.  Update upload progress in Firestore (`updateAnalysisUploadProgressAction`).
+        4.  Finalize the analysis record in Firestore with the file URL and appropriate status (`finalizeFileUploadRecordAction`).
+        5.  In case of upload failure, mark the analysis as an error (`markUploadAsFailedAction`).
+*   **User Feedback:**
+    *   Displays the name of the selected file.
+    *   Shows a progress bar during upload.
+    *   Presents error messages if the upload fails.
+    *   Allows cancellation of the upload process before sending.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
-*   **React Components:** Principalmente `NewAnalysisForm.tsx`.
-*   **ShadCN UI:** `Card`, `Input`, `Textarea`, `Button`, `Label`, `Progress`, `Alert` para construir o formulário e exibir feedback.
-*   **Custom Hooks:** `useFileUploadManager` para encapsular a lógica de upload e interação com Server Actions.
-*   **Server Actions:** (Invocadas pelo `useFileUploadManager`) Para interagir com o backend (Firestore, Storage).
-*   **Validação:** Validação de tipo de arquivo no cliente.
+*   **React Components:** Primarily `NewAnalysisForm.tsx`.
+*   **ShadCN UI:** `Card`, `Input`, `Textarea`, `Button`, `Label`, `Progress`, `Alert` to build the form and display feedback.
+*   **Custom Hooks:** `useFileUploadManager` to encapsulate upload logic and interaction with Server Actions.
+*   **Server Actions:** (Invoked by `useFileUploadManager`) To interact with the backend (Firestore, Storage).
+*   **Validation:** Client-side file type validation.
+
+    

@@ -1,33 +1,35 @@
 
-# C3: Componente - Ações de Gerenciamento de Tags (`tagActions`)
+# C3: Component - Tag Management Actions (`tagActions`)
 
-[<- Voltar para Componentes das Server Actions](./../02-server-actions-components.md)
+[<- Back to Server Actions Components](./../02-server-actions-components.md)
 
-## Descrição
+## Description
 
-O componente **Ações de Gerenciamento de Tags** (`src/features/tag-management/actions/tagActions.ts`) é um módulo de Server Actions dedicado a adicionar e remover tags de uma análise específica no Firebase Firestore.
+The **Tag Management Actions** component (`src/features/tag-management/actions/tagActions.ts`) is a Server Actions module dedicated to adding and removing tags from a specific analysis in Firebase Firestore.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Adicionar Tag (`addTagToAction`):**
-    *   Recebe o ID do usuário, o ID da análise e a string da tag a ser adicionada.
-    *   Lê o documento da análise no Firestore.
-    *   Verifica se a tag já existe no array `tags` do documento.
-    *   Se a tag não existir, adiciona-a ao array `tags` e atualiza o documento no Firestore.
-    *   Realiza a validação da entrada (ex: tag não pode ser vazia).
-*   **Remover Tag (`removeTagAction`):**
-    *   Recebe o ID do usuário, o ID da análise e a string da tag a ser removida.
-    *   Lê o documento da análise no Firestore.
-    *   Filtra o array `tags` para remover a tag especificada.
-    *   Atualiza o documento no Firestore com o novo array de tags.
+*   **Add Tag (`addTagToAction`):**
+    *   Receives user ID, analysis ID, and the tag string to be added.
+    *   Reads the analysis document from Firestore.
+    *   Checks if the tag already exists in the document's `tags` array.
+    *   If the tag doesn't exist, adds it to the `tags` array and updates the Firestore document.
+    *   Performs input validation (e.g., tag cannot be empty).
+*   **Remove Tag (`removeTagAction`):**
+    *   Receives user ID, analysis ID, and the tag string to be removed.
+    *   Reads the analysis document from Firestore.
+    *   Filters the `tags` array to remove the specified tag.
+    *   Updates the Firestore document with the new tags array.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
-*   **TypeScript:** Para tipagem e organização do código.
-*   **Next.js Server Actions:** Para executar a lógica de modificação de tags no servidor.
+*   **TypeScript:** For typing and code organization.
+*   **Next.js Server Actions:** To execute tag modification logic on the server.
 *   **Firebase Firestore:**
-    *   `getDoc` para ler o estado atual das tags de uma análise.
-    *   `updateDoc` para modificar o array `tags` no documento da análise.
-    *   Uso de operadores de array do Firestore (se aplicável, ou manipulação do array no lado do servidor antes do update).
-*   **Manipulação de Arrays:** Lógica para adicionar ou remover elementos de um array de forma idempotente (para adição) e segura.
-*   **Tratamento de Erros:** Gerencia erros como análise não encontrada ou falhas ao atualizar o documento.
+    *   `getDoc` to read the current state of an analysis's tags.
+    *   `updateDoc` to modify the `tags` array in the analysis document.
+    *   Use of Firestore array operators (if applicable, or server-side array manipulation before update).
+*   **Array Manipulation:** Logic to add or remove elements from an array idempotently (for addition) and safely.
+*   **Error Handling:** Manages errors like analysis not found or document update failures.
+
+    

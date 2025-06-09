@@ -1,48 +1,50 @@
 
-# C3: Componente - Gerenciamento de Estado e Lógica de UI (stateMgmt)
+# C3: Component - State Management & UI Logic (stateMgmt)
 
-[<- Voltar para Componentes do Frontend](./../01-frontend-app-components.md)
+[<- Back to Frontend Components](./../01-frontend-app-components.md)
 
-## Descrição
+## Description
 
-O componente **Gerenciamento de Estado e Lógica de UI** representa a coleção de React Contexts e Custom Hooks que gerenciam o estado global da aplicação, o estado de autenticação, os dados das análises, a lógica de upload de arquivos e as notificações ao usuário.
+The **State Management & UI Logic** component represents the collection of React Contexts and Custom Hooks that manage the application's global state, authentication state, analysis data, file upload logic, and user notifications.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
 *   **`AuthProvider` (`contexts/auth-context.tsx`):**
-    *   Gerencia o estado de autenticação do usuário em toda a aplicação.
-    *   Utiliza `onAuthStateChanged` do Firebase para ouvir mudanças no estado de login.
-    *   Fornece o objeto `user` (ou `null`) e o estado `loading` para os componentes filhos através do hook `useAuth`.
+    *   Manages the user's authentication state throughout the application.
+    *   Uses `onAuthStateChanged` from Firebase to listen for login state changes.
+    *   Provides the `user` object (or `null`) and `loading` state to child components via the `useAuth` hook.
 *   **`QueryProvider` (`contexts/query-provider.tsx`):**
-    *   Configura o `QueryClient` do TanStack Query (React Query).
-    *   Permite o uso do React Query para caching, refetching e gerenciamento de estado de dados do servidor, embora o uso atual seja mais focado em `onSnapshot` e Server Actions diretas. Pode ser expandido.
+    *   Sets up the `QueryClient` from TanStack Query (React Query).
+    *   Allows the use of React Query for caching, refetching, and managing server state data, although current usage is more focused on `onSnapshot` and direct Server Actions. Can be expanded.
 *   **`useAuth` (`contexts/auth-context.tsx`):**
-    *   Hook customizado para consumir o `AuthContext` e acessar facilmente o `user` e `loading`.
+    *   Custom hook to consume `AuthContext` and easily access `user` and `loading`.
 *   **`useAnalysisManager` (`hooks/useAnalysisManager.ts`):**
-    *   Centraliza a lógica de gerenciamento de análises:
-        *   Busca análises passadas (`getPastAnalysesAction`).
-        *   Gerencia a `currentAnalysis` selecionada.
-        *   Lida com a criação e remoção de `tags` (`addTagToAction`, `removeTagAction`).
-        *   Inicia o processamento de IA para uma análise (`processAnalysisFile` action, que sinaliza para a Firebase Function).
-        *   Dispara a exclusão de análises (`deleteAnalysisAction`).
-        *   Dispara o cancelamento de análises (`cancelAnalysisAction`).
-        *   Formata o relatório estruturado para download em TXT.
-        *   Calcula os `displayedAnalysisSteps` para a UI.
-        *   Utiliza `onSnapshot` do Firestore para atualizações em tempo real da `currentAnalysis`.
+    *   Centralizes analysis management logic:
+        *   Fetches past analyses (`getPastAnalysesAction`).
+        *   Manages the selected `currentAnalysis`.
+        *   Handles creation and removal of `tags` (`addTagToAction`, `removeTagAction`).
+        *   Initiates AI processing for an analysis (`processAnalysisFile` action, which signals the Firebase Function).
+        *   Triggers deletion of analyses (`deleteAnalysisAction`).
+        *   Triggers cancellation of analyses (`cancelAnalysisAction`).
+        *   Formats the structured report for TXT download.
+        *   Calculates `displayedAnalysisSteps` for the UI.
+        *   Uses `onSnapshot` from Firestore for real-time updates of `currentAnalysis`.
 *   **`useFileUploadManager` (`features/file-upload/hooks/useFileUploadManager.ts`):**
-    *   Encapsula toda a lógica relacionada ao processo de upload de arquivos:
-        *   Gerencia o estado do `fileToUpload`, `isUploading`, `uploadProgress` e `uploadError`.
-        *   Lida com a seleção de arquivos.
-        *   Orquestra a chamada das Server Actions relevantes: `createInitialAnalysisRecordAction`, `updateAnalysisUploadProgressAction`, `finalizeFileUploadRecordAction`, `markUploadAsFailedAction`.
+    *   Encapsulates all logic related to the file upload process:
+        *   Manages the state of `fileToUpload`, `isUploading`, `uploadProgress`, and `uploadError`.
+        *   Handles file selection.
+        *   Orchestrates calls to relevant Server Actions: `createInitialAnalysisRecordAction`, `updateAnalysisUploadProgressAction`, `finalizeFileUploadRecordAction`, `markUploadAsFailedAction`.
 *   **`useToast` (`hooks/use-toast.ts`):**
-    *   Fornece uma maneira centralizada de exibir notificações (toasts) para o usuário (sucesso, erro, informação).
-    *   Gerencia o estado dos toasts a serem exibidos.
+    *   Provides a centralized way to display notifications (toasts) to the user (success, error, information).
+    *   Manages the state of toasts to be displayed.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
 *   **React:** Context API, Custom Hooks.
 *   **Firebase SDK:** `onAuthStateChanged`, `onSnapshot` (via `useAnalysisManager`).
-*   **TanStack Query (React Query):** (Potencial para gerenciamento de estado de servidor, atualmente mais focado em listeners diretos).
-*   **Server Actions:** Os hooks customizados (como `useAnalysisManager` e `useFileUploadManager`) interagem com Server Actions para operações de backend.
-*   **ShadCN UI:** `Toast` e `Toaster` são usados pelo `useToast`.
-*   **Estado Local:** Componentes individuais também usam `useState` e `useEffect` para seu estado local, complementando o estado global gerenciado pelos contextos e hooks.
+*   **TanStack Query (React Query):** (Potential for server state management, currently more focused on direct listeners).
+*   **Server Actions:** Custom hooks (like `useAnalysisManager` and `useFileUploadManager`) interact with Server Actions for backend operations.
+*   **ShadCN UI:** `Toast` and `Toaster` are used by `useToast`.
+*   **Local State:** Individual components also use `useState` and `useEffect` for their local state, complementing global state managed by contexts and hooks.
+
+    

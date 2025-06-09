@@ -1,50 +1,52 @@
 
-# C3: Componente - Agente: Engenheiro de Conformidade (Relator Inicial) (`complianceAnalyzerAgent`)
+# C3: Component - Agent: Compliance Engineer (Initial Reporter) (`complianceAnalyzerAgent`)
 
-[<- Voltar para Componentes das Firebase Functions](./../03-firebase-functions-components.md)
+[<- Back to Firebase Functions Components](./../03-firebase-functions-components.md)
 
-## Descrição
+## Description
 
-O **Agente Engenheiro de Conformidade (Relator Inicial)** é um fluxo Genkit (`analyzeReportFlow` definido em `functions/src/processAnalysis.js` e usando o prompt de `src/ai/prompt-configs/analyze-compliance-report-prompt-config.ts`). Este agente atua como um engenheiro elétrico especializado que gera a primeira versão do relatório de conformidade estruturado (em formato JSON).
+The **Compliance Engineer Agent (Initial Reporter)** is a Genkit flow (`analyzeReportFlow` defined in `functions/src/processAnalysis.js` and using the prompt from `src/ai/prompt-configs/analyze-compliance-report-prompt-config.ts`). This agent acts as a specialized electrical engineer who generates the first version of the structured compliance report (in JSON format).
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Análise de Dados e Normas:**
-    *   Recebe como entrada o sumário agregado dos dados de qualidade de energia (do `dataSummarizerAgent`) e a lista de resoluções ANEEL pertinentes (do `regulationIdentifierAgent`).
-    *   Também considera o nome do arquivo original e o código de idioma desejado para o relatório.
-*   **Geração de Relatório Estruturado:**
-    *   Produz um relatório de conformidade detalhado e bem estruturado em formato JSON, seguindo o schema `AnalyzeComplianceReportOutputSchema`.
-    *   O relatório inclui:
-        *   Metadados (título, autor, data).
-        *   Sumário executivo.
-        *   Introdução com objetivos e visão geral das normas.
-        *   Múltiplas seções de análise detalhada, onde cada seção:
-            *   Descreve os dados e análises relevantes.
-            *   Apresenta insights e problemas específicos.
-            *   Cita as normas ANEEL específicas (em Português) que fundamentam os achados.
-            *   Opcionalmente, sugere diagramas Mermaid para visualização.
-        *   Considerações finais.
-        *   Bibliografia das normas citadas (em Português).
-*   **Linguagem e Formato:**
-    *   Gera o conteúdo principal do relatório no idioma especificado (`languageCode`).
-    *   Mantém nomes de resoluções e textos normativos da ANEEL em Português.
-    *   Adere rigorosamente ao schema JSON de saída.
+*   **Data and Standards Analysis:**
+    *   Receives the aggregated summary of power quality data (from `dataSummarizerAgent`) and the list of pertinent ANEEL resolutions (from `regulationIdentifierAgent`) as input.
+    *   Also considers the original filename and the desired language code for the report.
+*   **Structured Report Generation:**
+    *   Produces a detailed and well-structured compliance report in JSON format, following the `AnalyzeComplianceReportOutputSchema`.
+    *   The report includes:
+        *   Metadata (title, author, date).
+        *   Executive summary.
+        *   Introduction with objectives and overview of standards.
+        *   Multiple detailed analysis sections, where each section:
+            *   Describes relevant data and analyses.
+            *   Presents specific insights and issues.
+            *   Cites specific ANEEL standards (in Portuguese) that substantiate the findings.
+            *   Optionally, suggests Mermaid diagrams for visualization.
+        *   Final considerations.
+        *   Bibliography of cited standards (in Portuguese).
+*   **Language and Format:**
+    *   Generates the main report content in the specified language (`languageCode`).
+    *   Maintains ANEEL resolution names and normative texts in Portuguese.
+    *   Strictly adheres to the JSON output schema.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
 *   **Genkit:**
-    *   Definido como um `ai.definePrompt`.
-    *   Utiliza o prompt configurado em `analyzeComplianceReportPromptConfig`.
-*   **Google AI (Gemini):** O modelo de linguagem que sintetiza as informações e gera o relatório estruturado.
+    *   Defined as an `ai.definePrompt`.
+    *   Uses the prompt configured in `analyzeComplianceReportPromptConfig`.
+*   **Google AI (Gemini):** The language model that synthesizes information and generates the structured report.
 *   **Input/Output Schemas (Zod):**
-    *   `AnalyzeComplianceReportInputSchema` para a entrada (sumário dos dados, resoluções, nome do arquivo, idioma).
-    *   `AnalyzeComplianceReportOutputSchema` para a saída (o relatório JSON estruturado completo).
-*   **Prompt Engineering:** O prompt detalhado guia o Gemini a produzir um relatório técnico, formal e preciso, com todas as seções necessárias e aderência ao schema.
-*   **Mermaid Syntax:** Tem a capacidade de sugerir diagramas usando a sintaxe Mermaid.
+    *   `AnalyzeComplianceReportInputSchema` for input (data summary, resolutions, filename, language).
+    *   `AnalyzeComplianceReportOutputSchema` for output (the complete structured JSON report).
+*   **Prompt Engineering:** The detailed prompt guides Gemini to produce a technical, formal, and accurate report, with all necessary sections and schema adherence.
+*   **Mermaid Syntax:** Has the capability to suggest diagrams using Mermaid syntax.
 
-## Interações
+## Interactions
 
-*   **Chamado por:** Orquestrador da Pipeline (`processAnalysisFn`).
-*   **Usa:** Google AI (Gemini) via Genkit.
-*   **Entrada:** Sumário dos dados, lista de resoluções, nome do arquivo, código de idioma.
-*   **Saída:** O objeto do relatório de conformidade estruturado (JSON) inicial.
+*   **Called by:** Pipeline Orchestrator (`processAnalysisFn`).
+*   **Uses:** Google AI (Gemini) via Genkit.
+*   **Input:** Data summary, list of resolutions, filename, language code.
+*   **Output:** The initial structured compliance report object (JSON).
+
+    

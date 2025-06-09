@@ -1,36 +1,36 @@
 
-# C3: Componente - Componentes de UI Reutilizáveis (uiComponents)
+# C3: Component - Reusable UI Components (uiComponents)
 
-[<- Voltar para Componentes do Frontend](./../01-frontend-app-components.md)
+[<- Back to Frontend Components](./../01-frontend-app-components.md)
 
-## Descrição
+## Description
 
-Os **Componentes de UI Reutilizáveis** são os blocos de construção visuais fundamentais da aplicação, fornecidos principalmente pela biblioteca ShadCN UI. Eles são usados em toda a aplicação para criar uma interface de usuário consistente e moderna.
+**Reusable UI Components** are the fundamental visual building blocks of the application, primarily provided by the ShadCN UI library. They are used throughout the application to create a consistent and modern user interface.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Fornecer Elementos de UI Padronizados:**
-    *   Oferecem uma ampla gama de componentes prontos para uso, como botões, cards, inputs, diálogos, menus, etc.
-*   **Garantir Consistência Visual:**
-    *   Ajudam a manter um design coeso em toda a aplicação, pois são estilizados de acordo com o tema definido (em `globals.css` e `tailwind.config.ts`).
-*   **Encapsular Lógica de UI Comum:**
-    *   Alguns componentes (como `DropdownMenu`, `AlertDialog`, `Sheet`) encapsulam comportamentos de UI complexos, como gerenciamento de estado aberto/fechado e acessibilidade.
-*   **Customização via Props:**
-    *   Permitem customização através de props para diferentes variantes, tamanhos e comportamentos.
-*   **Integração com Tailwind CSS:**
-    *   São construídos com Tailwind CSS, facilitando a aplicação de estilos adicionais ou overrides quando necessário, usando classes utilitárias.
+*   **Provide Standardized UI Elements:**
+    *   Offer a wide range of ready-to-use components, such as buttons, cards, inputs, dialogs, menus, etc.
+*   **Ensure Visual Consistency:**
+    *   Help maintain a cohesive design throughout the application, as they are styled according to the defined theme (in `globals.css` and `tailwind.config.ts`).
+*   **Encapsulate Common UI Logic:**
+    *   Some components (like `DropdownMenu`, `AlertDialog`, `Sheet`) encapsulate complex UI behaviors, such as open/closed state management and accessibility.
+*   **Customization via Props:**
+    *   Allow customization through props for different variants, sizes, and behaviors.
+*   **Integration with Tailwind CSS:**
+    *   Are built with Tailwind CSS, making it easy to apply additional styles or overrides when necessary, using utility classes.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
-*   **ShadCN UI:** Biblioteca de componentes acessíveis e estilizados, construídos sobre Radix UI e Tailwind CSS. Os componentes são copiados para o projeto (`src/components/ui/`) e podem ser modificados.
-    *   Exemplos utilizados: `Accordion`, `Alert`, `AlertDialog`, `Avatar`, `Badge`, `Button`, `Card`, `Checkbox`, `Dialog`, `DropdownMenu`, `Input`, `Label`, `Progress`, `ScrollArea`, `Select`, `Separator`, `Sheet`, `Skeleton`, `Switch`, `Table`, `Tabs`, `Textarea`, `Toast`, `Toaster`, `Tooltip`.
-*   **Radix UI:** Biblioteca de primitivos de UI acessíveis e não estilizados, que serve de base para muitos componentes ShadCN UI.
-*   **Tailwind CSS:** Framework CSS utilitário usado para estilizar os componentes ShadCN UI e para estilização customizada em toda a aplicação.
-*   **Lucide-react:** Biblioteca de ícones SVG usada em conjunto com os componentes ShadCN UI.
-*   **`cn` utility (`lib/utils.ts`):** Função utilitária para mesclar classes Tailwind CSS condicionalmente.
-*   **Tematização:** Cores e estilos são definidos em `src/app/globals.css` usando variáveis CSS HSL, permitindo temas claro e escuro.
+*   **ShadCN UI:** Library of accessible and styled components, built on Radix UI and Tailwind CSS. Components are copied into the project (`src/components/ui/`) and can be modified.
+    *   Examples used: `Accordion`, `Alert`, `AlertDialog`, `Avatar`, `Badge`, `Button`, `Card`, `Checkbox`, `Dialog`, `DropdownMenu`, `Input`, `Label`, `Progress`, `ScrollArea`, `Select`, `Separator`, `Sheet`, `Skeleton`, `Switch`, `Table`, `Tabs`, `Textarea`, `Toast`, `Toaster`, `Tooltip`.
+*   **Radix UI:** Library of accessible and unstyled UI primitives, which serves as the foundation for many ShadCN UI components.
+*   **Tailwind CSS:** Utility-first CSS framework used to style ShadCN UI components and for custom styling throughout the application.
+*   **Lucide-react:** SVG icon library used in conjunction with ShadCN UI components.
+*   **`cn` utility (`lib/utils.ts`):** Utility function for conditionally merging Tailwind CSS classes.
+*   **Theming:** Colors and styles are defined in `src/app/globals.css` using HSL CSS variables, allowing for light and dark themes.
 
-## Lista dos Principais Componentes ShadCN UI Utilizados
+## List of Main ShadCN UI Components Used
 
 *   `Accordion`
 *   `Alert` / `AlertDialog`
@@ -42,7 +42,7 @@ Os **Componentes de UI Reutilizáveis** são os blocos de construção visuais f
 *   `Checkbox`
 *   `Dialog`
 *   `DropdownMenu`
-*   `Form` (baseado em React Hook Form)
+*   `Form` (based on React Hook Form)
 *   `Input`
 *   `Label`
 *   `Menubar`
@@ -61,4 +61,6 @@ Os **Componentes de UI Reutilizáveis** são os blocos de construção visuais f
 *   `Textarea`
 *   `Toast` / `Toaster`
 *   `Tooltip`
-*   `Sidebar` (componente customizado baseado em primitivos ShadCN/Radix)
+*   `Sidebar` (custom component based on ShadCN/Radix primitives)
+
+    

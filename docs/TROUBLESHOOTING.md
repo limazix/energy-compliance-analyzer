@@ -1,170 +1,172 @@
 
-# Guia de Troubleshooting
+# Troubleshooting Guide
 
-Este documento fornece um checklist para diagnosticar e resolver erros comuns, incluindo erros de `PERMISSION_DENIED` e problemas com Firebase Functions, Realtime Database e Genkit.
+This document provides a checklist for diagnosing and resolving common errors, including `PERMISSION_DENIED` errors and issues with Firebase Functions, Realtime Database, and Genkit.
 
-## **Troubleshooting de Erros `PERMISSION_DENIED` (Firestore/Storage)**
+## **Troubleshooting `PERMISSION_DENIED` Errors (Firestore/Storage)**
 
-Se você encontrar erros de `PERMISSION_DENIED` no Firestore ou Storage, siga este checklist rigorosamente:
+If you encounter `PERMISSION_DENIED` errors in Firestore or Storage, follow this checklist strictly:
 
-1.  **Conteúdo das Regras Locais:**
-    *   Verifique se os arquivos `rules/firestore.rules` e `rules/storage.rules` na pasta `rules/` do seu projeto contêm as regras esperadas. Por exemplo, para um cenário onde usuários só acessam seus próprios dados:
-    *   **`rules/firestore.rules` esperado:**
+1.  **Local Rules Content:**
+    *   Verify that the `rules/firestore.rules` and `rules/storage.rules` files in your project's `rules/` folder contain the expected rules. For example, for a scenario where users only access their own data:
+    *   **Expected `rules/firestore.rules`:**
         ```javascript
         rules_version = '2';
         service cloud.firestore {
           match /databases/{database}/documents {
-            // Regra para operações em um documento de análise específico
+            // Rule for operations on a specific analysis document
             match /users/{userId}/analyses/{analysisId} {
               allow read, write, update, delete: if request.auth != null && request.auth.uid == userId;
             }
-            // Regra para operações na coleção 'analyses' de um usuário
+            // Rule for operations on a user's 'analyses' collection
             match /users/{userId}/analyses { // Rule for the collection
               allow list, create: if request.auth != null && request.auth.uid == userId;
             }
           }
         }
         ```
-    *   **`rules/storage.rules` esperado:**
+    *   **Expected `rules/storage.rules`:**
         ```javascript
         rules_version = '2';
         service firebase.storage {
           match /b/{bucket}/o {
-            match /user_uploads/{userId}/{analysisId}/{allPaths=**} { // Ajustado para incluir analysisId se usado no path
+            match /user_uploads/{userId}/{analysisId}/{allPaths=**} { // Adjusted to include analysisId if used in path
               allow read, write: if request.auth != null && request.auth.uid == userId;
             }
-            match /user_reports/{userId}/{analysisId}/{allPaths=**} { // Para relatórios MDX
+            match /user_reports/{userId}/{analysisId}/{allPaths=**} { // For MDX reports
               allow read, write: if request.auth != null && request.auth.uid == userId;
             }
           }
         }
         ```
 
-2.  **Seleção do Projeto Firebase no CLI (para deploy manual ou local):**
-    *   Execute `firebase projects:list` para ver todos os projetos associados à sua conta.
-    *   Execute `firebase use electric-magnitudes-analizer` para garantir que este é o projeto ativo no CLI. Se o projeto não aparecer ou não estiver configurado como padrão (`.firebaserc`), configure-o.
+2.  **Firebase Project Selection in CLI (for manual or local deployment):**
+    *   Run `firebase projects:list` to see all projects associated with your account.
+    *   Run `firebase use electric-magnitudes-analizer` to ensure this is the active project in the CLI. If the project doesn't appear or isn't set as default (`.firebaserc`), configure it.
 
-3.  **Variáveis de Ambiente do App (Arquivo `.env`):**
-    *   Confirme que `NEXT_PUBLIC_FIREBASE_PROJECT_ID` no seu arquivo `.env` é **EXATAMENTE** `electric-magnitudes-analizer`.
-    *   Verifique as outras configurações do Firebase no `.env` (API Key, Auth Domain, etc.) e se correspondem às do projeto `electric-magnitudes-analizer` no Firebase Console.
+3.  **App Environment Variables (`.env` File):**
+    *   Confirm that `NEXT_PUBLIC_FIREBASE_PROJECT_ID` in your `.env` file is **EXACTLY** `electric-magnitudes-analizer`.
+    *   Check other Firebase settings in the `.env` file (API Key, Auth Domain, etc.) and ensure they match those of the `electric-magnitudes-analizer` project in the Firebase Console.
 
-4.  **Deployment das Regras (para deploy manual):**
-    *   Execute `firebase deploy --only firestore:rules,storage:rules --project electric-magnitudes-analizer`.
-    *   Observe a saída para sucesso e para confirmar que o deploy foi para o projeto `electric-magnitudes-analizer`. O CLI usará os caminhos definidos em `firebase.json` (agora apontando para a pasta `rules/`).
+4.  **Rules Deployment (for manual deployment):**
+    *   Run `firebase deploy --only firestore:rules,storage:rules --project electric-magnitudes-analizer`.
+    *   Observe the output for success and to confirm that the deployment was to the `electric-magnitudes-analizer` project. The CLI will use the paths defined in `firebase.json` (now pointing to the `rules/` folder).
 
-5.  **VERIFICAÇÃO CRÍTICA E VISUAL - Regras Ativas no Firebase Console:**
-    *   Abra o Firebase Console ([console.firebase.google.com](https://console.firebase.google.com/)).
-    *   Selecione o projeto `electric-magnitudes-analizer`.
-    *   Vá para **Firestore Database > Aba "Regras"**. Compare o texto COMPLETO das regras exibidas aqui com o conteúdo do seu arquivo `rules/firestore.rules` local. Eles devem ser *idênticos*.
-    *   Faça o mesmo para **Storage > Aba "Regras"**, comparando com seu arquivo `rules/storage.rules` local.
-    *   **Se as regras no console não forem as esperadas, o deploy falhou, foi para o projeto errado, ou o deploy automático (se configurado) não está funcionando como esperado.** Este é o ponto mais comum de falha.
+5.  **CRITICAL AND VISUAL VERIFICATION - Active Rules in Firebase Console:**
+    *   Open the Firebase Console ([console.firebase.google.com](https://console.firebase.google.com/)).
+    *   Select the `electric-magnitudes-analizer` project.
+    *   Go to **Firestore Database > "Rules" Tab**. Compare the COMPLETE text of the rules displayed here with the content of your local `rules/firestore.rules` file. They must be *identical*.
+    *   Do the same for **Storage > "Rules" Tab**, comparing with your local `rules/storage.rules` file.
+    *   **If the rules in the console are not as expected, the deployment failed, went to the wrong project, or the automated deployment (if configured) is not working as expected.** This is the most common point of failure.
 
-6.  **Logs do Servidor Next.js (e Console do Navegador):**
-    *   Verifique os logs do seu servidor Next.js (console onde você executou `npm run dev`).
-        *   Exemplo da action `createInitialAnalysisRecordAction` ao tentar criar um documento:
-          `[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: 'users/USER_ID_DA_ACTION/analyses'. Data for user 'USER_ID_DA_ACTION'. Using Project ID: 'ID_DO_PROJETO_NO_SERVIDOR'`
-          Confirme se o `ID_DO_PROJETO_NO_SERVIDOR` é `electric-magnitudes-analizer`.
-        *   Exemplo de erro no servidor para `getPastAnalysesAction`:
-          `[getPastAnalysesAction] PERMISSION_DENIED while querying path 'users/USER_ID_DA_ACTION/analyses' for userId 'USER_ID_DA_ACTION'. Check Firestore rules against active project 'ID_DO_PROJETO_NO_SERVIDOR'. Auth state in rules might be incorrect or userId mismatch. Firestore error code: [código do erro], message: [mensagem do erro]`
-    *   Verifique os logs do console do navegador (DevTools). O `AuthProvider` loga o `currentUser` (ex: `[AuthProvider] Auth state changed. currentUser: {"uid":"USER_ID_DO_CLIENTE", ...}`).
-    *   **CONFIRME se o `USER_ID_DA_ACTION` dos logs do servidor (tanto para criar quanto para listar) é o mesmo `USER_ID_DO_CLIENTE` que você vê no `currentUser` dos logs do navegador.** Se houver uma discrepância aqui, o `userId` sendo usado para construir o caminho no Firestore não corresponderá ao `request.auth.uid` nas regras.
-    *   Confirme se o `ID_DO_PROJETO_NO_SERVIDOR` logado corresponde ao `NEXT_PUBLIC_FIREBASE_PROJECT_ID` no seu `.env` e ao projeto `electric-magnitudes-analizer` que você está configurando.
+6.  **Next.js Server Logs (and Browser Console):**
+    *   Check your Next.js server logs (console where you ran `npm run dev`).
+        *   Example from the `createInitialAnalysisRecordAction` when trying to create a document:
+          `[Action_createInitialAnalysisRecord] Attempting to add document to Firestore. Path: 'users/USER_ID_FROM_ACTION/analyses'. Data for user 'USER_ID_FROM_ACTION'. Using Project ID: 'SERVER_SIDE_PROJECT_ID'`
+          Confirm that `SERVER_SIDE_PROJECT_ID` is `electric-magnitudes-analizer`.
+        *   Example server error for `getPastAnalysesAction`:
+          `[getPastAnalysesAction] PERMISSION_DENIED while querying path 'users/USER_ID_FROM_ACTION/analyses' for userId 'USER_ID_FROM_ACTION'. Check Firestore rules against active project 'SERVER_SIDE_PROJECT_ID'. Auth state in rules might be incorrect or userId mismatch. Firestore error code: [error code], message: [error message]`
+    *   Check the browser console logs (DevTools). The `AuthProvider` logs the `currentUser` (e.g., `[AuthProvider] Auth state changed. currentUser: {"uid":"CLIENT_SIDE_USER_ID", ...}`).
+    *   **CONFIRM that the `USER_ID_FROM_ACTION` from server logs (for both creating and listing) is the same `CLIENT_SIDE_USER_ID` you see in the `currentUser` from browser logs.** If there's a discrepancy here, the `userId` being used to construct the Firestore path will not match `request.auth.uid` in the rules.
+    *   Confirm that the logged `SERVER_SIDE_PROJECT_ID` matches `NEXT_PUBLIC_FIREBASE_PROJECT_ID` in your `.env` and the `electric-magnitudes-analizer` project you are configuring.
 
-7.  **Estado de Autenticação do Usuário:**
-    *   No seu aplicativo, assegure-se de que o usuário está autenticado (`user` não é `null` e `user.uid` está presente e é uma string válida e não vazia *antes* de tentar operações que exigem autenticação). O `AuthProvider` e os logs do `user.uid` devem confirmar isso.
+7.  **User Authentication State:**
+    *   In your application, ensure the user is authenticated (`user` is not `null` and `user.uid` is present and is a valid, non-empty string *before* attempting operations requiring authentication). The `AuthProvider` and `user.uid` logs should confirm this.
 
-8.  **Caminhos no Código vs. Regras:**
-    *   Verifique se os caminhos que seu código está tentando acessar no Firestore/Storage (visíveis nos logs do servidor) correspondem exatamente aos caminhos definidos nas suas regras (incluindo a variável `userId` no padrão `users/{userId}/...`).
+8.  **Paths in Code vs. Rules:**
+    *   Verify that the paths your code is trying to access in Firestore/Storage (visible in server logs) exactly match the paths defined in your rules (including the `userId` variable in the `users/{userId}/...` pattern).
 
-Seguir este checklist rigorosamente geralmente resolve a maioria dos problemas de `PERMISSION_DENIED`. A causa mais provável é uma inconsistência entre as regras locais, as regras efetivamente implantadas no Firebase Console, o ID do projeto configurado, ou o `userId` usado na lógica da aplicação versus o `request.auth.uid` visto pelo Firebase.
+Strictly following this checklist usually resolves most `PERMISSION_DENIED` issues. The most likely cause is an inconsistency between local rules, rules effectively deployed in the Firebase Console, the configured project ID, or the `userId` used in the application logic versus the `request.auth.uid` seen by Firebase.
 
-## **Troubleshooting do Firebase Realtime Database (RTDB)**
+## **Firebase Realtime Database (RTDB) Troubleshooting**
 
-Se você tiver problemas com o chat do relatório (que usa RTDB):
+If you have problems with the report chat (which uses RTDB):
 
-1.  **Conteúdo das Regras Locais (`rules/database.rules.json`):**
-    *   Verifique se `rules/database.rules.json` na pasta `rules/` do projeto permite acesso aos caminhos do chat. Exemplo:
+1.  **Local Rules Content (`rules/database.rules.json`):**
+    *   Verify that `rules/database.rules.json` in the project's `rules/` folder allows access to chat paths. Example:
         ```json
         {
           "rules": {
             "chats": {
               "$analysisId": {
-                ".read": "auth != null", // Idealmente, restrinja mais
-                ".write": "auth != null" // Idealmente, restrinja mais
+                ".read": "auth != null", // Ideally, restrict further
+                ".write": "auth != null" // Ideally, restrict further
               }
             }
           }
         }
         ```
-    *   **Importante:** Para produção, restrinja estas regras para garantir que apenas usuários autorizados (ex: o dono da análise associada ao `analysisId`) possam ler/escrever no chat específico.
+    *   **Important:** For production, restrict these rules to ensure only authorized users (e.g., the owner of the analysis associated with `analysisId`) can read/write to the specific chat.
 
-2.  **Variáveis de Ambiente (`.env`):**
-    *   Confirme que `NEXT_PUBLIC_FIREBASE_DATABASE_URL` está corretamente definida no seu arquivo `.env` e aponta para o RTDB do projeto `electric-magnitudes-analizer`.
-    *   Exemplo: `NEXT_PUBLIC_FIREBASE_DATABASE_URL="https://electric-magnitudes-analizer-default-rtdb.firebaseio.com"`
+2.  **Environment Variables (`.env`):**
+    *   Confirm that `NEXT_PUBLIC_FIREBASE_DATABASE_URL` is correctly defined in your `.env` file and points to the RTDB of the `electric-magnitudes-analizer` project.
+    *   Example: `NEXT_PUBLIC_FIREBASE_DATABASE_URL="https://electric-magnitudes-analizer-default-rtdb.firebaseio.com"`
 
-3.  **Deployment das Regras (para deploy manual):**
-    *   Execute `firebase deploy --only database:rules --project electric-magnitudes-analizer`.
-    *   Verifique a saída para confirmar o sucesso.
+3.  **Rules Deployment (for manual deployment):**
+    *   Run `firebase deploy --only database:rules --project electric-magnitudes-analizer`.
+    *   Check the output for success.
 
-4.  **VERIFICAÇÃO CRÍTICA E VISUAL - Regras Ativas no Firebase Console:**
-    *   Abra o Firebase Console (`electric-magnitudes-analizer`).
-    *   Vá para **Realtime Database > Aba "Regras"**. Compare com seu `rules/database.rules.json` local.
+4.  **CRITICAL AND VISUAL VERIFICATION - Active Rules in Firebase Console:**
+    *   Open the Firebase Console (`electric-magnitudes-analizer`).
+    *   Go to **Realtime Database > "Rules" Tab**. Compare with your local `rules/database.rules.json`.
 
-5.  **Logs do Console do Navegador:**
-    *   Procure por erros de conexão com o RTDB ou mensagens de "PERMISSION_DENIED" específicas do RTDB.
-    *   Verifique se `rtdb` em `src/lib/firebase.ts` está sendo inicializado corretamente e se conecta ao emulador (se local) ou à produção.
+5.  **Browser Console Logs:**
+    *   Look for RTDB connection errors or "PERMISSION_DENIED" messages specific to RTDB.
+    *   Verify that `rtdb` in `src/lib/firebase.ts` is initialized correctly and connects to the emulator (if local) or production.
 
-## **Troubleshooting de Firebase Functions**
+## **Firebase Functions Troubleshooting**
 
-Se o processamento da análise em background falhar:
+If background analysis processing fails:
 
-1.  **Logs das Functions:**
-    *   **Firebase Console:** Vá para "Functions" > "Registros" (Logs) para ver os logs da sua função `processAnalysisOnUpdate` (ou o nome que você deu). Filtre por nome da função e severidade (Erro, Aviso, Info).
-    *   **Emulator UI:** Se estiver usando emuladores (`http://localhost:4001`), vá para a aba "Functions" > "Logs".
-    *   Procure por:
-        *   Erros de inicialização (ex: Genkit não configurado, API key faltando).
-        *   Erros durante a leitura do arquivo do Storage.
-        *   Erros das chamadas à Genkit/IA.
-        *   Erros ao escrever de volta no Firestore.
-        *   Mensagens de timeout.
+1.  **Functions Logs:**
+    *   **Firebase Console:** Go to "Functions" > "Logs" to see logs for your `processAnalysisOnUpdate` function (or whatever name you gave it). Filter by function name and severity (Error, Warning, Info).
+    *   **Emulator UI:** If using emulators (`http://localhost:4001`), go to the "Functions" > "Logs" tab.
+    *   Look for:
+        *   Initialization errors (e.g., Genkit not configured, API key missing).
+        *   Errors during file reading from Storage.
+        *   Errors from Genkit/AI calls.
+        *   Errors when writing back to Firestore.
+        *   Timeout messages.
 
-2.  **Configuração da API Key (Ex: `GEMINI_API_KEY`):**
-    *   Para Functions implantadas, a API Key do Gemini **DEVE** ser configurada como uma variável de ambiente ou secret diretamente na configuração da função no Google Cloud Console (não no código ou `.env` do Next.js).
-    *   Verifique se o código em `functions/src/processAnalysis.ts` está acessando essa variável corretamente (ex: `process.env.GEMINI_API_KEY`).
-    *   Para emuladores, a função pode tentar ler de `process.env.GEMINI_API_KEY` ou `process.env.NEXT_PUBLIC_GEMINI_API_KEY` se você tiver o mesmo nome no `.env` raiz.
+2.  **API Key Configuration (e.g., `GEMINI_API_KEY`):**
+    *   For deployed Functions, the Gemini API Key **MUST** be configured as an environment variable or secret directly in the function's configuration in the Google Cloud Console (not in Next.js code or `.env`).
+    *   Verify that the code in `functions/src/processAnalysis.js` is accessing this variable correctly (e.g., `process.env.GEMINI_API_KEY`).
+    *   For emulators, the function might try to read from `process.env.GEMINI_API_KEY` or `process.env.NEXT_PUBLIC_GEMINI_API_KEY` if you have the same name in the root `.env`.
 
-3.  **Timeout e Limites de Memória:**
-    *   Em `firebase.json` ou na configuração de deploy, a função `processAnalysisOnUpdate` tem `timeoutSeconds` e `memory` adequados para a tarefa? Processamento de IA pode exigir mais tempo e memória. O máximo para funções acionadas por eventos de background pode ser maior que para HTTP.
+3.  **Timeout and Memory Limits:**
+    *   In `firebase.json` or the deployment configuration, does the `processAnalysisOnUpdate` function have adequate `timeoutSeconds` and `memory` for the task? AI processing can require more time and memory. The maximum for background event-triggered functions can be higher than for HTTP.
 
-4.  **Permissões da Conta de Serviço da Função:**
-    *   A conta de serviço padrão das Firebase Functions tem permissões para:
-        *   Ler/escrever no Firestore (nos caminhos corretos).
-        *   Ler/escrever no Storage (nos caminhos corretos).
-        *   Chamar os serviços de IA (Gemini).
+4.  **Function Service Account Permissions:**
+    *   The default Firebase Functions service account must have permissions to:
+        *   Read/write to Firestore (on the correct paths).
+        *   Read/write to Storage (on the correct paths).
+        *   Call AI services (Gemini).
 
-5.  **Gatilho do Firestore (`onUpdate`):**
-    *   Confirme se a função está sendo acionada quando o status de uma análise é mudado para `'summarizing_data'` (ou o status de gatilho). Verifique os logs da função para invocações.
+5.  **Firestore Trigger (`onUpdate`):**
+    *   Confirm that the function is being triggered when an analysis's status is changed to `'summarizing_data'` (or the trigger status). Check function logs for invocations.
 
-## **Troubleshooting de Genkit / Interações com IA**
+## **Genkit / AI Interactions Troubleshooting**
 
-Para problemas com as chamadas à Genkit (tanto nas Server Actions do Next.js quanto nas Firebase Functions):
+For problems with Genkit calls (in both Next.js Server Actions and Firebase Functions):
 
 1.  **API Keys:**
-    *   **Next.js (local/Server Actions):** A `NEXT_PUBLIC_GEMINI_API_KEY` no seu arquivo `.env` está correta e é acessada pela instância `ai` em `src/ai/genkit.ts`?
-    *   **Firebase Functions:** Veja o item 2 na seção "Troubleshooting de Firebase Functions".
+    *   **Next.js (local/Server Actions):** Is `NEXT_PUBLIC_GEMINI_API_KEY` in your `.env` file correct and accessed by the `ai` instance in `src/ai/genkit.ts`?
+    *   **Firebase Functions:** See item 2 in the "Firebase Functions Troubleshooting" section.
 
-2.  **Erros `GenerativeAIError`:**
-    *   Se a aplicação os captura e exibe (ex: no `errorMessage` da análise ou no chat), eles podem fornecer detalhes sobre o que deu errado na chamada à IA (ex: `BLOCK_REASON_SAFETY`, `INVALID_API_KEY`, etc.).
-    *   Verifique os logs do servidor Next.js (para Server Actions) ou os logs das Firebase Functions.
+2.  **`GenerativeAIError` Errors:**
+    *   If the application captures and displays them (e.g., in the analysis `errorMessage` or chat), they can provide details about what went wrong in the AI call (e.g., `BLOCK_REASON_SAFETY`, `INVALID_API_KEY`, etc.).
+    *   Check Next.js server logs (for Server Actions) or Firebase Functions logs.
 
-3.  **Cotas de API:**
-    *   Verifique no Google AI Studio ou Google Cloud Console se você atingiu as cotas de uso da API Gemini.
+3.  **API Quotas:**
+    *   Check in Google AI Studio or Google Cloud Console if you have hit Gemini API usage quotas.
 
-4.  **Verificar Fluxos com `genkit:dev`:**
-    *   Use `npm run genkit:dev` (ou `genkit:watch`) para iniciar a UI de desenvolvimento da Genkit.
-    *   Teste seus fluxos (especialmente o `orchestrateReportInteractionFlow` e os da pipeline de análise) diretamente na UI da Genkit para isolar se o problema está no fluxo em si ou na forma como ele é chamado.
+4.  **Verify Flows with `genkit:dev`:**
+    *   Use `npm run genkit:dev` (or `genkit:watch`) to start the Genkit development UI.
+    *   Test your flows (especially `orchestrateReportInteractionFlow` and those in the analysis pipeline) directly in the Genkit UI to isolate whether the problem is in the flow itself or how it's called.
 
 5.  **Prompt Engineering:**
-    *   Se as respostas da IA não são as esperadas, revise os prompts em `src/ai/prompt-configs/`. Eles estão claros? Estão guiando a IA corretamente? O schema de saída está bem definido?
+    *   If AI responses are not as expected, review the prompts in `src/ai/prompt-configs/`. Are they clear? Are they guiding the AI correctly? Is the output schema well-defined?
 
-Lembre-se de sempre verificar os logs primeiro, pois eles geralmente contêm as pistas mais diretas sobre o que está acontecendo.
+Remember to always check logs first, as they usually contain the most direct clues about what is happening.
+
+    

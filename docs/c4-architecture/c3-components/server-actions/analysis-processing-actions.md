@@ -1,35 +1,37 @@
 
-# C3: Componente - Ações de Processamento de Análise (`analysisProcessingActions`)
+# C3: Component - Analysis Processing Actions (`analysisProcessingActions`)
 
-[<- Voltar para Componentes das Server Actions](./../02-server-actions-components.md)
+[<- Back to Server Actions Components](./../02-server-actions-components.md)
 
-## Descrição
+## Description
 
-O componente **Ações de Processamento de Análise** (`src/features/analysis-processing/actions/analysisProcessingActions.ts`) é um módulo de Server Actions focado em preparar e sinalizar uma análise para que seja processada em segundo plano pela Firebase Function `processAnalysisOnUpdate`.
+The **Analysis Processing Actions** component (`src/features/analysis-processing/actions/analysisProcessingActions.ts`) is a Server Actions module focused on preparing and signaling an analysis to be processed in the background by the `processAnalysisOnUpdate` Firebase Function.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Sinalizar Início do Processamento (`processAnalysisFile`):**
-    *   Recebe o ID da análise e o ID do usuário.
-    *   Verifica se o documento da análise existe no Firebase Firestore e se a URL do arquivo CSV (`powerQualityDataUrl`) está presente.
-    *   **Se o upload do arquivo foi concluído e a `powerQualityDataUrl` existe:**
-        *   Atualiza o status do documento da análise no Firestore para "summarizing_data" (ou um estado similar que ative o gatilho da Firebase Function).
-        *   Garante que o progresso inicial (ex: 10%) esteja definido.
-        *   Limpa quaisquer mensagens de erro anteriores do documento.
-        *   Reseta campos que serão preenchidos pela Firebase Function (ex: `powerQualityDataSummary`, `structuredReport`, `mdxReportStoragePath`, `summary`, `completedAt`).
-    *   **Se a `powerQualityDataUrl` não existir:**
-        *   Define o status da análise como "error" e registra uma mensagem de erro apropriada no Firestore.
-    *   **Se a análise já estiver em um estado final (completed, cancelled, deleted) ou em processo de cancelamento:**
-        *   Não realiza nenhuma ação de re-processamento, a menos que esteja explicitamente sendo re-processada a partir de um estado de 'error'.
-    *   Retorna um status de sucesso ou falha ao cliente.
+*   **Signal Start of Processing (`processAnalysisFile`):**
+    *   Receives the analysis ID and user ID.
+    *   Checks if the analysis document exists in Firebase Firestore and if the CSV file URL (`powerQualityDataUrl`) is present.
+    *   **If file upload is complete and `powerQualityDataUrl` exists:**
+        *   Updates the status of the analysis document in Firestore to "summarizing_data" (or a similar state that activates the Firebase Function trigger).
+        *   Ensures initial progress (e.g., 10%) is set.
+        *   Clears any previous error messages from the document.
+        *   Resets fields that will be populated by the Firebase Function (e.g., `powerQualityDataSummary`, `structuredReport`, `mdxReportStoragePath`, `summary`, `completedAt`).
+    *   **If `powerQualityDataUrl` does not exist:**
+        *   Sets the analysis status to "error" and records an appropriate error message in Firestore.
+    *   **If the analysis is already in a final state (completed, cancelled, deleted) or being cancelled:**
+        *   Does not perform any re-processing action, unless explicitly being re-processed from an 'error' state.
+    *   Returns a success or failure status to the client.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
-*   **TypeScript:** Para tipagem e organização do código.
-*   **Next.js Server Actions:** Para executar a lógica de preparação no servidor.
+*   **TypeScript:** For typing and code organization.
+*   **Next.js Server Actions:** To execute preparation logic on the server.
 *   **Firebase Firestore:**
-    *   `getDoc` para verificar o estado atual da análise e a presença da `powerQualityDataUrl`.
-    *   `updateDoc` para alterar o status da análise para "summarizing_data" (ou o status de gatilho da Function) e limpar/resetar campos relevantes.
-*   **Interação com Firebase Functions:** Esta ação não invoca diretamente a Firebase Function. Em vez disso, ela modifica o estado de um documento no Firestore de uma maneira que aciona a Function (`processAnalysisOnUpdate`) que está configurada para ouvir essas mudanças (especificamente a transição para "summarizing_data").
-*   **Validação de Estado:** Antes de sinalizar para processamento, verifica se a análise está em um estado apropriado (ex: upload concluído) e não em um estado terminal.
-*   **Tratamento de Erros:** Gerencia erros como documento não encontrado ou falhas ao atualizar o Firestore.
+    *   `getDoc` to check the current state of the analysis and the presence of `powerQualityDataUrl`.
+    *   `updateDoc` to change the analysis status to "summarizing_data" (or the Function's trigger status) and clear/reset relevant fields.
+*   **Interaction with Firebase Functions:** This action does not directly invoke the Firebase Function. Instead, it modifies the state of a Firestore document in a way that triggers the Function (`processAnalysisOnUpdate`) configured to listen for these changes (specifically the transition to "summarizing_data").
+*   **State Validation:** Before signaling for processing, verifies that the analysis is in an appropriate state (e.g., upload completed) and not in a terminal state.
+*   **Error Handling:** Manages errors such as document not found or failures when updating Firestore.
+
+    

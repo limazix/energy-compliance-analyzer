@@ -1,40 +1,40 @@
 
-# C4 Model: Nível 2 - Visão Geral dos Contêineres - Energy Compliance Analyzer
+# C4 Model: Level 2 - Container Overview - Energy Compliance Analyzer
 
-Este diagrama detalha os principais contêineres (aplicações, armazenamentos de dados, etc.) que compõem o sistema Energy Compliance Analyzer. Cada contêiner é uma unidade implantável ou um armazenamento de dados significativo.
+This diagram details the main containers (applications, data stores, etc.) that make up the Energy Compliance Analyzer system. Each container is a deployable unit or a significant data store.
 
 ```mermaid
 C4Container
-  title Diagrama de Contêineres para o Energy Compliance Analyzer
+  title Container Diagram for the Energy Compliance Analyzer
 
-  Actor_Ext(user, "Usuário", "Interage com o sistema via frontend.", $sprite="fa:fa-user")
+  Actor_Ext(user, "User", "Interacts with the system via frontend.", $sprite="fa:fa-user")
 
   System_Boundary(c1, "Energy Compliance Analyzer") {
-    Container(frontendApp, "Frontend Web App", "Next.js, React, ShadCN UI, TailwindCSS", "Interface do usuário para login, upload de arquivos, visualização de análises, relatórios e chat interativo. Hospedado no Firebase App Hosting.", $sprite="fa:fa-desktop")
-    Container(serverActions, "Backend API", "Next.js Server Actions, Node.js, Genkit", "Lida com uploads de arquivos, dispara o processamento, orquestra o chat do relatório e interage com serviços Firebase. Executa no Firebase App Hosting.", $sprite="fa:fa-cogs")
-    Container(firebaseFunctions, "Processamento em Background", "Firebase Functions, Node.js, TypeScript, Genkit", "Executa a pipeline principal de análise de IA (agentes especializados) para dados de CSV e gera relatórios estruturados.", $sprite="fa:fa-bolt")
-    ContainerDb(firestore, "Banco de Dados Principal", "Firebase Firestore (NoSQL, Document DB)", "Armazena metadados das análises, status, tags, e o relatório estruturado (JSON).", $sprite="fa:fa-database")
-    ContainerDb(rtdb, "Banco de Dados de Chat", "Firebase Realtime Database (NoSQL, Realtime JSON DB)", "Armazena o histórico das conversas do chat interativo do relatório.", $sprite="fa:fa-comments")
-    Container(storage, "Armazenamento de Arquivos", "Firebase Storage (Blob Storage)", "Armazena os arquivos CSV enviados pelos usuários e os relatórios MDX gerados.", $sprite="fa:fa-archive")
-    Container(auth, "Serviço de Autenticação", "Firebase Authentication (OAuth, Identity Management)", "Gerencia a autenticação de usuários via Google Sign-In.", $sprite="fa:fa-key")
+    Container(frontendApp, "Frontend Web App", "Next.js, React, ShadCN UI, TailwindCSS", "User interface for login, file upload, viewing analyses, reports, and interactive chat. Hosted on Firebase App Hosting.", $sprite="fa:fa-desktop")
+    Container(serverActions, "Backend API", "Next.js Server Actions, Node.js, Genkit", "Handles file uploads, triggers processing, orchestrates report chat, and interacts with Firebase services. Runs on Firebase App Hosting.", $sprite="fa:fa-cogs")
+    Container(firebaseFunctions, "Background Processing", "Firebase Functions, Node.js, TypeScript, Genkit", "Executes the main AI analysis pipeline (specialist agents) for CSV data and generates structured reports.", $sprite="fa:fa-bolt")
+    ContainerDb(firestore, "Main Database", "Firebase Firestore (NoSQL, Document DB)", "Stores analysis metadata, status, tags, and the structured report (JSON).", $sprite="fa:fa-database")
+    ContainerDb(rtdb, "Chat Database", "Firebase Realtime Database (NoSQL, Realtime JSON DB)", "Stores the conversation history of the interactive report chat.", $sprite="fa:fa-comments")
+    Container(storage, "File Storage", "Firebase Storage (Blob Storage)", "Stores CSV files uploaded by users and the generated MDX reports.", $sprite="fa:fa-archive")
+    Container(auth, "Authentication Service", "Firebase Authentication (OAuth, Identity Management)", "Manages user authentication via Google Sign-In.", $sprite="fa:fa-key")
   }
 
-  System_Ext(googleAI, "Google AI (Gemini)", "Modelos de Linguagem Generativa (LLMs) para IA.", $sprite="fa:fa-brain")
+  System_Ext(googleAI, "Google AI (Gemini)", "Generative Language Models (LLMs) for AI.", $sprite="fa:fa-brain")
 
-  Rel(user, frontendApp, "Usa", "HTTPS")
-  Rel(frontendApp, serverActions, "Envia requisições para", "HTTPS/Server Actions")
-  Rel(frontendApp, auth, "Autentica com", "Firebase SDK")
-  Rel(frontendApp, rtdb, "Sincroniza mensagens de chat com", "Firebase SDK, WebSockets")
+  Rel(user, frontendApp, "Uses", "HTTPS")
+  Rel(frontendApp, serverActions, "Sends requests to", "HTTPS/Server Actions")
+  Rel(frontendApp, auth, "Authenticates with", "Firebase SDK")
+  Rel(frontendApp, rtdb, "Syncs chat messages with", "Firebase SDK, WebSockets")
 
-  Rel(serverActions, firestore, "Lê/Escreve metadados e relatórios em", "Firebase SDK")
-  Rel(serverActions, storage, "Gerencia informações de upload para", "Firebase SDK")
-  Rel(serverActions, googleAI, "Interage com Agente Orquestrador para chat via", "Genkit API Call")
-  Rel(serverActions, firebaseFunctions, "Dispara (indiretamente via Firestore)", "Firestore Trigger")
-  Rel(serverActions, rtdb, "Salva mensagens de chat e atualiza relatório via", "Firebase Admin SDK (indireto, via Functions ou Server Actions)")
+  Rel(serverActions, firestore, "Reads/Writes metadata and reports in", "Firebase SDK")
+  Rel(serverActions, storage, "Manages upload information for", "Firebase SDK")
+  Rel(serverActions, googleAI, "Interacts with Orchestrator Agent for chat via", "Genkit API Call")
+  Rel(serverActions, firebaseFunctions, "Triggers (indirectly via Firestore)", "Firestore Trigger")
+  Rel(serverActions, rtdb, "Saves chat messages and updates report via", "Firebase Admin SDK (indirect, via Functions or Server Actions)")
 
-  Rel(firebaseFunctions, storage, "Lê CSVs e Salva relatórios MDX em", "Firebase Admin SDK")
-  Rel(firebaseFunctions, firestore, "Lê/Atualiza status e salva relatório estruturado em", "Firebase Admin SDK")
-  Rel(firebaseFunctions, googleAI, "Executa pipeline de IA (agentes especialistas) via", "Genkit API Call")
+  Rel(firebaseFunctions, storage, "Reads CSVs and Saves MDX reports in", "Firebase Admin SDK")
+  Rel(firebaseFunctions, firestore, "Reads/Updates status and saves structured report in", "Firebase Admin SDK")
+  Rel(firebaseFunctions, googleAI, "Executes AI pipeline (specialist agents) via", "Genkit API Call")
 
   UpdateElementStyle(user, $fontColor="white", $bgColor="rgb(13, 105, 184)", $borderColor="rgb(13, 105, 184)")
   UpdateElementStyle(frontendApp, $fontColor="white", $bgColor="rgb(43, 135, 209)", $borderColor="rgb(43, 135, 209)")
@@ -48,17 +48,19 @@ C4Container
 
 ```
 
-## Detalhes dos Contêineres
+## Container Details
 
-Clique em um contêiner abaixo para ver mais detalhes sobre suas responsabilidades, tecnologias e interações:
+Click on a container below for more details on its responsibilities, technologies, and interactions:
 
 *   [Frontend Web App](./frontend-app.md)
 *   [Backend API (Next.js Server Actions)](./server-actions.md)
-*   [Processamento em Background (Firebase Functions)](./firebase-functions.md)
-*   [Banco de Dados Principal (Firebase Firestore)](./firestore-db.md)
-*   [Banco de Dados de Chat (Firebase Realtime Database)](./rtdb.md)
-*   [Armazenamento de Arquivos (Firebase Storage)](./storage.md)
-*   [Serviço de Autenticação (Firebase Authentication)](./auth.md)
+*   [Background Processing (Firebase Functions)](./firebase-functions.md)
+*   [Main Database (Firebase Firestore)](./firestore-db.md)
+*   [Chat Database (Firebase Realtime Database)](./rtdb.md)
+*   [File Storage (Firebase Storage)](./storage.md)
+*   [Authentication Service (Firebase Authentication)](./auth.md)
 
-[<- Voltar para: Contexto do Sistema (C1)](../c1-context.md)
-[Próximo Nível: Diagrama de Componentes (C3)](../c3-components/index.md)
+[<- Back to: System Context (C1)](../c1-context.md)
+[Next Level: Component Diagram (C3)](../c3-components/index.md)
+
+    

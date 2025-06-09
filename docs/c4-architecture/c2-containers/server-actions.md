@@ -1,46 +1,48 @@
 
-# C2 Model: Detalhe do Contêiner - Backend API (Next.js Server Actions)
+# C2 Model: Container Detail - Backend API (Next.js Server Actions)
 
-[<- Voltar para Visão Geral dos Contêineres (C2)](./index.md)
+[<- Back to Container Overview (C2)](./index.md)
 
-## Descrição
+## Description
 
-As **Next.js Server Actions** funcionam como a camada de API backend para o Frontend Web App. Elas são funções server-side co-localizadas com o código do Next.js, executadas no servidor em resposta a chamadas do cliente. Elas simplificam a comunicação full-stack, permitindo que o frontend invoque lógica de servidor de forma segura e direta.
+**Next.js Server Actions** function as the backend API layer for the Frontend Web App. They are server-side functions co-located with Next.js code, executed on the server in response to client calls. They simplify full-stack communication, allowing the frontend to invoke server logic securely and directly.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Manipulação de Upload de Arquivos:**
-    *   Recebe a submissão do formulário de upload do frontend (metadados como título, descrição).
-    *   Cria um registro inicial para a nova análise no Firebase Firestore, marcando o status como "uploading".
-    *   Retorna um ID de análise para o frontend. (O upload real para o Storage é agora gerenciado pelo `useFileUploadManager` no cliente, que então chama actions para finalizar).
-*   **Atualização de Status da Análise:**
-    *   Após o upload do arquivo CSV para o Firebase Storage ser concluído pelo cliente, uma Server Action é chamada para finalizar o registro.
-    *   Atualiza o registro da análise no Firestore com a URL do arquivo no Storage e muda o status para "summarizing_data" (ou estado similar) para acionar as Firebase Functions.
-*   **Gerenciamento de Tags:**
-    *   Adiciona ou remove tags de uma análise específica no Firestore.
-*   **Busca de Dados de Relatório:**
-    *   Busca os metadados de uma análise (incluindo o caminho para o arquivo MDX no Storage) do Firestore.
-    *   Busca o conteúdo do arquivo MDX do Firebase Storage.
-    *   Retorna o conteúdo MDX e outros dados relevantes para o frontend exibir o relatório.
-*   **Orquestração do Chat Interativo do Relatório:**
-    *   Recebe mensagens do usuário enviadas através da interface de chat no frontend.
-    *   Invoca um fluxo Genkit (Agente Orquestrador do Chat) que utiliza o Gemini para processar a mensagem do usuário no contexto do relatório atual (MDX e estruturado).
-    *   Salva o histórico da conversa (mensagens do usuário e da IA) no Firebase Realtime Database.
-    *   Se o Agente Orquestrador (via sua ferramenta de revisão) modificar o relatório estruturado:
-        *   Atualiza o objeto do relatório estruturado (JSON) no Firestore.
-        *   Gera um novo arquivo MDX a partir do relatório estruturado revisado.
-        *   Salva o novo arquivo MDX no Firebase Storage, substituindo ou versionando o anterior.
-        *   Retorna o novo MDX ou uma indicação de atualização para o frontend.
-*   **Operações de Gerenciamento de Análise:**
-    *   Excluir uma análise (marcar como 'deleted' no Firestore, remover arquivos do Storage).
-    *   Cancelar uma análise em progresso (atualizar status para 'cancelling' no Firestore).
+*   **File Upload Handling:**
+    *   Receives upload form submission from the frontend (metadata like title, description).
+    *   Creates an initial record for the new analysis in Firebase Firestore, marking the status as "uploading".
+    *   Returns an analysis ID to the frontend. (Actual upload to Storage is now managed by `useFileUploadManager` on the client, which then calls actions to finalize).
+*   **Analysis Status Update:**
+    *   After the CSV file upload to Firebase Storage is completed by the client, a Server Action is called to finalize the record.
+    *   Updates the analysis record in Firestore with the file URL in Storage and changes the status to "summarizing_data" (or similar state) to trigger Firebase Functions.
+*   **Tag Management:**
+    *   Adds or removes tags from a specific analysis in Firestore.
+*   **Report Data Fetching:**
+    *   Fetches analysis metadata (including the path to the MDX file in Storage) from Firestore.
+    *   Fetches the MDX file content from Firebase Storage.
+    *   Returns the MDX content and other relevant data to the frontend for report display.
+*   **Interactive Report Chat Orchestration:**
+    *   Receives user messages sent via the chat interface on the frontend.
+    *   Invokes a Genkit flow (Chat Orchestrator Agent) that uses Gemini to process the user's message in the context of the current report (MDX and structured).
+    *   Saves the conversation history (user and AI messages) in Firebase Realtime Database.
+    *   If the Orchestrator Agent (via its review tool) modifies the structured report:
+        *   Updates the structured report object (JSON) in Firestore.
+        *   Generates a new MDX file from the revised structured report.
+        *   Saves the new MDX file to Firebase Storage, replacing or versioning the previous one.
+        *   Returns the new MDX or an update indication to the frontend.
+*   **Analysis Management Operations:**
+    *   Delete an analysis (mark as 'deleted' in Firestore, remove files from Storage).
+    *   Cancel an analysis in progress (update status to 'cancelling' in Firestore).
 
-## Tecnologias e Restrições
+## Technologies and Constraints
 
-*   **Tecnologia Principal:** Next.js Server Actions (executando em ambiente Node.js).
-*   **Inteligência Artificial:** Genkit para orquestração de fluxos de IA, especificamente para o Agente Orquestrador do Chat, que utiliza o Google AI (Gemini).
-*   **SDKs Firebase (Lado do Servidor):**
-    *   Firebase Admin SDK (preferencialmente) ou Firebase Server SDK para interações seguras com Firestore, Storage e Realtime Database. As Server Actions têm acesso a variáveis de ambiente seguras.
-*   **Execução:** Executadas como parte da aplicação Next.js no Firebase App Hosting.
-*   **Segurança:** Server Actions são um mecanismo seguro para expor lógica de backend, pois o código não é enviado ao cliente. A autenticação do usuário é verificada antes de realizar operações sensíveis.
-*   **Limitações:** Sujeitas aos limites de execução do ambiente de servidor do Next.js (ex: tempo de execução, memória), que podem ser diferentes dos Firebase Functions. Para processos muito longos ou intensivos, as Firebase Functions são preferíveis.
+*   **Core Technology:** Next.js Server Actions (running in a Node.js environment).
+*   **Artificial Intelligence:** Genkit for orchestrating AI flows, specifically for the Chat Orchestrator Agent, which uses Google AI (Gemini).
+*   **Firebase SDKs (Server-Side):**
+    *   Firebase Admin SDK (preferably) or Firebase Server SDK for secure interactions with Firestore, Storage, and Realtime Database. Server Actions have access to secure environment variables.
+*   **Execution:** Executed as part of the Next.js application on Firebase App Hosting.
+*   **Security:** Server Actions are a secure mechanism for exposing backend logic, as the code is not sent to the client. User authentication is verified before performing sensitive operations.
+*   **Limitations:** Subject to the execution limits of the Next.js server environment (e.g., runtime, memory), which may differ from Firebase Functions. For very long or intensive processes, Firebase Functions are preferred.
+
+    

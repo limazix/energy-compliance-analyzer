@@ -1,34 +1,36 @@
 
-# C3: Componente - Roteamento (routing)
+# C3: Component - Routing (routing)
 
-[<- Voltar para Componentes do Frontend](./../01-frontend-app-components.md)
+[<- Back to Frontend Components](./../01-frontend-app-components.md)
 
-## Descrição
+## Description
 
-O componente **Roteamento** é gerenciado pelo Next.js App Router. Ele é responsável por mapear URLs para os componentes de página correspondentes e controlar a navegação dentro da aplicação.
+The **Routing** component is managed by the Next.js App Router. It is responsible for mapping URLs to corresponding page components and controlling navigation within the application.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Mapeamento de Rotas para Páginas:**
-    *   `/`: Mapeado para `HomePage` (`src/app/page.tsx`).
-    *   `/login`: Mapeado para `LoginPage` (`src/app/login/page.tsx`).
-    *   `/report/[analysisId]`: Rota dinâmica mapeada para `ReportPage` (`src/app/report/[analysisId]/page.tsx`), onde `[analysisId]` é o ID da análise específica.
-    *   `/privacy-policy`: Mapeado para `PrivacyPolicyPage` (`src/app/privacy-policy/page.tsx`).
-    *   `/terms-of-service`: Mapeado para `TermsOfServicePage` (`src/app/terms-of-service/page.tsx`).
-*   **Navegação:**
-    *   Permite a navegação entre páginas usando o componente `Link` do Next.js ou programaticamente através do hook `useRouter` (ex: `router.push('/login')`, `router.replace('/')`).
-*   **Proteção de Rotas (Indireta):**
-    *   Embora o App Router em si não realize a lógica de proteção, as páginas (como `HomePage`) usam o hook `useAuth` para verificar o estado de autenticação do usuário.
-    *   Se um usuário não autenticado tentar acessar uma página protegida, a lógica dentro dessa página (ou em um componente de layout superior, se implementado) o redirecionará para a página de login.
+*   **Mapping Routes to Pages:**
+    *   `/`: Mapped to `HomePage` (`src/app/page.tsx`).
+    *   `/login`: Mapped to `LoginPage` (`src/app/login/page.tsx`).
+    *   `/report/[analysisId]`: Dynamic route mapped to `ReportPage` (`src/app/report/[analysisId]/page.tsx`), where `[analysisId]` is the ID of the specific analysis.
+    *   `/privacy-policy`: Mapped to `PrivacyPolicyPage` (`src/app/privacy-policy/page.tsx`).
+    *   `/terms-of-service`: Mapped to `TermsOfServicePage` (`src/app/terms-of-service/page.tsx`).
+*   **Navigation:**
+    *   Allows navigation between pages using the Next.js `Link` component or programmatically via the `useRouter` hook (e.g., `router.push('/login')`, `router.replace('/')`).
+*   **Route Protection (Indirect):**
+    *   While the App Router itself doesn't perform the protection logic, pages (like `HomePage`) use the `useAuth` hook to check the user's authentication state.
+    *   If an unauthenticated user tries to access a protected page, logic within that page (or a higher-level layout component, if implemented) will redirect them to the login page.
 *   **Layouts:**
-    *   Utiliza o `RootLayout` (`src/app/layout.tsx`) para envolver todas as páginas, fornecendo uma estrutura HTML comum, `AuthProvider`, `QueryProvider` e `Toaster`.
-*   **Tratamento de Parâmetros de Rota:**
-    *   Em rotas dinâmicas como `/report/[analysisId]`, o hook `useParams` é usado dentro do componente da página para extrair o valor de `analysisId` da URL.
+    *   Uses `RootLayout` (`src/app/layout.tsx`) to wrap all pages, providing a common HTML structure, `AuthProvider`, `QueryProvider`, and `Toaster`.
+*   **Route Parameter Handling:**
+    *   In dynamic routes like `/report/[analysisId]`, the `useParams` hook is used within the page component to extract the value of `analysisId` from the URL.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
-*   **Next.js App Router:** Sistema de roteamento baseado em arquivos e diretórios na pasta `app/`.
-*   **React Server Components (RSC) e Client Components:** O App Router suporta ambos, permitindo renderização no servidor e interatividade no cliente. As páginas atuais são primariamente Client Components ('use client').
-*   **Componentes de Layout:** `layout.tsx` para definir a estrutura global da UI.
-*   **Hooks de Navegação:** `useRouter`, `usePathname`, `useParams` do `next/navigation`.
-*   **Componente `Link`:** Para navegação declarativa do lado do cliente.
+*   **Next.js App Router:** File and directory-based routing system in the `app/` folder.
+*   **React Server Components (RSC) and Client Components:** The App Router supports both, allowing server rendering and client interactivity. Current pages are primarily Client Components ('use client').
+*   **Layout Components:** `layout.tsx` to define the global UI structure.
+*   **Navigation Hooks:** `useRouter`, `usePathname`, `useParams` from `next/navigation`.
+*   **`Link` Component:** For declarative client-side navigation.
+
+    

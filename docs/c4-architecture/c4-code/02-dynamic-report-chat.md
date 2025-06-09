@@ -1,43 +1,43 @@
 
-# C4 Dynamic Diagram: Interação com Chat do Relatório
+# C4 Dynamic Diagram: Report Chat Interaction
 
-[<- Voltar para Nível C4 (Código)](./index.md)
+[<- Back to Level C4 (Code)](./index.md)
 
-Este diagrama ilustra o fluxo de comunicação quando um usuário interage com o agente de IA através da interface de chat de um relatório, incluindo a possibilidade de revisão do relatório.
+This diagram illustrates the communication flow when a user interacts with the AI agent via a report's chat interface, including the possibility of report revision.
 
 ```mermaid
 C4Dynamic
-  title Fluxo de Interação do Chat do Relatório
+  title Report Chat Interaction Flow
 
-  Person(user, "Usuário", "Interage com a UI do chat.", $sprite="fa:fa-user")
-  Container(frontendApp, "Frontend Web App", "Next.js/React", "Interface do relatório e chat.", $sprite="fa:fa-desktop")
-  Container(serverActions, "Backend API (Server Actions)", "Next.js", "Orquestra a interação do chat.", $sprite="fa:fa-cogs")
-  Component(orchestrationFlow, "`orchestrateReportInteractionFlow`", "Fluxo Genkit (em Server Actions)", "Processa a entrada do usuário, usa IA e ferramentas.", $sprite="fa:fa-brain")
-  Component(revisorTool, "`callRevisorTool`", "Ferramenta Genkit", "Invoca fluxo de revisão para modificar relatório.", $sprite="fa:fa-tools")
-  Component(reviewFlow, "`reviewComplianceReportFlow`", "Fluxo Genkit", "Revisa/refina o relatório estruturado.", $sprite="fa:fa-clipboard-check")
-  ContainerDb(rtdb, "Firebase Realtime DB", "NoSQL", "Armazena mensagens de chat.", $sprite="fa:fa-comments")
-  ContainerDb(firestore, "Firebase Firestore", "NoSQL", "Armazena relatório estruturado.", $sprite="fa:fa-database")
-  Container(storage, "Firebase Storage", "Blob Storage", "Armazena relatórios MDX.", $sprite="fa:fa-archive")
-  System_Ext(googleAI, "Google AI (Gemini)", "LLM para Genkit.", $sprite="fa:fa-robot")
+  Person(user, "User", "Interacts with the chat UI.", $sprite="fa:fa-user")
+  Container(frontendApp, "Frontend Web App", "Next.js/React", "Report and chat interface.", $sprite="fa:fa-desktop")
+  Container(serverActions, "Backend API (Server Actions)", "Next.js", "Orchestrates chat interaction.", $sprite="fa:fa-cogs")
+  Component(orchestrationFlow, "`orchestrateReportInteractionFlow`", "Genkit Flow (in Server Actions)", "Processes user input, uses AI and tools.", $sprite="fa:fa-brain")
+  Component(revisorTool, "`callRevisorTool`", "Genkit Tool", "Invokes review flow to modify report.", $sprite="fa:fa-tools")
+  Component(reviewFlow, "`reviewComplianceReportFlow`", "Genkit Flow", "Reviews/refines the structured report.", $sprite="fa:fa-clipboard-check")
+  ContainerDb(rtdb, "Firebase Realtime DB", "NoSQL", "Stores chat messages.", $sprite="fa:fa-comments")
+  ContainerDb(firestore, "Firebase Firestore", "NoSQL", "Stores structured report.", $sprite="fa:fa-database")
+  Container(storage, "Firebase Storage", "Blob Storage", "Stores MDX reports.", $sprite="fa:fa-archive")
+  System_Ext(googleAI, "Google AI (Gemini)", "LLM for Genkit.", $sprite="fa:fa-robot")
 
-  Rel(user, frontendApp, "1. Envia mensagem de chat (texto, contexto do relatório)")
-  Rel(frontendApp, serverActions, "2. Chama `askReportOrchestratorAction`")
-  Rel(serverActions, rtdb, "3. Salva mensagem do usuário e placeholder da IA no RTDB")
-  Rel(serverActions, orchestrationFlow, "4. Invoca fluxo com dados do relatório e mensagem do usuário")
+  Rel(user, frontendApp, "1. Sends chat message (text, report context)")
+  Rel(frontendApp, serverActions, "2. Calls `askReportOrchestratorAction`")
+  Rel(serverActions, rtdb, "3. Saves user message and AI placeholder to RTDB")
+  Rel(serverActions, orchestrationFlow, "4. Invokes flow with report data and user message")
   
-  Rel(orchestrationFlow, googleAI, "5. Processa consulta usando LLM")
-  Rel(orchestrationFlow, revisorTool, "6. Opcional: Chama ferramenta `callRevisorTool` se usuário solicitar revisão")
-  Rel(revisorTool, reviewFlow, "7. Opcional: Invoca fluxo de revisão `reviewComplianceReportFlow`")
-  Rel(reviewFlow, googleAI, "8. Opcional: Usa LLM para revisar relatório estruturado")
-  Rel(reviewFlow, revisorTool, "9. Opcional: Retorna relatório estruturado revisado")
-  Rel(revisorTool, orchestrationFlow, "10. Opcional: Retorna relatório revisado ao fluxo principal")
-  Rel(orchestrationFlow, serverActions, "11. Retorna resposta da IA e (opcionalmente) relatório revisado")
+  Rel(orchestrationFlow, googleAI, "5. Processes query using LLM")
+  Rel(orchestrationFlow, revisorTool, "6. Optional: Calls `callRevisorTool` tool if user requests revision")
+  Rel(revisorTool, reviewFlow, "7. Optional: Invokes `reviewComplianceReportFlow` review flow")
+  Rel(reviewFlow, googleAI, "8. Optional: Uses LLM to review structured report")
+  Rel(reviewFlow, revisorTool, "9. Optional: Returns revised structured report")
+  Rel(revisorTool, orchestrationFlow, "10. Optional: Returns revised report to main flow")
+  Rel(orchestrationFlow, serverActions, "11. Returns AI response and (optionally) revised report")
 
-  Rel(serverActions, rtdb, "12. Atualiza/Transmite resposta final da IA (streaming) no RTDB")
-  Rel(serverActions, firestore, "13. Opcional: Atualiza relatório estruturado no Firestore se modificado")
-  Rel(serverActions, storage, "14. Opcional: Salva novo MDX no Storage se modificado")
-  Rel(frontendApp, rtdb, "15. Escuta atualizações no RTDB para exibir mensagens")
-  Rel(frontendApp, firestore, "16. Opcional: Escuta atualizações no relatório (MDX/Structured) para re-renderizar")
+  Rel(serverActions, rtdb, "12. Updates/Streams final AI response (streaming) in RTDB")
+  Rel(serverActions, firestore, "13. Optional: Updates structured report in Firestore if modified")
+  Rel(serverActions, storage, "14. Optional: Saves new MDX to Storage if modified")
+  Rel(frontendApp, rtdb, "15. Listens to RTDB updates to display messages")
+  Rel(frontendApp, firestore, "16. Optional: Listens for report updates (MDX/Structured) to re-render")
 
 
   UpdateElementStyle(user, $fontColor="white", $bgColor="rgb(13, 105, 184)")
@@ -52,23 +52,25 @@ C4Dynamic
   UpdateElementStyle(googleAI, $fontColor="white", $bgColor="rgb(100, 100, 100)")
 ```
 
-## Descrição do Fluxo
+## Flow Description
 
-1.  O **Usuário** digita uma mensagem na interface de chat do **Frontend Web App** e a envia. A mensagem inclui o texto do usuário e o contexto do relatório atual (MDX e estruturado).
-2.  O **Frontend Web App** chama a Server Action `askReportOrchestratorAction` (parte do contêiner **Backend API (Server Actions)**).
-3.  A **Server Action** salva a mensagem do usuário no **Firebase Realtime Database (RTDB)** e cria um placeholder para a futura resposta da IA.
-4.  A **Server Action** invoca o fluxo Genkit **`orchestrateReportInteractionFlow`** (um componente dentro das Server Actions), passando a mensagem do usuário e o contexto do relatório.
-5.  O **`orchestrateReportInteractionFlow`** usa o **Google AI (Gemini)** para entender a consulta do usuário.
-6.  **Opcional:** Se o usuário solicitar uma revisão ou modificação no relatório, o **`orchestrateReportInteractionFlow`** pode decidir usar a ferramenta Genkit **`callRevisorTool`**.
-7.  **Opcional:** A **`callRevisorTool`** invoca outro fluxo Genkit, **`reviewComplianceReportFlow`**.
-8.  **Opcional:** O **`reviewComplianceReportFlow`** usa o **Google AI (Gemini)** para revisar e refinar o relatório estruturado (JSON).
-9.  **Opcional:** O relatório estruturado revisado é retornado pela **`reviewComplianceReportFlow`** para a **`callRevisorTool`**.
-10. **Opcional:** A **`callRevisorTool`** retorna o relatório revisado ao **`orchestrateReportInteractionFlow`**.
-11. O **`orchestrateReportInteractionFlow`** formula a resposta final para o usuário (e inclui o relatório revisado, se houver) e a retorna para a **Server Action**.
-12. A **Server Action** transmite a resposta da IA (potencialmente em chunks) para o **Firebase Realtime Database**, atualizando o placeholder criado anteriormente.
-13. **Opcional:** Se o relatório foi modificado, a **Server Action** atualiza o relatório estruturado (JSON) no **Firebase Firestore**.
-14. **Opcional:** Se o relatório foi modificado, a **Server Action** gera um novo MDX e o salva no **Firebase Storage**.
-15. O **Frontend Web App** escuta as atualizações no **Firebase Realtime Database** e exibe as novas mensagens (do usuário e da IA) em tempo real.
-16. **Opcional:** O **Frontend Web App** também pode escutar alterações no documento do **Firebase Firestore** (para o relatório estruturado e caminho do MDX) e atualizar a visualização do relatório se ele for modificado pela IA.
+1.  The **User** types a message in the **Frontend Web App**'s chat interface and sends it. The message includes user text and the current report context (MDX and structured).
+2.  The **Frontend Web App** calls the `askReportOrchestratorAction` Server Action (part of the **Backend API (Server Actions)** container).
+3.  The **Server Action** saves the user's message to **Firebase Realtime Database (RTDB)** and creates a placeholder for the future AI response.
+4.  The **Server Action** invokes the Genkit flow **`orchestrateReportInteractionFlow`** (a component within Server Actions), passing the user message and report context.
+5.  The **`orchestrateReportInteractionFlow`** uses **Google AI (Gemini)** to understand the user's query.
+6.  **Optional:** If the user requests a review or modification of the report, **`orchestrateReportInteractionFlow`** may decide to use the Genkit tool **`callRevisorTool`**.
+7.  **Optional:** The **`callRevisorTool`** invokes another Genkit flow, **`reviewComplianceReportFlow`**.
+8.  **Optional:** The **`reviewComplianceReportFlow`** uses **Google AI (Gemini)** to review and refine the structured report (JSON).
+9.  **Optional:** The revised structured report is returned by **`reviewComplianceReportFlow`** to **`callRevisorTool`**.
+10. **Optional:** The **`callRevisorTool`** returns the revised report to **`orchestrateReportInteractionFlow`**.
+11. The **`orchestrateReportInteractionFlow`** formulates the final response for the user (and includes the revised report, if any) and returns it to the **Server Action**.
+12. The **Server Action** streams the AI's response (potentially in chunks) to **Firebase Realtime Database**, updating the previously created placeholder.
+13. **Optional:** If the report was modified, the **Server Action** updates the structured report (JSON) in **Firebase Firestore**.
+14. **Optional:** If the report was modified, the **Server Action** generates new MDX and saves it to **Firebase Storage**.
+15. The **Frontend Web App** listens to updates in **Firebase Realtime Database** and displays new messages (from user and AI) in real time.
+16. **Optional:** The **Frontend Web App** can also listen for changes in the **Firebase Firestore** document (for the structured report and MDX path) and update the report view if it's modified by the AI.
 
-Este diagrama destaca a colaboração entre o frontend, as server actions, os fluxos Genkit e os serviços Firebase para fornecer uma experiência de chat interativa.
+This diagram highlights the collaboration between the frontend, server actions, Genkit flows, and Firebase services to provide an interactive chat experience.
+
+    

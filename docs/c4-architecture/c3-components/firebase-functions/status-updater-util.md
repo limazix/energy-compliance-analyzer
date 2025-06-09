@@ -1,46 +1,48 @@
 
-# C3: Componente - Atualizador de Status/Progresso (`statusUpdaterUtil`)
+# C3: Component - Status/Progress Updater (`statusUpdaterUtil`)
 
-[<- Voltar para Componentes das Firebase Functions](./../03-firebase-functions-components.md)
+[<- Back to Firebase Functions Components](./../03-firebase-functions-components.md)
 
-## Descrição
+## Description
 
-O **Atualizador de Status/Progresso** representa a lógica dentro da Firebase Function `processAnalysis.js` que utiliza o Firebase Admin SDK para interagir com o Firebase Firestore. Sua responsabilidade é atualizar o documento da análise no Firestore com o status atual do processamento, o progresso percentual e, eventualmente, os resultados finais ou mensagens de erro.
+The **Status/Progress Updater** represents the logic within the Firebase Function `processAnalysis.js` that uses the Firebase Admin SDK to interact with Firebase Firestore. Its responsibility is to update the analysis document in Firestore with the current processing status, percentage progress, and eventually, final results or error messages.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Atualização de Progresso:**
-    *   Em várias etapas da pipeline de análise (ex: após leitura do arquivo, após sumarização de um chunk, após identificação de resoluções), atualiza o campo `progress` do documento da análise no Firestore para refletir o avanço.
-*   **Atualização de Status:**
-    *   Modifica o campo `status` do documento da análise para indicar a fase atual do processamento (ex: 'identifying_regulations', 'assessing_compliance', 'reviewing_report', 'completed', 'error', 'cancelled').
-*   **Registro de Resultados:**
-    *   Ao final do processamento bem-sucedido:
-        *   Salva o relatório estruturado final (JSON) no campo `structuredReport`.
-        *   Salva o caminho para o arquivo MDX no Firebase Storage no campo `mdxReportStoragePath`.
-        *   Salva o sumário do relatório no campo `summary`.
-        *   Define o `status` como "completed" e `progress` como 100.
-        *   Registra o `completedAt` timestamp.
-        *   Limpa quaisquer `errorMessage` anteriores.
-*   **Registro de Erros:**
-    *   Em caso de falha em qualquer etapa da pipeline:
-        *   Define o `status` como "error".
-        *   Registra uma mensagem de erro detalhada no campo `errorMessage`.
-        *   Mantém o `progress` no valor em que a falha ocorreu.
-*   **Manipulação de Cancelamento:**
-    *   Se um cancelamento for detectado (`status` === 'cancelling'), atualiza o status para 'cancelled' e pode registrar uma mensagem.
+*   **Progress Update:**
+    *   At various stages of the analysis pipeline (e.g., after file reading, after chunk summarization, after resolution identification), updates the `progress` field of the analysis document in Firestore to reflect advancement.
+*   **Status Update:**
+    *   Modifies the `status` field of the analysis document to indicate the current processing phase (e.g., 'identifying_regulations', 'assessing_compliance', 'reviewing_report', 'completed', 'error', 'cancelled').
+*   **Result Recording:**
+    *   Upon successful completion of processing:
+        *   Saves the final structured report (JSON) in the `structuredReport` field.
+        *   Saves the path to the MDX file in Firebase Storage in the `mdxReportStoragePath` field.
+        *   Saves the report summary in the `summary` field.
+        *   Sets `status` to "completed" and `progress` to 100.
+        *   Records the `completedAt` timestamp.
+        *   Clears any previous `errorMessage`.
+*   **Error Recording:**
+    *   In case of failure at any pipeline stage:
+        *   Sets `status` to "error".
+        *   Records a detailed error message in the `errorMessage` field.
+        *   Keeps `progress` at the value where the failure occurred.
+*   **Cancellation Handling:**
+    *   If cancellation is detected (`status` === 'cancelling'), updates status to 'cancelled' and may record a message.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
 *   **Firebase Admin SDK (Firestore):**
-    *   `admin.firestore()` para obter a instância do Firestore.
-    *   `docRef.update()` para modificar campos específicos do documento da análise.
-    *   `admin.firestore.FieldValue.serverTimestamp()` para registrar timestamps.
-*   **Interação com Firestore:** Componente crucial para fornecer feedback em tempo real ao usuário sobre o andamento da análise, pois o frontend geralmente escuta (`onSnapshot`) as mudanças neste documento.
-*   **Tratamento de Erros:** Deve lidar com possíveis falhas ao tentar atualizar o Firestore, embora essas sejam geralmente menos comuns do que erros na pipeline de IA.
+    *   `admin.firestore()` to get the Firestore instance.
+    *   `docRef.update()` to modify specific fields of the analysis document.
+    *   `admin.firestore.FieldValue.serverTimestamp()` to record timestamps.
+*   **Interaction with Firestore:** Crucial component for providing real-time feedback to the user about analysis progress, as the frontend typically listens (`onSnapshot`) to changes in this document.
+*   **Error Handling:** Must handle potential failures when attempting to update Firestore, though these are generally less common than errors in the AI pipeline.
 
-## Interações
+## Interactions
 
-*   **Utilizado por:** Orquestrador da Pipeline (`processAnalysisFn`) ao longo de sua execução.
-*   **Interage com:** Firebase Firestore.
-*   **Entrada:** Dados a serem atualizados (status, progresso, resultados, erros).
-*   **Saída:** Nenhuma (apenas efeitos colaterais de escrita no Firestore).
+*   **Used by:** Pipeline Orchestrator (`processAnalysisFn`) throughout its execution.
+*   **Interacts with:** Firebase Firestore.
+*   **Input:** Data to be updated (status, progress, results, errors).
+*   **Output:** None (only side effects of writing to Firestore).
+
+    

@@ -1,21 +1,23 @@
 
-# C4 Model: Nível 3 - Componentes - Energy Compliance Analyzer
+# C4 Model: Level 3 - Components - Energy Compliance Analyzer
 
-Este nível detalha os componentes internos dos principais contêineres (sistemas de software) identificados no Nível C2. Cada contêiner é decomposto em seus blocos de construção principais.
+This level details the internal components of the main containers (software systems) identified at Level C2. Each container is broken down into its primary building blocks.
 
-[<- Voltar para Visão Geral dos Contêineres (C2)](../c2-containers/index.md)
+[<- Back to Container Overview (C2)](../c2-containers/index.md)
 
-## Detalhamento de Componentes por Contêiner
+## Component Breakdown by Container
 
-Selecione um sistema abaixo para visualizar seus componentes internos:
+Select a system below to view its internal components:
 
-1.  **[Componentes do Frontend Web App](./01-frontend-app-components.md)**
-    *   Detalha os principais módulos e responsabilidades da interface do usuário construída com Next.js e React.
+1.  **[Frontend Web App Components](./01-frontend-app-components.md)**
+    *   Details the main modules and responsibilities of the user interface built with Next.js and React.
 
-2.  **[Componentes das Next.js Server Actions (Backend API)](./02-server-actions-components.md)**
-    *   Descreve os componentes lógicos que formam a API backend, implementados como Server Actions no Next.js.
+2.  **[Next.js Server Actions Components (Backend API)](./02-server-actions-components.md)**
+    *   Describes the logical components forming the backend API, implemented as Server Actions in Next.js.
 
-3.  **[Componentes das Firebase Functions (Processamento em Background)](./03-firebase-functions-components.md)**
-    *   Explora os componentes da pipeline de processamento de IA e outras lógicas de backend executadas nas Firebase Functions.
+3.  **[Firebase Functions Components (Background Processing)](./03-firebase-functions-components.md)**
+    *   Explores the components of the AI processing pipeline and other backend logic executed in Firebase Functions.
 
-[Próximo Nível: Detalhamento de Código (C4 - Simplificado)](../c4-code/index.md)
+[Next Level: Code/Flow Detail (C4 - Simplified)](../c4-code/index.md)
+
+    

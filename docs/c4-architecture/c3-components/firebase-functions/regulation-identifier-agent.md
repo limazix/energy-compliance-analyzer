@@ -1,36 +1,38 @@
 
-# C3: Componente - Agente: Identificador de Resoluções (`regulationIdentifierAgent`)
+# C3: Component - Agent: Resolution Identifier (`regulationIdentifierAgent`)
 
-[<- Voltar para Componentes das Firebase Functions](./../03-firebase-functions-components.md)
+[<- Back to Firebase Functions Components](./../03-firebase-functions-components.md)
 
-## Descrição
+## Description
 
-O **Agente Identificador de Resoluções** é um fluxo Genkit (`identifyAEEEResolutionsFlow` definido em `functions/src/processAnalysis.js` e usando o prompt de `src/ai/prompt-configs/identify-aneel-resolutions-prompt-config.ts`) que atua como um especialista em regulamentações elétricas brasileiras. Sua função é analisar o sumário dos dados de qualidade de energia (fornecido pelo `dataSummarizerAgent`) e identificar as Resoluções Normativas da ANEEL pertinentes.
+The **Resolution Identifier Agent** is a Genkit flow (`identifyAEEEResolutionsFlow` defined in `functions/src/processAnalysis.js` and using the prompt from `src/ai/prompt-configs/identify-aneel-resolutions-prompt-config.ts`) that acts as an expert in Brazilian electrical regulations. Its function is to analyze the summary of power quality data (provided by `dataSummarizerAgent`) and identify pertinent ANEEL Normative Resolutions.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Análise de Sumário:**
-    *   Recebe o sumário textual agregado dos dados de qualidade de energia como entrada.
-    *   Interpreta as métricas chave, anomalias e tendências descritas no sumário.
-*   **Identificação de Normas:**
-    *   Com base na análise do sumário, determina quais Resoluções Normativas da ANEEL (Agência Nacional de Energia Elétrica) são relevantes para os fenômenos observados nos dados.
-    *   Prioriza a precisão na identificação das resoluções corretas (ex: PRODIST Módulo 8, REN específicas).
-*   **Formato de Saída:**
-    *   Retorna uma lista de nomes ou números das resoluções ANEEL identificadas.
-    *   Os nomes/números das resoluções devem ser mantidos em sua forma original em Português, enquanto o texto descritivo ao redor da lista deve estar no idioma especificado.
+*   **Summary Analysis:**
+    *   Receives the aggregated textual summary of power quality data as input.
+    *   Interprets key metrics, anomalies, and trends described in the summary.
+*   **Standards Identification:**
+    *   Based on the summary analysis, determines which ANEEL (Brazilian National Electrical Energy Agency) Normative Resolutions are relevant to the phenomena observed in the data.
+    *   Prioritizes accuracy in identifying the correct resolutions (e.g., PRODIST Module 8, specific RENs).
+*   **Output Format:**
+    *   Returns a list of names or numbers of the identified ANEEL resolutions.
+    *   The resolution names/numbers should be kept in their original Portuguese form, while the descriptive text around the list should be in the specified language.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
 *   **Genkit:**
-    *   Definido como um `ai.definePrompt`.
-    *   Utiliza o prompt configurado em `identifyAEEEResolutionsPromptConfig`.
-*   **Google AI (Gemini):** O modelo de linguagem que realiza a inferência para identificar as resoluções com base no sumário.
-*   **Input/Output Schemas (Zod):** Utiliza schemas Zod (`IdentifyAEEEResolutionsInputSchema`, `IdentifyAEEEResolutionsOutputSchema`) para a estrutura de entrada (sumário dos dados, código de idioma) e saída (lista de resoluções).
-*   **Conhecimento Especializado (Simulado):** O prompt é crucial para guiar o modelo Gemini a agir como um especialista em normas da ANEEL.
+    *   Defined as an `ai.definePrompt`.
+    *   Uses the prompt configured in `identifyAEEEResolutionsPromptConfig`.
+*   **Google AI (Gemini):** The language model that performs inference to identify resolutions based on the summary.
+*   **Input/Output Schemas (Zod):** Uses Zod schemas (`IdentifyAEEEResolutionsInputSchema`, `IdentifyAEEEResolutionsOutputSchema`) for input structure (data summary, language code) and output (list of resolutions).
+*   **Specialized Knowledge (Simulated):** The prompt is crucial for guiding the Gemini model to act as an expert in ANEEL standards.
 
-## Interações
+## Interactions
 
-*   **Chamado por:** Orquestrador da Pipeline (`processAnalysisFn`).
-*   **Usa:** Google AI (Gemini) via Genkit.
-*   **Entrada:** Sumário agregado dos dados de qualidade de energia, código de idioma.
-*   **Saída:** Objeto contendo a lista `relevantResolutions`.
+*   **Called by:** Pipeline Orchestrator (`processAnalysisFn`).
+*   **Uses:** Google AI (Gemini) via Genkit.
+*   **Input:** Aggregated power quality data summary, language code.
+*   **Output:** Object containing the `relevantResolutions` list.
+
+    

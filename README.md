@@ -1,38 +1,38 @@
 
 # Energy Compliance Analyzer
 
-Este é um projeto Next.js para analisar a conformidade de dados de qualidade de energia elétrica com base nas resoluções normativas da ANEEL (Agência Nacional de Energia Elétrica) do Brasil. A aplicação permite que usuários façam upload de arquivos CSV, identifica as resoluções ANEEL pertinentes e gera um relatório de conformidade. O processamento pesado dos dados é realizado por Firebase Functions, e uma interface de chat interativa permite ao usuário dialogar e refinar os relatórios gerados.
+This is a Next.js project to analyze the compliance of electrical power quality data based on the normative resolutions of ANEEL (Brazilian National Electrical Energy Agency). The application allows users to upload CSV files, identifies pertinent ANEEL resolutions, and generates a compliance report. Heavy data processing is performed by Firebase Functions, and an interactive chat interface allows the user to dialogue and refine the generated reports.
 
-## Descrição do Projeto
+## Project Description
 
-O Energy Compliance Analyzer simplifica a verificação de conformidade para o setor elétrico, utilizando uma pipeline de agentes de inteligência artificial (Genkit) para automatizar a análise de dados de qualidade de energia contra os regulamentos da ANEEL. O processamento principal ocorre em Firebase Functions, e uma interface de chat interativa com um agente orquestrador permite ao usuário interagir e refinar os relatórios gerados, com respostas da IA sendo transmitidas em tempo real.
+The Energy Compliance Analyzer simplifies compliance verification for the electrical sector, using an artificial intelligence (Genkit) agent pipeline to automate the analysis of power quality data against ANEEL regulations. The main processing occurs in Firebase Functions, and an interactive chat interface with an orchestrator agent allows the user to interact and refine the generated reports, with AI responses streamed in real-time.
 
-## Componentes Principais
+## Core Components
 
 *   **Frontend:** Next.js, React, ShadCN UI, Tailwind CSS.
-*   **Backend (API & Gatilhos):** Next.js Server Actions (para interações com o frontend, como o chat do relatório, e para disparar processos em background).
-*   **Processamento em Background:** Firebase Functions (Node.js, TypeScript) para análise de dados e IA.
-*   **Inteligência Artificial:** Genkit & Google AI (Gemini) executado em Firebase Functions (para o pipeline principal de análise e geração de relatório com agentes especialistas: Analista de Dados, Engenheiro, Relator, Revisor) e em Next.js Server Actions (para o agente orquestrador do chat interativo).
-*   **Banco de Dados, Storage e Chat:** Firebase (Authentication, Firestore, Storage, Realtime Database para o chat).
-*   **Hosting:** Firebase App Hosting para a aplicação Next.js.
+*   **Backend (API & Triggers):** Next.js Server Actions (for frontend interactions, like the report chat, and for triggering background processes).
+*   **Background Processing:** Firebase Functions (Node.js, TypeScript) for data analysis and AI.
+*   **Artificial Intelligence:** Genkit & Google AI (Gemini) running in Firebase Functions (for the main analysis and report generation pipeline with specialist agents: Data Analyst, Engineer, Reporter, Reviewer) and in Next.js Server Actions (for the interactive chat orchestrator agent).
+*   **Database, Storage & Chat:** Firebase (Authentication, Firestore, Storage, Realtime Database for chat).
+*   **Hosting:** Firebase App Hosting for the Next.js application.
 
-## Funcionalidades Principais
+## Key Features
 
-*   Upload de arquivos CSV de dados de qualidade de energia.
-*   Pipeline de análise com Agentes de IA Especializados em Firebase Functions:
-    *   **Analista de Dados Sênior:** Pré-processamento, análise inicial, sugestão de transformações e visualizações.
-    *   **Engenheiro Elétrico (Implícito):** Identificação de resoluções ANEEL e análise de conformidade.
-    *   **Relator (Implícito):** Estruturação inicial do relatório.
-    *   **Revisor:** Refinamento, correção gramatical, e formatação do relatório.
-*   Geração de relatório de conformidade estruturado (JSON e MDX).
-*   Interface de Chat Interativo na página de relatório:
-    *   Permite ao usuário pedir esclarecimentos, aprofundamentos e solicitar alterações no relatório.
-    *   Utiliza um Agente Orquestrador (via Next.js Server Actions e Genkit) para mediar a interação.
-    *   Respostas da IA são transmitidas em tempo real (streaming).
-    *   Histórico de chat persistente via Firebase Realtime Database.
-*   Gerenciamento de análises (visualização, exclusão, tags).
+*   Upload CSV files of power quality data.
+*   Analysis pipeline with Specialized AI Agents in Firebase Functions:
+    *   **Senior Data Analyst:** Preprocessing, initial analysis, suggestion of transformations and visualizations.
+    *   **Electrical Engineer (Implicit):** Identification of ANEEL resolutions and compliance analysis.
+    *   **Reporter (Implicit):** Initial structuring of the report.
+    *   **Reviewer:** Refinement, grammatical correction, and formatting of the report.
+*   Generation of structured compliance report (JSON and MDX).
+*   Interactive Chat Interface on the report page:
+    *   Allows the user to ask for clarifications, further details, and request changes to the report.
+    *   Uses an Orchestrator Agent (via Next.js Server Actions and Genkit) to mediate the interaction.
+    *   AI responses are streamed in real-time.
+    *   Persistent chat history via Firebase Realtime Database.
+*   Analysis management (viewing, deletion, tags).
 
-## Arquitetura de Alto Nível
+## High-Level Architecture
 
 ```mermaid
 graph TD
@@ -103,143 +103,144 @@ graph TD
 
 <p align="center" data-ai-hint="architecture diagram">Application Architecture Diagram</p>
 
-## Executando Localmente
+## Running Locally
 
-### Pré-requisitos
+### Prerequisites
 
-*   Node.js (versão 20 ou superior)
-*   npm ou yarn
-*   Firebase CLI instalado (`npm install -g firebase-tools`)
-*   Projeto Firebase (`electric-magnitudes-analizer`) com Authentication, Firestore, Storage e Realtime Database habilitados.
-*   Chave de API do Google AI (Gemini).
+*   Node.js (version 20 or higher)
+*   npm or yarn
+*   Firebase CLI installed (`npm install -g firebase-tools`)
+*   Firebase Project (`electric-magnitudes-analizer`) with Authentication, Firestore, Storage, and Realtime Database enabled.
+*   Google AI (Gemini) API Key.
 
-### Configuração
+### Setup
 
-1.  **Clone o repositório.**
-2.  **Instale as dependências do Next.js:** `npm install`
-3.  **Instale as dependências das Firebase Functions:** `cd functions && npm install && cd ..`
-4.  **Configure as variáveis de ambiente:**
-    Crie um arquivo `.env` na raiz do projeto. Este arquivo será usado para desenvolvimento local (incluindo o servidor de desenvolvimento do Next.js e os Firebase Emulators).
+1.  **Clone the repository.**
+2.  **Install Next.js dependencies:** `npm install`
+3.  **Install Firebase Functions dependencies:** `cd functions && npm install && cd ..`
+4.  **Configure environment variables:**
+    Create a `.env` file in the project root. This file will be used for local development (including the Next.js development server and Firebase Emulators).
     ```env
-    # Configuração consolidada do Firebase para o cliente Next.js
-    # DEVE ser um JSON stringificado válido.
-    NEXT_PUBLIC_FIREBASE_CONFIG='{"apiKey":"SUA_API_KEY_DO_FIREBASE","authDomain":"SEU_AUTH_DOMAIN_DO_FIREBASE","projectId":"electric-magnitudes-analizer","storageBucket":"SEU_STORAGE_BUCKET_DO_FIREBASE","messagingSenderId":"SEU_MESSAGING_SENDER_ID_DO_FIREBASE","appId":"SEU_APP_ID_DO_FIREBASE","measurementId":"SEU_MEASUREMENT_ID_DO_FIREBASE","databaseURL":"SUA_DATABASE_URL_DO_FIREBASE"}'
+    # Consolidated Firebase configuration for the Next.js client
+    # MUST be a valid stringified JSON.
+    NEXT_PUBLIC_FIREBASE_CONFIG='{"apiKey":"YOUR_FIREBASE_API_KEY","authDomain":"YOUR_FIREBASE_AUTH_DOMAIN","projectId":"electric-magnitudes-analizer","storageBucket":"YOUR_FIREBASE_STORAGE_BUCKET","messagingSenderId":"YOUR_FIREBASE_MESSAGING_SENDER_ID","appId":"YOUR_FIREBASE_APP_ID","measurementId":"YOUR_FIREBASE_MEASUREMENT_ID","databaseURL":"YOUR_DATABASE_URL"}'
 
-    # Chave de API do Gemini para fluxos Genkit no Next.js (Server Actions) e Firebase Functions (quando emuladas localmente)
-    # Para Firebase Functions implantadas, esta chave é configurada como secret no ambiente de deploy.
-    NEXT_PUBLIC_GEMINI_API_KEY="SUA_API_KEY_DO_GEMINI"
+    # Gemini API Key for Genkit flows in Next.js (Server Actions) and Firebase Functions (when emulated locally)
+    # For deployed Firebase Functions, this key is configured as a secret in the deployment environment.
+    NEXT_PUBLIC_GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
     ```
-    **Importante:**
+    **Important:**
     *   `NEXT_PUBLIC_FIREBASE_CONFIG`:
-        *   O valor para `projectId` DEVE ser `electric-magnitudes-analizer`.
-        *   O valor para `databaseURL` é essencial para o Realtime Database (chat), ex: `https://electric-magnitudes-analizer-default-rtdb.firebaseio.com`.
-        *   Assegure-se de que todo o valor desta variável seja uma string JSON válida e única, entre aspas simples ou duplas, conforme a sintaxe do seu shell/`.env`.
-    *   `NEXT_PUBLIC_GEMINI_API_KEY`: Usada pelos fluxos Genkit tanto no Next.js (para o chat) quanto nas Firebase Functions (durante a emulação local).
+        *   The value for `projectId` MUST be `electric-magnitudes-analizer`.
+        *   The value for `databaseURL` is essential for Realtime Database (chat), e.g.: `https://electric-magnitudes-analizer-default-rtdb.firebaseio.com`.
+        *   Ensure the entire value of this variable is a single, valid JSON string, enclosed in single or double quotes as per your shell/`.env` syntax.
+    *   `NEXT_PUBLIC_GEMINI_API_KEY`: Used by Genkit flows in both Next.js (for chat) and Firebase Functions (during local emulation).
 
-5.  **Domínios Autorizados no Firebase Authentication:**
-    No Firebase Console (`electric-magnitudes-analizer` > Authentication > Settings > Authorized domains), adicione `localhost` e outros domínios de desenvolvimento (ex: `*.cloudworkstations.dev`).
+5.  **Authorized Domains in Firebase Authentication:**
+    In the Firebase Console (`electric-magnitudes-analizer` > Authentication > Settings > Authorized domains), add `localhost` and other development domains (e.g., `*.cloudworkstations.dev`).
 
-6.  **Regras de Segurança do Firebase:**
-    Revise e, se necessário, implante as regras de segurança para Firestore (`rules/firestore.rules`), Storage (`rules/storage.rules`) e Realtime Database (`rules/database.rules.json`) antes de executar localmente ou testar.
-    Implantação manual (se ainda não feita pelo CI/CD):
+6.  **Firebase Security Rules:**
+    Review and, if necessary, deploy the security rules for Firestore (`rules/firestore.rules`), Storage (`rules/storage.rules`), and Realtime Database (`rules/database.rules.json`) before running locally or testing.
+    Manual deployment (if not already done by CI/CD):
     `firebase deploy --only firestore,storage,database --project electric-magnitudes-analizer`
 
-### Executando a Aplicação com Emuladores (Recomendado)
+### Running the Application with Emulators (Recommended)
 
-O projeto está configurado para conectar-se aos Firebase Emulators (Auth, Firestore, Storage, Functions, Realtime Database) quando acessado via `localhost`.
+The project is configured to connect to Firebase Emulators (Auth, Firestore, Storage, Functions, Realtime Database) when accessed via `localhost`.
 
-1.  **Compile as Firebase Functions (necessário para o emulador de Functions):**
+1.  **Build Firebase Functions (required for the Functions emulator):**
     ```bash
     npm run build --prefix functions
     ```
-2.  **Inicie os Firebase Emulators:**
-    (Em um terminal separado, na raiz do projeto)
+2.  **Start Firebase Emulators:**
+    (In a separate terminal, in the project root)
     ```bash
     npm run emulators:start 
     ```
-    Isso usa `--import=./firebase-emulator-data --export-on-exit`. A Emulator UI estará em `http://localhost:4001`. Verifique se os emuladores de `auth`, `firestore`, `storage`, `functions` e `database` estão ativos.
+    This uses `--import=./firebase-emulator-data --export-on-exit`. The Emulator UI will be at `http://localhost:4001`. Verify that `auth`, `firestore`, `storage`, `functions`, and `database` emulators are active.
 
-3.  **Inicie sua aplicação Next.js:**
-    (Em outro terminal)
+3.  **Start your Next.js application:**
+    (In another terminal)
     ```bash
     npm run dev
     ```
-    Acesse sua aplicação (`http://localhost:9002`). `src/lib/firebase.ts` conectará aos emuladores. A aplicação Next.js acionará as Functions (rodando no emulador) através de escritas no Firestore. A interface de chat com o relatório interage com fluxos Genkit via Server Actions do Next.js, que usarão a `NEXT_PUBLIC_GEMINI_API_KEY` do seu `.env`.
+    Access your application (`http://localhost:9002`). `src/lib/firebase.ts` will connect to the emulators. The Next.js application will trigger the Functions (running in the emulator) through Firestore writes. The report's interactive chat interface interacts with Genkit flows via Next.js Server Actions, which will use the `NEXT_PUBLIC_GEMINI_API_KEY` from your `.env`.
 
-4.  **(Alternativa) Emuladores e dev server juntos com `firebase emulators:exec`:**
-    O script `npm run emulators:dev` já está configurado para isso (ele compila as functions e depois roda o dev server do Next.js com os emuladores).
+4.  **(Alternative) Emulators and dev server together with `firebase emulators:exec`:**
+    The `npm run emulators:dev` script is already configured for this (it builds the functions and then runs the Next.js dev server with the emulators).
     ```bash
     npm run emulators:dev
     ```
-5.  **(Opcional) Iniciar o Servidor de Desenvolvimento Genkit (para testar fluxos isoladamente):**
-    Se quiser testar os fluxos Genkit da pasta `src/ai/flows` de forma isolada, você pode usar:
+5.  **(Optional) Start the Genkit Development Server (to test flows in isolation):**
+    If you want to test Genkit flows from the `src/ai/flows` folder in isolation, you can use:
     ```bash
     npm run genkit:dev
     ```
-    Isso iniciará a UI de desenvolvimento da Genkit (geralmente em `http://localhost:4000/flows`).
+    This will start the Genkit development UI (usually at `http://localhost:4000/flows`).
 
-## Testando
+## Testing
 
-Para rodar os testes de UI e integração (que usam os Firebase Emulators), execute:
+To run UI and integration tests (which use Firebase Emulators), execute:
 ```bash
 npm test
 ```
-Isso utilizará o script `firebase emulators:exec --import=./firebase-emulator-data jest` para executar os testes Jest em um ambiente com os emuladores ativos. Certifique-se de que as functions foram compiladas (`npm run build --prefix functions`) antes.
+This will use the `firebase emulators:exec --import=./firebase-emulator-data jest` script to run Jest tests in an environment with active emulators. Ensure that the functions have been built (`npm run build --prefix functions`) beforehand.
 
-### Configuração do Ambiente de Teste para Jest (Local)
+### Test Environment Setup for Jest (Local)
 
-Os testes Jest precisam que certas variáveis de ambiente sejam definidas para interagir corretamente com os emuladores Firebase e para a inicialização do Firebase em si.
-As variáveis de ambiente necessárias são as mesmas utilizadas pelo workflow de CI em `.github/workflows/tests.yml`.
+Jest tests require certain environment variables to be defined to interact correctly with Firebase Emulators and for Firebase initialization itself.
+The required environment variables are the same as those used by the CI workflow in `.github/workflows/tests.yml`.
 
-**Opções para configurar variáveis de ambiente para testes Jest locais:**
+**Options for configuring environment variables for local Jest tests:**
 
-1.  **Arquivo `.env.test` (Recomendado se seu setup Jest o suporta):**
-    Algumas configurações Jest (especialmente com `dotenv`) podem carregar automaticamente um arquivo `.env.test`. Se for o caso, crie este arquivo na raiz do projeto:
+1.  **`.env.test` File (Recommended if your Jest setup supports it):**
+    Some Jest configurations (especially with `dotenv`) can automatically load a `.env.test` file. If so, create this file in the project root:
     ```env
     # .env.test
-    # Configuração consolidada do Firebase para testes (pode usar valores dummy se as chamadas reais são mockadas)
+    # Consolidated Firebase configuration for tests (can use dummy values if actual calls are mocked)
     NEXT_PUBLIC_FIREBASE_CONFIG='{"apiKey":"test-api-key","authDomain":"localhost","projectId":"electric-magnitudes-analizer","storageBucket":"localhost","messagingSenderId":"test-sender-id","appId":"test-app-id","databaseURL":"http://localhost:9000/?ns=electric-magnitudes-analizer"}'
     NEXT_PUBLIC_GEMINI_API_KEY="test-gemini-key-for-jest"
 
-    # Configurações do Emulador (correspondem a firebase.json e ao que o CI usa)
+    # Emulator settings (match firebase.json and what CI uses)
     FIRESTORE_EMULATOR_HOST="localhost:8080"
     FIREBASE_AUTH_EMULATOR_HOST="localhost:9099"
-    FIREBASE_STORAGE_EMULATOR_HOST="localhost:9199" # Ou 127.0.0.1:9199
+    FIREBASE_STORAGE_EMULATOR_HOST="localhost:9199" # Or 127.0.0.1:9199
     FIREBASE_DATABASE_EMULATOR_HOST="localhost:9000"
     FUNCTIONS_EMULATOR_HOST="localhost:5001"
-    FIREBASE_FUNCTIONS_EMULATOR_ORIGIN="http://localhost:5001" # Ou http://127.0.0.1:5001
+    FIREBASE_FUNCTIONS_EMULATOR_ORIGIN="http://localhost:5001" # Or http://127.0.0.1:5001
 
-    # Outras variáveis que podem ser necessárias dependendo dos testes
-    GCLOUD_PROJECT="electric-magnitudes-analizer" # Mesmo que NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    GCP_REGION="us-central1" # Região padrão para functions
+    # Other variables that may be needed depending on tests
+    GCLOUD_PROJECT="electric-magnitudes-analizer" # Same as NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    GCP_REGION="us-central1" # Default region for functions
 
-    # FIREBASE_CONFIG é uma string JSON usada por firebase-admin nos emuladores.
-    # O conteúdo de FIREBASE_CONFIG é tipicamente {"databaseURL": "http://localhost:9000/?ns=PROJECT_ID", "storageBucket": "localhost", "projectId": "PROJECT_ID"}
-    # Mas para os emuladores de functions, o CLI do Firebase geralmente o define automaticamente.
-    # Se você tiver problemas, pode precisar defini-lo explicitamente.
+    # FIREBASE_CONFIG is a JSON string used by firebase-admin in emulators.
+    # The content of FIREBASE_CONFIG is typically {"databaseURL": "http://localhost:9000/?ns=PROJECT_ID", "storageBucket": "localhost", "projectId": "PROJECT_ID"}
+    # But for functions emulators, Firebase CLI usually sets it automatically.
+    # If you encounter issues, you might need to set it explicitly.
     # FIREBASE_CONFIG='{"projectId":"electric-magnitudes-analizer","databaseURL":"http://localhost:9000/?ns=electric-magnitudes-analizer","storageBucket":"localhost"}'
     ```
-    *Nota: O `jest.setup.js` neste projeto NÃO mocka mais `NEXT_PUBLIC_FIREBASE_CONFIG`. Você DEVE fornecê-lo através do seu ambiente.*
+    *Note: The `jest.setup.js` in this project NO LONGER mocks `NEXT_PUBLIC_FIREBASE_CONFIG`. You MUST provide it through your environment.*
 
-2.  **Prefixando o comando de teste:**
-    Você pode definir as variáveis diretamente no comando:
+2.  **Prefixing the test command:**
+    You can define the variables directly in the command:
     ```bash
     NEXT_PUBLIC_FIREBASE_CONFIG='{...}' FIRESTORE_EMULATOR_HOST="localhost:8080" npm test
     ```
-    (Isso pode se tornar verboso).
+    (This can become verbose).
 
-3.  **Configuração do Ambiente Shell/IDE:**
-    Exporte as variáveis no seu terminal antes de rodar `npm test`, ou configure-as nas configurações de execução da sua IDE para os testes Jest.
+3.  **Shell/IDE Environment Configuration:**
+    Export the variables in your terminal before running `npm test`, or configure them in your IDE's run configurations for Jest tests.
 
-Consulte a seção `env:` do job `test_production` em `.github/workflows/tests.yml` para a lista completa de variáveis de ambiente que o ambiente de CI utiliza e que você pode precisar replicar para testes locais consistentes.
+Refer to the `env:` section of the `test_production` job in `.github/workflows/tests.yml` for the complete list of environment variables that the CI environment uses and that you might need to replicate for consistent local testing.
 
 ## Deployment
 
-Este projeto é configurado para deploy no **Firebase App Hosting** (para a aplicação Next.js) e **Firebase Functions** (para o processamento em backend). As regras de segurança (Firestore, Storage, Realtime Database) também são implantadas.
+This project is configured for deployment to **Firebase App Hosting** (for the Next.js application) and **Firebase Functions** (for backend processing). Security rules (Firestore, Storage, Realtime Database) are also deployed.
 
-Consulte o [**Guia de Deployment**](docs/DEPLOYMENT.md) para detalhes sobre deploy manual e automático via GitHub Actions.
+Consult the [**Deployment Guide**](docs/DEPLOYMENT.md) for details on manual and automated deployment via GitHub Actions.
 
-## Licença
+## License
 
-Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+This project is licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for more details.
 
+    

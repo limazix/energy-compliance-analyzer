@@ -1,40 +1,42 @@
 
-# C3: Componente - Visualização de Análise (analysisViewUI)
+# C3: Component - Analysis View (analysisViewUI)
 
-[<- Voltar para Componentes do Frontend](./../01-frontend-app-components.md)
+[<- Back to Frontend Components](./../01-frontend-app-components.md)
 
-## Descrição
+## Description
 
-O componente **Visualização de Análise** (`AnalysisView.tsx`) é responsável por exibir os detalhes de uma análise específica, seja ela em andamento ou concluída. Ele mostra o progresso, resultados (se concluída) e permite ações como gerenciamento de tags e exclusão.
+The **Analysis View** component (`AnalysisView.tsx`) is responsible for displaying the details of a specific analysis, whether it is in progress or completed. It shows progress, results (if completed), and allows actions like tag management and deletion.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Exibição de Metadados da Análise:**
-    *   Mostra o título, descrição e nome do arquivo original da análise.
-*   **Progresso da Análise (se em andamento):**
-    *   Utiliza o componente `AnalysisProgressDisplay` para mostrar as etapas do processo de análise e seu status (pendente, em andamento, concluído, erro).
-    *   Exibe o progresso numérico geral da análise.
-    *   Permite ao usuário solicitar o cancelamento da análise se estiver em andamento.
-*   **Resultados da Análise (se concluída):**
-    *   Utiliza o componente `AnalysisResultsDisplay` para:
-        *   Mostrar um resumo dos resultados e uma prévia do relatório estruturado.
-        *   Fornecer um link para a página de visualização detalhada do relatório MDX (`ReportPage`).
-        *   Permitir o download do relatório em formato TXT e JSON.
-*   **Exibição de Erros:**
-    *   Se a análise resultou em erro, exibe a mensagem de erro e o estado das etapas até o ponto da falha.
-*   **Gerenciamento de Tags:**
-    *   Utiliza o componente `TagEditor` para permitir que o usuário adicione ou remova tags da análise.
-*   **Ações da Análise:**
-    *   Fornece um botão para excluir a análise (com diálogo de confirmação).
-*   **Interação com `useAnalysisManager`:**
-    *   Recebe o objeto `currentAnalysis` e `displayedAnalysisSteps` do hook.
-    *   Chama funções do hook para adicionar/remover tags, excluir análise e cancelar análise.
+*   **Display of Analysis Metadata:**
+    *   Shows the title, description, and original filename of the analysis.
+*   **Analysis Progress (if in progress):**
+    *   Uses the `AnalysisProgressDisplay` component to show the stages of the analysis process and their status (pending, in progress, completed, error).
+    *   Displays the overall numerical progress of the analysis.
+    *   Allows the user to request cancellation of the analysis if it's in progress.
+*   **Analysis Results (if completed):**
+    *   Uses the `AnalysisResultsDisplay` component to:
+        *   Show a summary of results and a preview of the structured report.
+        *   Provide a link to the detailed MDX report view page (`ReportPage`).
+        *   Allow downloading the report in TXT and JSON formats.
+*   **Error Display:**
+    *   If the analysis resulted in an error, displays the error message and the state of the steps up to the point of failure.
+*   **Tag Management:**
+    *   Uses the `TagEditor` component to allow the user to add or remove tags from the analysis.
+*   **Analysis Actions:**
+    *   Provides a button to delete the analysis (with a confirmation dialog).
+*   **Interaction with `useAnalysisManager`:**
+    *   Receives the `currentAnalysis` object and `displayedAnalysisSteps` from the hook.
+    *   Calls functions from the hook to add/remove tags, delete analysis, and cancel analysis.
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
 *   **React Components:** `AnalysisView.tsx`, `AnalysisProgressDisplay.tsx`, `AnalysisResultsDisplay.tsx`, `AnalysisStepItem.tsx`, `TagEditor.tsx`.
-*   **ShadCN UI:** `Card`, `Button`, `Badge`, `Progress`, `AlertDialog`, `Input` para construir a interface.
-*   **Lucide-react:** Ícones para botões e indicadores de status.
-*   **Custom Hooks:** `useAnalysisManager` para obter dados da análise e executar ações.
-*   **Server Actions:** (Indiretamente via `useAnalysisManager`) Para operações de backend como adicionar/remover tags, excluir e cancelar análises.
-*   **Next.js:** `Link` para navegação para a página do relatório.
+*   **ShadCN UI:** `Card`, `Button`, `Badge`, `Progress`, `AlertDialog`, `Input` to build the interface.
+*   **Lucide-react:** Icons for buttons and status indicators.
+*   **Custom Hooks:** `useAnalysisManager` to get analysis data and perform actions.
+*   **Server Actions:** (Indirectly via `useAnalysisManager`) For backend operations like adding/removing tags, deleting, and canceling analyses.
+*   **Next.js:** `Link` for navigation to the report page.
+
+    

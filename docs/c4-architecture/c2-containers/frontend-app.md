@@ -1,36 +1,38 @@
 
-# C2 Model: Detalhe do Contêiner - Frontend Web App
+# C2 Model: Container Detail - Frontend Web App
 
-[<- Voltar para Visão Geral dos Contêineres (C2)](./index.md)
+[<- Back to Container Overview (C2)](./index.md)
 
-## Descrição
+## Description
 
-O **Frontend Web App** é a principal interface através da qual os usuários interagem com o Energy Compliance Analyzer. É uma Single Page Application (SPA) moderna, construída com Next.js e React, projetada para ser responsiva e intuitiva. É hospedada no Firebase App Hosting.
+The **Frontend Web App** is the primary interface through which users interact with the Energy Compliance Analyzer. It is a modern Single Page Application (SPA), built with Next.js and React, designed to be responsive and intuitive. It is hosted on Firebase App Hosting.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Autenticação de Usuários:** Gerencia o login e logout de usuários utilizando o Google Sign-In através do Firebase Authentication.
-*   **Interface de Upload:** Permite que os usuários selecionem arquivos CSV contendo dados de qualidade de energia, forneçam um título e uma descrição para a análise.
-*   **Visualização de Análises:** Exibe uma lista de análises passadas com seus status, tags associadas e datas. Permite ao usuário expandir uma análise para ver detalhes.
-*   **Exibição de Progresso e Resultados:** Mostra o progresso de análises que estão em andamento e os resultados de análises concluídas.
-*   **Renderização de Relatórios:** Exibe o relatório de conformidade final, que está em formato MDX (Markdown com componentes JSX).
-*   **Chat Interativo:** Fornece uma interface de chat para que os usuários possam interagir com um agente de IA sobre o relatório gerado, pedir esclarecimentos, sugerir modificações ou aprofundar em detalhes.
-*   **Gerenciamento de Estado da UI:** Controla o estado local da interface do usuário, como qual análise está selecionada, o estado do formulário de upload, etc.
-*   **Notificações ao Usuário:** Apresenta feedback ao usuário através de toasts/notificações (ex: sucesso no upload, erros).
+*   **User Authentication:** Manages user login and logout using Google Sign-In via Firebase Authentication.
+*   **Upload Interface:** Allows users to select CSV files containing power quality data, provide a title, and a description for the analysis.
+*   **Analysis Visualization:** Displays a list of past analyses with their statuses, associated tags, and dates. Allows the user to expand an analysis to see details.
+*   **Progress and Results Display:** Shows the progress of analyses that are in progress and the results of completed analyses.
+*   **Report Rendering:** Displays the final compliance report, which is in MDX (Markdown with JSX) format.
+*   **Interactive Chat:** Provides a chat interface for users to interact with an AI agent about the generated report, ask for clarifications, suggest modifications, or delve into details.
+*   **UI State Management:** Controls the local state of the user interface, such as which analysis is selected, the state of the upload form, etc.
+*   **User Notifications:** Presents feedback to the user via toasts/notifications (e.g., upload success, errors).
 
-## Tecnologias e Restrições
+## Technologies and Constraints
 
-*   **Framework Principal:** Next.js (com App Router).
-*   **Biblioteca de UI:** React.
-*   **Componentes de UI:** ShadCN UI.
-*   **Estilização:** Tailwind CSS.
-*   **SDKs Firebase (Cliente):**
-    *   `firebase/app` para inicialização.
-    *   `firebase/auth` para autenticação.
-    *   `firebase/firestore` para ouvir atualizações de status de análises em tempo real (opcional, primariamente para a lista).
-    *   `firebase/storage` (usado indiretamente via Server Actions para uploads).
-    *   `firebase/database` para a funcionalidade de chat em tempo real com o Firebase Realtime Database.
-*   **Comunicação com Backend:** Utiliza Next.js Server Actions para todas as operações que requerem lógica de servidor ou acesso seguro a dados/serviços (ex: iniciar upload, buscar relatórios, interagir com o chat AI).
-*   **Hospedagem:** Firebase App Hosting.
-*   **Estado Global (Opcional):** Pode utilizar React Context para gerenciamento de estado global (ex: estado de autenticação, dados do usuário).
-*   **Segurança:** Interações com o backend (Server Actions) são protegidas e validam a identidade do usuário.
+*   **Main Framework:** Next.js (with App Router).
+*   **UI Library:** React.
+*   **UI Components:** ShadCN UI.
+*   **Styling:** Tailwind CSS.
+*   **Firebase SDKs (Client):**
+    *   `firebase/app` for initialization.
+    *   `firebase/auth` for authentication.
+    *   `firebase/firestore` for listening to real-time status updates of analyses (optional, primarily for the list).
+    *   `firebase/storage` (used indirectly via Server Actions for uploads).
+    *   `firebase/database` for real-time chat functionality with Firebase Realtime Database.
+*   **Backend Communication:** Uses Next.js Server Actions for all operations requiring server logic or secure access to data/services (e.g., initiating upload, fetching reports, interacting with chat AI).
+*   **Hosting:** Firebase App Hosting.
+*   **Global State (Optional):** May use React Context for global state management (e.g., authentication state, user data).
+*   **Security:** Interactions with the backend (Server Actions) are protected and validate user identity.
+
+    

@@ -1,34 +1,43 @@
 
-# C3: Componente - Gatilho do Firestore (`trigger`)
+# C3: Component - Firestore Trigger (`trigger`)
 
-[<- Voltar para Componentes das Firebase Functions](./../03-firebase-functions-components.md)
+[<- Back to Firebase Functions Components](./../03-firebase-functions-components.md)
 
-## Descrição
+## Description
 
-O componente **Gatilho do Firestore** (`processAnalysisOnUpdate` em `functions/src/index.js`) é o ponto de entrada para a pipeline de processamento de análise em background. Ele é uma Firebase Function acionada por eventos de atualização (especificamente `onUpdate`) em documentos dentro de uma coleção específica no Firebase Firestore.
+The **Firestore Trigger** component (`processAnalysisOnUpdate` in `functions/src/index.js`) is the entry point for the background analysis processing pipeline. It is a Firebase Function triggered by update events (specifically `onUpdate`) on documents within a specific collection in Firebase Firestore.
 
-## Responsabilidades (Comportamentos)
+## Responsibilities (Behaviors)
 
-*   **Observação de Eventos:**
-    *   Monitora a coleção `users/{userId}/analyses/{analysisId}` no Firestore.
-    *   É configurado para ser disparado quando um documento nesta coleção é atualizado e o campo `status` transita para um valor específico, como "summarizing_data".
-*   **Extração de Contexto:**
-    *   Ao ser acionado, recebe o snapshot do documento antes e depois da atualização, bem como os parâmetros do contexto (como `userId` e `analysisId`).
-    *   Extrai informações relevantes do documento atualizado, como o caminho do arquivo CSV no Firebase Storage (`powerQualityDataUrl`), o nome do arquivo (`fileName`), o ID do usuário e o ID da análise.
-*   **Invocação da Lógica de Processamento:**
-    *   Chama a função principal de orquestração da pipeline (`processAnalysisFn` em `functions/src/processAnalysis.js`), passando os dados extraídos.
-*   **Filtragem de Eventos:**
-    *   Pode incluir lógica para evitar reprocessamento desnecessário, verificando o estado anterior e atual do documento (ex: não reprocessar se o status já for "completed" ou "error", a menos que seja um reinício explícito).
+*   **Event Observation:**
+    *   Monitors the `users/{userId}/analyses/{analysisId}` collection in Firestore.
+    *   Is configured to be triggered when a document in this collection is updated and the `status` field transitions to a specific value, such as "summarizing_data".
+*   **Context Extraction:**
+    *   When triggered, receives the document snapshot before and after the update, as well as context parameters (like `userId` and `analysisId`).
+    *   Extracts relevant information from the updated document, such as the CSV file path in Firebase Storage (`powerQualityDataUrl`), filename (`fileName`), user ID, and analysis ID.
+*   **Invocation of Processing Logic:**
+    *   Calls the main pipeline orchestration function (`processAnalysisFn` in `functions/src/processAnalysis.js`), passing the extracted data.
+*   **Event Filtering:**
+    *   May include logic to prevent unnecessary reprocessing by checking the document's previous and current state (e.g., not reprocessing if status is already "completed" or "error", unless it's an explicit restart).
 
-## Tecnologias e Aspectos Chave
+## Technologies and Key Aspects
 
 *   **Firebase Functions SDK:**
-    *   `functions.firestore.document().onUpdate()` para definir o gatilho.
-    *   Objeto `change` (com `change.before` e `change.after`) para acessar os dados do documento.
-    *   Objeto `context` para obter parâmetros como `context.params.userId`.
-*   **Firebase Admin SDK (Firestore):** Indiretamente, pois interage com os dados fornecidos pelo gatilho, que são do Firestore.
-*   **Event-Driven Architecture:** Componente fundamental em uma arquitetura orientada a eventos, reagindo a mudanças de estado nos dados.
-*   **Configuração:**
-    *   Definido no arquivo `functions/src/index.js` e exportado para deploy.
-    *   Pode ter configurações de runtime (região, timeout, memória) definidas em `firebase.json` ou durante o deploy.
-*   **Idempotência (Consideração):** Idealmente, a lógica acionada deve ser idempotente ou ter mecanismos para lidar com múltiplas invocações para o mesmo evento (embora as Functions geralmente garantam entrega "pelo menos uma vez").
+    *   `functions.firestore.document().onUpdate()` to define the trigger.
+    *   `change` object (with `change.before` and `change.after`) to access document data.
+    *   `context` object to get parameters like `context.params.userId`.
+*   **Firebase Admin SDK (Firestore):** Indirectly, as it interacts with data provided by the trigger, which is from Firestore.
+*   **Event-Driven Architecture:** A fundamental component in an event-driven architecture, reacting to state changes in data.
+*   **Configuration:**
+    *   Defined in the `functions/src/index.js` file and exported for deployment.
+    *   May have runtime configurations (region, timeout, memory) defined in `firebase.json` or during deployment.
+*   **Idempotency (Consideration):** Ideally, the triggered logic should be idempotent or have mechanisms to handle multiple invocations for the same event (though Functions generally guarantee "at least once" delivery).
+
+## Interactions
+
+*   **Triggered by:** Updates in Firebase Firestore.
+*   **Invokes:** Pipeline Orchestrator (`processAnalysisFn`).
+*   **Input:** Firestore event data (`change` and `context` objects).
+*   **Output:** None (invokes another function).
+
+    
