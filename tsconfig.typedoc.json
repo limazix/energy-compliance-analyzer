@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false, // TypeDoc needs the compiler to run, but we don't want its emit here, TypeDoc handles output
+    "emitDeclarationOnly": false, // Ensure this is false for TypeDoc to work correctly with its own emit
+    "allowJs": true, // To process JSDoc in .js files
+    "checkJs": false // Optional: set to true if you want type checking for .js files, false to just parse JSDoc
+  },
+  "include": [
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "functions/src/**/*.js" // Include JS files from functions for JSDoc processing
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    ".next",
+    "dist", // General dist folder
+    "functions/lib", // Exclude compiled output from functions
+    "docs_html" // Exclude TypeDoc's own output directory
+  ]
+}

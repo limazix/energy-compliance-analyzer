@@ -1,0 +1,61 @@
+name: Deploy Documentation to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # Or your default branch
+  workflow_dispatch: # Allows manual triggering
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy-docs:
+    name: Build and Deploy Docs
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Firebase Functions dependencies
+        run: npm ci --prefix functions
+
+      - name: Build Firebase Functions Shared Files
+        run: npm run build:shared --prefix functions
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
+
+      - name: Generate Documentation
+        run: npm run docs:generate
+        env:
+          # TypeDoc might try to resolve NEXT_PUBLIC_FIREBASE_CONFIG if it parses Next.js specific files deeply.
+          # Provide a dummy or actual (if safe and needed for type resolution) value.
+          NEXT_PUBLIC_FIREBASE_CONFIG: '{}'
+          NEXT_PUBLIC_GEMINI_API_KEY: 'dummy-key-for-typedoc'
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs_html # Directory where TypeDoc outputs HTML
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

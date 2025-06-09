@@ -1,0 +1,26 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["./src", "./functions/src"],
+  "entryPointStrategy": "expand",
+  "out": "docs_html",
+  "tsconfig": "tsconfig.typedoc.json",
+  "readme": "./README.md",
+  "name": "Energy Compliance Analyzer Documentation",
+  "exclude": [
+    "**/node_modules/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "src/components/ui/**",
+    "functions/lib/**",
+    "docs_html/**",
+    ".next/**",
+    "dist/**"
+  ],
+  "excludeExternals": true,
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "externalPattern": ["**/node_modules/**"],
+  "hideGenerator": true,
+  "includeVersion": true,
+  "theme": "default"
+}

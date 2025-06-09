@@ -1,9 +1,20 @@
+/**
+ * @fileoverview Test suite for the AppHeader component.
+ * This file contains tests to ensure the AppHeader renders correctly based on user authentication status,
+ * including the display of the logo, "Nova Análise" button, and the AuthButton.
+ * It also tests interactions with these elements, such as click handlers, structured in BDD style.
+ */
 
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { AppHeader } from './app-header';
+import {
+  useRouter as originalUseRouter,
+  usePathname as originalUsePathname,
+} from 'next/navigation';
+
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
-import { useRouter as originalUseRouter, usePathname as originalUsePathname } from 'next/navigation';
+
+import { AppHeader } from './app-header';
 
 // Mock useAuth hook
 jest.mock('@/contexts/auth-context', () => ({
@@ -23,7 +34,11 @@ const usePathname = originalUsePathname as jest.Mock;
 const mockRouterPush = jest.fn();
 const mockRouterReplace = jest.fn();
 
-describe('AppHeader', () => {
+/**
+ * @describe Test suite for the AppHeader component.
+ * It covers conditional rendering based on authentication state and user interactions.
+ */
+describe('AppHeader component', () => {
   const mockUser = {
     uid: 'test-user-id',
     displayName: 'Test User',
@@ -41,71 +56,103 @@ describe('AppHeader', () => {
       push: mockRouterPush,
       replace: mockRouterReplace,
     });
-    usePathname.mockReturnValue('/');
+    usePathname.mockReturnValue('/'); // Default pathname
     mockOnStartNewAnalysis.mockClear();
     mockOnNavigateToDashboard.mockClear();
   });
 
-  describe('When user is logged in', () => {
+  /**
+   * @describe Scenario: Given a user is logged in.
+   */
+  describe('given a user is logged in', () => {
     beforeEach(() => {
       useAuth.mockReturnValue({ user: mockUser, loading: false });
     });
 
-    it('renders the logo', () => {
+    /**
+     * @it It should display the application logo.
+     */
+    it('should display the application logo', () => {
       render(<AppHeader />);
       expect(screen.getByAltText('EMA - Electric Magnitudes Analizer Logo')).toBeInTheDocument();
     });
 
-    it('renders the "Nova Análise" button', () => {
+    /**
+     * @it It should display the "New Analysis" button.
+     */
+    it('should display the "New Analysis" button', () => {
       render(<AppHeader onStartNewAnalysis={mockOnStartNewAnalysis} />);
       expect(screen.getByRole('button', { name: /Nova Análise/i })).toBeInTheDocument();
     });
 
-    it('calls onStartNewAnalysis when "Nova Análise" button is clicked (if prop provided)', async () => {
+    /**
+     * @it It should call the onStartNewAnalysis callback when the "New Analysis" button is clicked and the callback is provided.
+     */
+    it('should call the onStartNewAnalysis callback when the "New Analysis" button is clicked and the callback is provided', async () => {
       render(<AppHeader onStartNewAnalysis={mockOnStartNewAnalysis} />);
       await userEvent.click(screen.getByRole('button', { name: /Nova Análise/i }));
       expect(mockOnStartNewAnalysis).toHaveBeenCalledTimes(1);
     });
 
-    it('renders "Nova Análise" button as a Link if onStartNewAnalysis is not provided', () => {
+    /**
+     * @it It should render the "New Analysis" button as a link to "/" if the onStartNewAnalysis callback is not provided.
+     */
+    it('should render the "New Analysis" button as a link to "/" if the onStartNewAnalysis callback is not provided', () => {
       render(<AppHeader />);
       const newAnalysisButton = screen.getByRole('link', { name: /Nova Análise/i });
       expect(newAnalysisButton).toBeInTheDocument();
       expect(newAnalysisButton).toHaveAttribute('href', '/');
     });
 
-    it('renders the AuthButton (showing user avatar/name)', () => {
+    /**
+     * @it It should display the AuthButton with user information (avatar/name).
+     */
+    it('should display the AuthButton with user information (avatar/name)', () => {
       render(<AppHeader />);
-      expect(screen.getByText(mockUser.displayName.split(' ')[0])).toBeInTheDocument();
+      expect(screen.getByText(mockUser.displayName.split(' ')[0])).toBeInTheDocument(); // Assuming AuthButton shows first name
+    });
+
+    /**
+     * @it It should call the onNavigateToDashboard callback when the logo is clicked and the callback is provided.
+     */
+    it('should call the onNavigateToDashboard callback when the logo is clicked and the callback is provided', async () => {
+      render(<AppHeader onNavigateToDashboard={mockOnNavigateToDashboard} />);
+      await userEvent.click(screen.getByAltText('EMA - Electric Magnitudes Analizer Logo'));
+      expect(mockOnNavigateToDashboard).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe('When user is not logged in', () => {
+  /**
+   * @describe Scenario: Given a user is not logged in.
+   */
+  describe('given a user is not logged in', () => {
     beforeEach(() => {
       useAuth.mockReturnValue({ user: null, loading: false });
     });
 
-    it('renders the logo', () => {
+    /**
+     * @it It should display the application logo.
+     */
+    it('should display the application logo', () => {
       render(<AppHeader />);
       expect(screen.getByAltText('EMA - Electric Magnitudes Analizer Logo')).toBeInTheDocument();
     });
 
-    it('does NOT render the "Nova Análise" button', () => {
+    /**
+     * @it It should not display the "New Analysis" button.
+     */
+    it('should not display the "New Analysis" button', () => {
       render(<AppHeader onStartNewAnalysis={mockOnStartNewAnalysis} />);
       expect(screen.queryByRole('button', { name: /Nova Análise/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('link', { name: /Nova Análise/i })).not.toBeInTheDocument();
     });
 
-    it('renders the AuthButton (showing login)', () => {
+    /**
+     * @it It should display the AuthButton prompting for login.
+     */
+    it('should display the AuthButton prompting for login', () => {
       render(<AppHeader />);
-      expect(screen.getByRole('button', { name: /Login com Google/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Login com Google/i })).toBeInTheDocument(); // Assuming AuthButton shows this when logged out
     });
-  });
-
-  it('calls onNavigateToDashboard when logo is clicked (if prop provided)', async () => {
-    useAuth.mockReturnValue({ user: mockUser, loading: false });
-    render(<AppHeader onNavigateToDashboard={mockOnNavigateToDashboard} />);
-    await userEvent.click(screen.getByAltText('EMA - Electric Magnitudes Analizer Logo'));
-    expect(mockOnNavigateToDashboard).toHaveBeenCalledTimes(1);
   });
 });
