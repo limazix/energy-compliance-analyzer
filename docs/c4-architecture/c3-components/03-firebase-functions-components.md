@@ -60,25 +60,26 @@ C4Component
 
 ## Detalhes dos Componentes das Firebase Functions
 
-A seguir, uma lista dos principais componentes identificados no diagrama. Cada um terá sua própria página de detalhamento (a ser criada).
+A seguir, uma lista dos principais componentes identificados no diagrama. Cada um terá sua própria página de detalhamento.
 
 *   **Gatilho do Firestore (`trigger`)**:
-    *   [Detalhes](./firebase-functions/trigger.md) *(link a ser criado)*
+    *   [Detalhes](./firebase-functions/trigger.md)
 *   **Agente: Analista de Dados (Sumarizador) (`dataSummarizerAgent`)**:
-    *   [Detalhes](./firebase-functions/data-summarizer-agent.md) *(link a ser criado)*
+    *   [Detalhes](./firebase-functions/data-summarizer-agent.md)
 *   **Agente: Identificador de Resoluções (`regulationIdentifierAgent`)**:
-    *   [Detalhes](./firebase-functions/regulation-identifier-agent.md) *(link a ser criado)*
+    *   [Detalhes](./firebase-functions/regulation-identifier-agent.md)
 *   **Agente: Engenheiro de Conformidade (Relator Inicial) (`complianceAnalyzerAgent`)**:
-    *   [Detalhes](./firebase-functions/compliance-analyzer-agent.md) *(link a ser criado)*
+    *   [Detalhes](./firebase-functions/compliance-analyzer-agent.md)
 *   **Agente: Revisor de Relatório (`reportReviewerAgent`)**:
-    *   [Detalhes](./firebase-functions/report-reviewer-agent.md) *(link a ser criado)*
+    *   [Detalhes](./firebase-functions/report-reviewer-agent.md)
 *   **Utilitário de Conversão para MDX (`mdxConverterUtil`)**:
-    *   [Detalhes](./firebase-functions/mdx-converter-util.md) *(link a ser criado)*
+    *   [Detalhes](./firebase-functions/mdx-converter-util.md)
 *   **Atualizador de Status/Progresso (`statusUpdaterUtil`)**:
-    *   [Detalhes](./firebase-functions/status-updater-util.md) *(link a ser criado)*
+    *   [Detalhes](./firebase-functions/status-updater-util.md)
 *   **Utilitário de Acesso ao Storage (`gcsUtil`)**:
-    *   [Detalhes](./firebase-functions/gcs-util.md) *(link a ser criado)*
+    *   [Detalhes](./firebase-functions/gcs-util.md)
 *   **Orquestrador da Pipeline (`processAnalysisFn`)**:
-    *   [Detalhes](./firebase-functions/process-analysis-fn.md) *(link a ser criado)*
+    *   [Detalhes](./firebase-functions/process-analysis-fn.md)
 
 [Anterior: Componentes das Server Actions](./02-server-actions-components.md)
+[Próximo: Diagrama de Código/Fluxo (C4)](../../c4-code/index.md)
