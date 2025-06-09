@@ -338,7 +338,7 @@ describe('HomePage - Navigation and Views', () => {
 
     expect(screen.getByRole('button', { name: /Nova Análise/i })).toBeInTheDocument(); 
     expect(screen.getByText(`Suas Análises Anteriores`)).toBeInTheDocument();
-    expect(screen.getByText(/Nenhuma análise anterior encontrada./i)).toBeInTheDocument();
+    expect(await screen.findByText(/Nenhuma análise anterior encontrada./i)).toBeInTheDocument();
   });
 
   test('navigates to NewAnalysisForm when "Nova Análise" is clicked and back to Dashboard on cancel', async () => {
@@ -355,7 +355,9 @@ describe('HomePage - Navigation and Views', () => {
     const mockPastAnalysesFromSeed = [mockAnalysisItemCompleted, mockAnalysisItemInProgress];
     
     mockFetchPastAnalysesInTest.mockImplementation(async () => {
-      global.mockUseAnalysisManagerReturnValue.pastAnalyses = mockPastAnalysesFromSeed;
+      act(() => {
+        global.mockUseAnalysisManagerReturnValue.pastAnalyses = mockPastAnalysesFromSeed;
+      });
       return Promise.resolve(undefined);
     });
 
@@ -363,12 +365,11 @@ describe('HomePage - Navigation and Views', () => {
 
     await waitFor(() => expect(mockFetchPastAnalysesInTest).toHaveBeenCalled());
     
-    await waitFor(() => {
-      expect(screen.getByText(mockAnalysisItemCompleted.title!)).toBeInTheDocument();
-      expect(screen.getByText(mockAnalysisItemInProgress.title!)).toBeInTheDocument();
-    });
+    // Use findByText to wait for the elements to appear after async state update
+    expect(await screen.findByText(mockAnalysisItemCompleted.title!)).toBeInTheDocument();
+    expect(await screen.findByText(mockAnalysisItemInProgress.title!)).toBeInTheDocument();
 
-    const completedAnalysisAccordionTrigger = screen.getByText(mockAnalysisItemCompleted.title!);
+    const completedAnalysisAccordionTrigger = await screen.findByText(mockAnalysisItemCompleted.title!);
     await userEvent.click(completedAnalysisAccordionTrigger);
 
     await waitFor(() => {
@@ -390,7 +391,7 @@ describe('HomePage - Navigation and Views', () => {
 
     render(<HomePage />);
     
-    const completedAnalysisAccordionTrigger = screen.getByText(mockAnalysisItemCompleted.title!);
+    const completedAnalysisAccordionTrigger = await screen.findByText(mockAnalysisItemCompleted.title!);
     await userEvent.click(completedAnalysisAccordionTrigger);
 
     await waitFor(() => {
@@ -486,7 +487,7 @@ describe('HomePage - Navigation and Views', () => {
 
     render(<HomePage />);
 
-    const accordionTrigger = screen.getByText(mockAnalysisItemCompleted.title!);
+    const accordionTrigger = await screen.findByText(mockAnalysisItemCompleted.title!);
     await userEvent.click(accordionTrigger);
 
     await waitFor(() => {
@@ -515,3 +516,5 @@ describe('HomePage - Navigation and Views', () => {
     });
   });
 });
+
+    
