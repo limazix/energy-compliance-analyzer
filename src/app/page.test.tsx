@@ -102,8 +102,6 @@ const mockAnalysisItemInProgress: Analysis = {
   completedAt: undefined,
 };
 
-// Removed local calculateDisplayedAnalysisSteps function, will use imported one.
-
 describe('HomePage - Navigation and Views', () => {
   let mockFetchPastAnalysesInTest: jest.Mock;
   let mockStartAiProcessingInTest: jest.Mock;
@@ -172,7 +170,9 @@ describe('HomePage - Navigation and Views', () => {
 
   test('redirects to /login if user is not authenticated', async () => {
     useAuth.mockReturnValue({ user: null, loading: false });
-    render(<HomePage />);
+    await act(async () => {
+      render(<HomePage />);
+    });
     await waitFor(() => {
       expect(mockRouterReplace).toHaveBeenCalledWith('/login');
     });
@@ -186,7 +186,9 @@ describe('HomePage - Navigation and Views', () => {
       return Promise.resolve(undefined);
     });
     
-    render(<HomePage />);
+    await act(async () => {
+      render(<HomePage />);
+    });
     
     await waitFor(() => expect(mockFetchPastAnalysesInTest).toHaveBeenCalled());
 
@@ -196,7 +198,9 @@ describe('HomePage - Navigation and Views', () => {
   });
 
   test('navigates to NewAnalysisForm when "Nova Análise" is clicked and back to Dashboard on cancel', async () => {
-    render(<HomePage />);
+    await act(async () => {
+      render(<HomePage />);
+    });
     await userEvent.click(screen.getByRole('button', { name: /Nova Análise/i }));
     expect(screen.getByText('Nova Análise de Conformidade')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Enviar e Iniciar Análise/i})).toBeInTheDocument();
@@ -215,7 +219,9 @@ describe('HomePage - Navigation and Views', () => {
       return Promise.resolve(undefined);
     });
 
-    render(<HomePage />);
+    await act(async () => {
+      render(<HomePage />);
+    });
 
     await waitFor(() => expect(mockFetchPastAnalysesInTest).toHaveBeenCalled());
     
@@ -243,7 +249,9 @@ describe('HomePage - Navigation and Views', () => {
     global.mockUseAnalysisManagerReturnValue.currentAnalysis = mockAnalysisItemCompleted;
     global.mockUseAnalysisManagerReturnValue.pastAnalyses = [mockAnalysisItemCompleted];
 
-    render(<HomePage />);
+    await act(async () => {
+      render(<HomePage />);
+    });
     
     const completedAnalysisAccordionTrigger = await screen.findByText(mockAnalysisItemCompleted.title!);
     await userEvent.click(completedAnalysisAccordionTrigger);
@@ -284,7 +292,9 @@ describe('HomePage - Navigation and Views', () => {
         uploadFileAndCreateRecord: mockUploadFileAndCreateRecordInTest,
     }));
 
-    render(<HomePage />);
+    await act(async () => {
+      render(<HomePage />);
+    });
 
     await userEvent.click(screen.getByRole('button', { name: /Nova Análise/i }));
     await screen.findByText('Nova Análise de Conformidade');
@@ -341,7 +351,9 @@ describe('HomePage - Navigation and Views', () => {
       return Promise.resolve(undefined);
     });
 
-    render(<HomePage />);
+    await act(async () => {
+      render(<HomePage />);
+    });
 
     const accordionTrigger = await screen.findByText(mockAnalysisItemCompleted.title!);
     await userEvent.click(accordionTrigger);
