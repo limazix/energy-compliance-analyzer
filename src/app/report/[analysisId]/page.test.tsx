@@ -7,16 +7,15 @@
 
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {
-  getDatabase as _originalGetDatabase,
-  ref as _originalRef,
-  onValue as _originalOnValue,
-  push as _originalPush,
-  update as _originalUpdate,
-  serverTimestamp as _originalServerTimestamp,
-  off as _originalOff,
-  child as _originalChild,
-} from 'firebase/database'; // Correct imports
+import {} from // getDatabase as originalGetDatabase, // Prefixed as unused
+// ref as originalRef, // Prefixed as unused
+// onValue as originalOnValue, // Prefixed as unused
+// push as originalPush, // Prefixed as unused
+// update as originalUpdate, // Prefixed as unused
+// serverTimestamp as originalServerTimestamp, // Prefixed as unused
+// off as originalOff, // Prefixed as unused
+// child as originalChild, // Prefixed as unused
+'firebase/database'; // Correct imports
 import { useParams as originalUseParams } from 'next/navigation';
 
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
@@ -60,6 +59,7 @@ interface MockRTDBMessage {
 }
 
 // Typing for Firebase database mock functions
+// Firebase database mock functions - DECLARE them here
 let mockFbGetDatabase: jest.Mock<unknown, []>;
 let mockFbRef: jest.Mock<DatabaseReference, [unknown, string?]>;
 let mockFbOnValue: jest.Mock<
@@ -85,8 +85,9 @@ jest.mock('firebase/database', () => {
   const actualFirebaseDatabase =
     jest.requireActual<typeof import('firebase/database')>('firebase/database');
 
-  mockFbGetDatabase = jest.fn(() => ({})); // Returns a dummy DB object
-  mockFbRef = jest.fn(
+  // Initialize the mock functions within the factory's scope before assigning
+  const _mockFbGetDatabase = jest.fn(() => ({}));
+  const _mockFbRef = jest.fn(
     (_db, path) =>
       ({
         path,
@@ -94,12 +95,12 @@ jest.mock('firebase/database', () => {
         toString: () => path || '',
       }) as unknown as DatabaseReference
   );
-  mockFbOnValue = jest.fn();
-  mockFbPush = jest.fn();
-  mockFbUpdate = jest.fn();
-  mockFbServerTimestamp = jest.fn(() => actualFirebaseDatabase.serverTimestamp()); // Use actual serverTimestamp object
-  mockFbOff = jest.fn();
-  mockFbChild = jest.fn(
+  const _mockFbOnValue = jest.fn();
+  const _mockFbPush = jest.fn();
+  const _mockFbUpdate = jest.fn();
+  const _mockFbServerTimestamp = jest.fn(() => actualFirebaseDatabase.serverTimestamp());
+  const _mockFbOff = jest.fn();
+  const _mockFbChild = jest.fn(
     (parentRef, childPath) =>
       ({
         ...parentRef,
@@ -109,16 +110,26 @@ jest.mock('firebase/database', () => {
       }) as unknown as DatabaseReference
   );
 
+  // Assign to the outer-scoped variables so beforeEach/afterEach can access them
+  mockFbGetDatabase = _mockFbGetDatabase;
+  mockFbRef = _mockFbRef;
+  mockFbOnValue = _mockFbOnValue;
+  mockFbPush = _mockFbPush;
+  mockFbUpdate = _mockFbUpdate;
+  mockFbServerTimestamp = _mockFbServerTimestamp;
+  mockFbOff = _mockFbOff;
+  mockFbChild = _mockFbChild;
+
   return {
     ...actualFirebaseDatabase,
-    getDatabase: mockFbGetDatabase,
-    ref: mockFbRef,
-    onValue: mockFbOnValue,
-    push: mockFbPush,
-    update: mockFbUpdate,
-    serverTimestamp: mockFbServerTimestamp,
-    off: mockFbOff,
-    child: mockFbChild,
+    getDatabase: _mockFbGetDatabase,
+    ref: _mockFbRef,
+    onValue: _mockFbOnValue,
+    push: _mockFbPush,
+    update: _mockFbUpdate,
+    serverTimestamp: _mockFbServerTimestamp,
+    off: _mockFbOff,
+    child: _mockFbChild,
   };
 });
 
