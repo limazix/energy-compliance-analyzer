@@ -36,7 +36,7 @@ O Energy Compliance Analyzer simplifica a verificação de conformidade para o s
 
 ```mermaid
 graph TD
-    subgraph "User Interaction" ["User Interaction Layer"]
+    subgraph "UserInteraction" ["User Interaction Layer"]
         UI["Frontend: Next.js/React<br>(ShadCN UI, TailwindCSS)<br>Hosted on Firebase App Hosting"]
     end
 
@@ -58,48 +58,47 @@ graph TD
     end
 
     %% User Authentication and Session Flow
-    UI -- "User logs in via Google" --> Auth
-
+    UI -- "User logs in via Google" --> Auth;
     %% CSV Upload and Initial Record Creation Flow
-    UI -- "User uploads CSV with Title & Description" --> ServerActions
-    ServerActions -- "Creates initial analysis record in Firestore (status: 'uploading')" --> Firestore
-    ServerActions -- "Uploads CSV file to a designated path in Firebase Storage" --> Storage
-    ServerActions -- "Updates analysis record in Firestore with CSV URL (status: 'summarizing_data')" --> Firestore
+    UI -- "User uploads CSV with Title & Description" --> ServerActions;
+    ServerActions -- "Creates initial analysis record in Firestore (status: 'uploading')" --> Firestore;
+    ServerActions -- "Uploads CSV file to a designated path in Firebase Storage" --> Storage;
+    ServerActions -- "Updates analysis record in Firestore with CSV URL (status: 'summarizing_data')" --> Firestore;
 
     %% Background Data Processing Flow (Triggered by Firestore 'onUpdate' when status changes to 'summarizing_data')
-    Firestore -- "Firestore trigger (onUpdate: status='summarizing_data')" --> Functions
-    Functions -- "Reads CSV content from Firebase Storage" --> Storage
-    Functions -- "Executes the AI Agent Pipeline for analysis" --> AIEngineFunctions
-    AIEngineFunctions -- "Generates structured report (JSON format)" --> Functions
-    Functions -- "Saves the structured JSON report to Firestore" --> Firestore
-    Functions -- "Converts the structured report to MDX format and saves to Firebase Storage" --> Storage
-    Functions -- "Updates analysis record status to 'completed' and sets progress to 100%" --> Firestore
+    Firestore -- "Firestore trigger (onUpdate: status='summarizing_data')" --> Functions;
+    Functions -- "Reads CSV content from Firebase Storage" --> Storage;
+    Functions -- "Executes the AI Agent Pipeline for analysis" --> AIEngineFunctions;
+    AIEngineFunctions -- "Generates structured report (JSON format)" --> Functions;
+    Functions -- "Saves the structured JSON report to Firestore" --> Firestore;
+    Functions -- "Converts the structured report to MDX format and saves to Firebase Storage" --> Storage;
+    Functions -- "Updates analysis record status to 'completed' and sets progress to 100%" --> Firestore;
 
     %% Report Viewing and Interactive Chat Flow
-    UI -- "User requests to view a specific report (MDX)" --> ServerActions
-    ServerActions -- "Retrieves MDX report path from Firestore" --> Firestore
-    ServerActions -- "Reads MDX content from Firebase Storage" --> Storage
-    Storage -- "Returns MDX content" --> ServerActions
-    ServerActions -- "Sends MDX content to the UI for rendering" --> UI
-    UI -- "User sends a chat message (providing report context)" --> ServerActions
-    ServerActions -- "Interacts with AI Orchestrator Agent (using structured report and MDX)" --> AIEngineServerActions
-    AIEngineServerActions -- "AI responds or suggests modifications to the structured report" --> ServerActions
-    ServerActions -- "Saves user and AI chat messages to Firebase Realtime Database" --> RTDB
-    ServerActions -- "If report is modified: Updates structured JSON report in Firestore" --> Firestore
-    ServerActions -- "If report is modified: Generates and saves new MDX report to Firebase Storage" --> Storage
-    RTDB -- "Syncs chat messages in real-time with the UI" --> UI
-    Firestore -- "(Optional) Notifies UI of report changes via Firestore listener"-.-> UI
+    UI -- "User requests to view a specific report (MDX)" --> ServerActions;
+    ServerActions -- "Retrieves MDX report path from Firestore" --> Firestore;
+    ServerActions -- "Reads MDX content from Firebase Storage" --> Storage;
+    Storage -- "Returns MDX content" --> ServerActions;
+    ServerActions -- "Sends MDX content to the UI for rendering" --> UI;
+    UI -- "User sends a chat message (providing report context)" --> ServerActions;
+    ServerActions -- "Interacts with AI Orchestrator Agent (using structured report and MDX)" --> AIEngineServerActions;
+    AIEngineServerActions -- "AI responds or suggests modifications to the structured report" --> ServerActions;
+    ServerActions -- "Saves user and AI chat messages to Firebase Realtime Database" --> RTDB;
+    ServerActions -- "If report is modified: Updates structured JSON report in Firestore" --> Firestore;
+    ServerActions -- "If report is modified: Generates and saves new MDX report to Firebase Storage" --> Storage;
+    RTDB -- "Syncs chat messages in real-time with the UI" --> UI;
+    Firestore -- "(Optional) Notifies UI of report changes via Firestore listener"-.-> UI;
 
     %% Styling definitions for diagram elements
-    classDef userInteraction fill:#E6E6FA,stroke:#333,stroke-width:2px
-    classDef backendNextJs fill:#ADD8E6,stroke:#333,stroke-width:2px
-    classDef firebasePlatform fill:#FFFACD,stroke:#333,stroke-width:2px
-    classDef genAI fill:#98FB98,stroke:#333,stroke-width:2px
+    classDef userInteraction fill:#E6E6FA,stroke:#333,stroke-width:2px;
+    classDef backendNextJs fill:#ADD8E6,stroke:#333,stroke-width:2px;
+    classDef firebasePlatform fill:#FFFACD,stroke:#333,stroke-width:2px;
+    classDef genAI fill:#98FB98,stroke:#333,stroke-width:2px;
 
-    class UI,UserInteraction userInteraction
-    class ServerActions,BackendLogic backendNextJs
-    class Auth,Firestore,Storage,RTDB,Functions,FirebaseServices firebasePlatform
-    class AIEngineFunctions,AIEngineServerActions,GenAIServices genAI
+    class UI userInteraction;
+    class ServerActions backendNextJs;
+    class Auth,Firestore,Storage,RTDB,Functions firebasePlatform;
+    class AIEngineFunctions,AIEngineServerActions genAI;
     %% End of diagram
 ```
 
@@ -244,10 +243,3 @@ Consulte o [**Guia de Deployment**](docs/DEPLOYMENT.md) para detalhes sobre depl
 ## Licença
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
-
-    
-
-    
-
-    
