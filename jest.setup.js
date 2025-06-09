@@ -24,41 +24,44 @@ process.env.NEXT_PUBLIC_GEMINI_API_KEY = "test-gemini-api-key";
 // --- End Mock Firebase Env Vars ---
 
 // --- Firebase Auth Mock ---
+// These variables are accessible within this module's scope (jest.setup.js)
+// and are used by the mock factory for 'firebase/auth'.
 let mockFirebaseAuthUserForListener = null;
 let authStateListenerCallback = null;
 
 jest.mock('firebase/auth', () => {
   const actualFirebaseAuth = jest.requireActual('firebase/auth');
-  const onAuthStateChangedImplementation = (auth, listener) => {
-    authStateListenerCallback = listener;
-    // Simulate async nature of onAuthStateChanged and initial call
-    setImmediate(() => {
-      if (authStateListenerCallback) {
+
+  // This is the helper function that tests can import and use
+  const __testHelper_setMockUser = (user) => {
+    mockFirebaseAuthUserForListener = user;
+    if (authStateListenerCallback) {
+      setImmediate(() => { // Simulate async call
         authStateListenerCallback(mockFirebaseAuthUserForListener);
-      }
-    });
-    return jest.fn(); // Return unsubscribe function
+      });
+    }
   };
 
   return {
     ...actualFirebaseAuth,
     getAuth: jest.fn(() => ({
-      // Mock any auth instance properties if needed by onAuthStateChanged or other functions
+      // Mock any auth instance properties if needed
     })),
-    onAuthStateChanged: jest.fn(onAuthStateChangedImplementation),
+    onAuthStateChanged: jest.fn((auth, listener) => {
+      authStateListenerCallback = listener;
+      // Simulate initial async call to listener
+      setImmediate(() => {
+        if (authStateListenerCallback) {
+          authStateListenerCallback(mockFirebaseAuthUserForListener);
+        }
+      });
+      return jest.fn(); // Return unsubscribe function
+    }),
     signInWithPopup: jest.fn(),
     signOut: jest.fn(),
     GoogleAuthProvider: actualFirebaseAuth.GoogleAuthProvider,
-    // Helper to control the mock user for onAuthStateChanged from tests
-    __setMockUserForAuthStateChangedListener: (user) => {
-      mockFirebaseAuthUserForListener = user;
-      // If a listener is already registered, call it with the new user
-      if (authStateListenerCallback) {
-        setImmediate(() => {
-          authStateListenerCallback(mockFirebaseAuthUserForListener);
-        });
-      }
-    }
+    // Export the helper so tests can use it
+    __setMockUserForAuthStateChangedListener: __testHelper_setMockUser,
   };
 });
 // --- End Firebase Auth Mock ---
@@ -393,14 +396,22 @@ beforeEach(() => {
   jest.requireMock('@/features/tag-management/actions/tagActions').addTagToAction.mockClear().mockResolvedValue(undefined);
   jest.requireMock('@/features/tag-management/actions/tagActions').removeTagAction.mockClear().mockResolvedValue(undefined);
 
-  // Reset Firebase Auth mock state for onAuthStateChanged
+  // Reset Firebase Auth mock state directly for onAuthStateChanged
   // This ensures each test starts with a clean slate for what onAuthStateChanged reports
-  const authMock = require('firebase/auth');
-  authMock.__setMockUserForAuthStateChangedListener(null); // Default to no user for onAuthStateChanged
+  mockFirebaseAuthUserForListener = null; // Directly reset the state variable
+  // If a listener was registered by AuthProvider from a previous test,
+  // simulate it being called with the new null user.
+  if (authStateListenerCallback) {
+    setImmediate(() => {
+      authStateListenerCallback(null);
+    });
+  }
 });
 
 afterEach(() => {
   jest.clearAllMocks();
+  // Clean up authStateListenerCallback to prevent leaks between test files if AuthProvider isn't unmounted
+  authStateListenerCallback = null;
 });
 
 // Helper to provide mock context for useAuth
