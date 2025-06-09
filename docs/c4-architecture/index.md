@@ -1,11 +1,10 @@
-
 # C4 Model: Nível 1 - Contexto do Sistema - Energy Compliance Analyzer
 
 Este diagrama mostra o sistema Energy Compliance Analyzer em seu ambiente, interagindo com usuários e outros sistemas externos.
 
 ```mermaid
 C4Context
-  title Contexto do Sistema para o Energy Compliance Analyzer
+  title "Contexto do Sistema para o Energy Compliance Analyzer"
 
   Actor(user, "Usuário", "Engenheiros, analistas ou consultores do setor elétrico que precisam verificar a conformidade de dados de qualidade de energia.")
 
