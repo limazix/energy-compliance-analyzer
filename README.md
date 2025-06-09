@@ -36,68 +36,70 @@ O Energy Compliance Analyzer simplifica a verificação de conformidade para o s
 
 ```mermaid
 graph TD
-    subgraph "UserInteraction" ["User Interaction"]
-        UI["Frontend Next.js/React<br>(ShadCN, TailwindCSS)<br>Hosted on Firebase App Hosting"]
+    subgraph "User Interaction" ["User Interaction Layer"]
+        UI["Frontend: Next.js/React<br>(ShadCN UI, TailwindCSS)<br>Hosted on Firebase App Hosting"]
     end
 
-    subgraph "BackendNextJs" ["Backend (Next.js)"]
-        ServerActions["Next.js Server Actions<br>(Upload Trigger, Chat Orchestrator)"]
+    subgraph "BackendLogic" ["Backend Logic (Next.js)"]
+        ServerActions["Next.js Server Actions<br>(Handles CSV Upload Trigger, Report Chat Orchestration)"]
     end
 
-    subgraph "FirebasePlatform" ["Firebase Platform"]
-        Auth["Firebase Authentication<br>(Google Sign-In)"]
-        Firestore["Firebase Firestore<br>(Analyses Metadata, Tags, Status, Structured Report)"]
-        Storage["Firebase Storage<br>(Upload CSVs, MDX Reports)"]
-        RTDB["Firebase Realtime Database<br>(Chat History)"]
-        Functions["Firebase Functions<br>(Heavy Processing, Main AI Pipeline)"]
+    subgraph "FirebaseServices" ["Firebase Platform Services"]
+        Auth["Firebase Authentication<br>(Google Sign-In for User Identity)"]
+        Firestore["Firebase Firestore<br>(Stores Analysis Metadata, Tags, Status, Structured JSON Report)"]
+        Storage["Firebase Storage<br>(Stores Uploaded CSVs, Generated MDX Reports)"]
+        RTDB["Firebase Realtime Database<br>(Manages Chat History for Report Interaction)"]
+        Functions["Firebase Functions<br>(For Heavy Data Processing & Main AI Analysis Pipeline)"]
     end
 
-    subgraph "GenAI" ["Artificial Intelligence (Genkit & Gemini)"]
-        AIEngineFunctions["AI Engine - Functions<br>(Pipeline: Data Analyst, Electrical Engineer, Reporter, Reviewer)"]
-        AIEngineServerActions["AI Engine - Server Actions<br>(Interactive Chat Orchestrator Agent)"]
+    subgraph "GenAIServices" ["Artificial Intelligence (Genkit & Gemini)"]
+        AIEngineFunctions["AI Engine in Firebase Functions<br>(Specialized Agent Pipeline: Data Analyst, Electrical Engineer, Report Writer, Reviewer)"]
+        AIEngineServerActions["AI Engine in Next.js Server Actions<br>(Interactive Chat Orchestrator Agent for Report Refinement)"]
     end
 
-    %% User Flows
-    UI -- "Login via Google" --> Auth
-    UI -- "Upload CSV<br>(Title, Description)" --> ServerActions
-    ServerActions -- "Creates Initial Analysis Record<br>(Status: 'uploading')" --> Firestore
-    ServerActions -- "Uploads CSV to Analysis Path" --> Storage
-    ServerActions -- "Finalizes Analysis Record<br>(CSV URL, Status: 'summarizing_data')" --> Firestore
+    %% User Authentication and Session Flow
+    UI -- "User logs in via Google" --> Auth
 
-    %% Background Processing Flow (Triggered by Firestore update)
-    Firestore -- "Trigger (onUpdate: status='summarizing_data')" --> Functions
-    Functions -- "Reads CSV from Storage" --> Storage
-    Functions -- "Executes AI Agent Pipeline" --> AIEngineFunctions
-    AIEngineFunctions -- "Generates Structured Report (JSON)" --> Functions
-    Functions -- "Saves Structured Report (JSON)" --> Firestore
-    Functions -- "Converts Structured to MDX and Saves" --> Storage
-    Functions -- "Updates Status/Progress to 'completed'" --> Firestore
+    %% CSV Upload and Initial Record Creation Flow
+    UI -- "User uploads CSV with Title & Description" --> ServerActions
+    ServerActions -- "Creates initial analysis record in Firestore (status: 'uploading')" --> Firestore
+    ServerActions -- "Uploads CSV file to a designated path in Firebase Storage" --> Storage
+    ServerActions -- "Updates analysis record in Firestore with CSV URL (status: 'summarizing_data')" --> Firestore
 
-    %% Report Viewing & Chat Flow
-    UI -- "View Report (requests MDX)" --> ServerActions
-    ServerActions -- "Reads MDX Path" --> Firestore
-    ServerActions -- "Reads MDX Content" --> Storage
-    Storage -- "Returns MDX Content" --> ServerActions
-    ServerActions -- "Sends MDX to UI" --> UI
-    UI -- "Sends Chat Message<br>(with report context)" --> ServerActions
-    ServerActions -- "Interacts with AI Orchestrator Agent<br>(using structured report and MDX)" --> AIEngineServerActions
-    AIEngineServerActions -- "AI Response / Suggested Modification to Structured Report (if any)" --> ServerActions
-    ServerActions -- "Saves Chat Message (user and AI)" --> RTDB
-    ServerActions -- "If Report Modified:<br>Updates Structured Report (JSON)" --> Firestore
-    ServerActions -- "If Report Modified:<br>Generates and Saves new MDX" --> Storage
-    RTDB -- "Syncs Chat in Real-Time with UI" --> UI
-    Firestore -- "(Optional) Notifies UI of report changes via listener"-.-> UI
+    %% Background Data Processing Flow (Triggered by Firestore 'onUpdate' when status changes to 'summarizing_data')
+    Firestore -- "Firestore trigger (onUpdate: status='summarizing_data')" --> Functions
+    Functions -- "Reads CSV content from Firebase Storage" --> Storage
+    Functions -- "Executes the AI Agent Pipeline for analysis" --> AIEngineFunctions
+    AIEngineFunctions -- "Generates structured report (JSON format)" --> Functions
+    Functions -- "Saves the structured JSON report to Firestore" --> Firestore
+    Functions -- "Converts the structured report to MDX format and saves to Firebase Storage" --> Storage
+    Functions -- "Updates analysis record status to 'completed' and sets progress to 100%" --> Firestore
 
-    %% Styling (optional, for clarity in renderers that support it)
-    classDef userInteraction fill:#E6E6FA,stroke:#333,stroke-width:2px;
-    classDef backendNextJs fill:#ADD8E6,stroke:#333,stroke-width:2px;
-    classDef firebasePlatform fill:#FFFACD,stroke:#333,stroke-width:2px;
-    classDef genAI fill:#98FB98,stroke:#333,stroke-width:2px;
+    %% Report Viewing and Interactive Chat Flow
+    UI -- "User requests to view a specific report (MDX)" --> ServerActions
+    ServerActions -- "Retrieves MDX report path from Firestore" --> Firestore
+    ServerActions -- "Reads MDX content from Firebase Storage" --> Storage
+    Storage -- "Returns MDX content" --> ServerActions
+    ServerActions -- "Sends MDX content to the UI for rendering" --> UI
+    UI -- "User sends a chat message (providing report context)" --> ServerActions
+    ServerActions -- "Interacts with AI Orchestrator Agent (using structured report and MDX)" --> AIEngineServerActions
+    AIEngineServerActions -- "AI responds or suggests modifications to the structured report" --> ServerActions
+    ServerActions -- "Saves user and AI chat messages to Firebase Realtime Database" --> RTDB
+    ServerActions -- "If report is modified: Updates structured JSON report in Firestore" --> Firestore
+    ServerActions -- "If report is modified: Generates and saves new MDX report to Firebase Storage" --> Storage
+    RTDB -- "Syncs chat messages in real-time with the UI" --> UI
+    Firestore -- "(Optional) Notifies UI of report changes via Firestore listener"-.-> UI
 
-    class UI,UserInteraction userInteraction;
-    class ServerActions,BackendNextJs backendNextJs;
-    class Auth,Firestore,Storage,RTDB,Functions,FirebasePlatform firebasePlatform;
-    class AIEngineFunctions,AIEngineServerActions,GenAI genAI;
+    %% Styling definitions for diagram elements
+    classDef userInteraction fill:#E6E6FA,stroke:#333,stroke-width:2px
+    classDef backendNextJs fill:#ADD8E6,stroke:#333,stroke-width:2px
+    classDef firebasePlatform fill:#FFFACD,stroke:#333,stroke-width:2px
+    classDef genAI fill:#98FB98,stroke:#333,stroke-width:2px
+
+    class UI,UserInteraction userInteraction
+    class ServerActions,BackendLogic backendNextJs
+    class Auth,Firestore,Storage,RTDB,Functions,FirebaseServices firebasePlatform
+    class AIEngineFunctions,AIEngineServerActions,GenAIServices genAI
     %% End of diagram
 ```
 
