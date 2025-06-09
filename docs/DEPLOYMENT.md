@@ -1,4 +1,3 @@
-
 # Guia de Deployment do Energy Compliance Analyzer
 
 Este documento detalha os processos de deploy manual e automático (via GitHub Actions) para o projeto Energy Compliance Analyzer, que utiliza Firebase App Hosting para a aplicação Next.js e Firebase Functions para o processamento em backend.
@@ -10,7 +9,7 @@ O projeto é implantado no projeto Firebase `electric-magnitudes-analizer` e con
 1.  **Aplicação Next.js:** Implantada no Firebase App Hosting.
 2.  **Funções de Backend (AI, Processamento):** Implantadas como Firebase Functions.
 3.  **Regras de Segurança:** Regras do Firestore, Storage e Realtime Database.
-4.  **Índices do Firestore:** (Se houver, gerenciados por `firestore.indexes.json`).
+4.  **Índices do Firestore:** (Se houver, gerenciados por `rules/firestore.indexes.json`).
 
 O workflow de GitHub Actions (`.github/workflows/firebase-deploy.yml`) está configurado para automatizar o deploy de todas essas partes.
 
@@ -72,7 +71,7 @@ Este projeto inclui um workflow de GitHub Actions para automatizar o deploy.
     *   Autentica no Google Cloud usando Workload Identity Federation.
     *   Faz o deploy da aplicação Next.js para o Firebase App Hosting.
     *   Faz o build e deploy das Firebase Functions.
-    *   Faz o deploy das regras do Firestore, Storage e Realtime Database.
+    *   Faz o deploy das regras do Firestore, Storage e Realtime Database, e dos índices do Firestore.
 
 ## Deployment Manual
 
@@ -128,5 +127,4 @@ As regras de segurança para Firestore, Firebase Storage e Realtime Database, be
     firebase deploy --only firestore,storage,database --project electric-magnitudes-analizer
     ```
     (O comando `firestore` inclui tanto `firestore:rules` quanto `firestore:indexes`. `database` cobre `database:rules`).
-2.  **Verifique as regras no Firebase Console:** Após o deploy, confirme visualmente que as regras no console correspondem aos seus arquivos locais (`firestore.rules`, `storage.rules`, `database.rules.json`).
-```
+2.  **Verifique as regras e índices no Firebase Console:** Após o deploy, confirme visualmente que as regras e índices no console correspondem aos seus arquivos locais (`rules/firestore.rules`, `rules/storage.rules`, `rules/database.rules.json`, `rules/firestore.indexes.json`).
