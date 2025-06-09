@@ -7,19 +7,19 @@ Este diagrama detalha os principais contêineres (aplicações, armazenamentos d
 C4Container
   title Diagrama de Contêineres para o Energy Compliance Analyzer
 
-  Actor_Ext(user, "Usuário", "Interage com o sistema via frontend.")
+  Actor_Ext(user, "Usuário", "Interage com o sistema via frontend.", $sprite="fa:fa-user")
 
   System_Boundary(c1, "Energy Compliance Analyzer") {
-    Container(frontendApp, "Frontend Web App", "Next.js, React, ShadCN UI, TailwindCSS", "Interface do usuário para login, upload de arquivos, visualização de análises, relatórios e chat interativo. Hospedado no Firebase App Hosting.")
-    Container(serverActions, "Backend API", "Next.js Server Actions, Node.js, Genkit", "Lida com uploads de arquivos, dispara o processamento, orquestra o chat do relatório e interage com serviços Firebase. Executa no Firebase App Hosting.")
-    Container(firebaseFunctions, "Processamento em Background", "Firebase Functions, Node.js, TypeScript, Genkit", "Executa a pipeline principal de análise de IA (agentes especializados) para dados de CSV e gera relatórios estruturados.")
-    ContainerDb(firestore, "Banco de Dados Principal", "Firebase Firestore (NoSQL, Document DB)", "Armazena metadados das análises, status, tags, e o relatório estruturado (JSON).")
-    ContainerDb(rtdb, "Banco de Dados de Chat", "Firebase Realtime Database (NoSQL, Realtime JSON DB)", "Armazena o histórico das conversas do chat interativo do relatório.")
-    Container(storage, "Armazenamento de Arquivos", "Firebase Storage (Blob Storage)", "Armazena os arquivos CSV enviados pelos usuários e os relatórios MDX gerados.")
-    Container(auth, "Serviço de Autenticação", "Firebase Authentication (OAuth, Identity Management)", "Gerencia a autenticação de usuários via Google Sign-In.")
+    Container(frontendApp, "Frontend Web App", "Next.js, React, ShadCN UI, TailwindCSS", "Interface do usuário para login, upload de arquivos, visualização de análises, relatórios e chat interativo. Hospedado no Firebase App Hosting.", $sprite="fa:fa-desktop")
+    Container(serverActions, "Backend API", "Next.js Server Actions, Node.js, Genkit", "Lida com uploads de arquivos, dispara o processamento, orquestra o chat do relatório e interage com serviços Firebase. Executa no Firebase App Hosting.", $sprite="fa:fa-cogs")
+    Container(firebaseFunctions, "Processamento em Background", "Firebase Functions, Node.js, TypeScript, Genkit", "Executa a pipeline principal de análise de IA (agentes especializados) para dados de CSV e gera relatórios estruturados.", $sprite="fa:fa-bolt")
+    ContainerDb(firestore, "Banco de Dados Principal", "Firebase Firestore (NoSQL, Document DB)", "Armazena metadados das análises, status, tags, e o relatório estruturado (JSON).", $sprite="fa:fa-database")
+    ContainerDb(rtdb, "Banco de Dados de Chat", "Firebase Realtime Database (NoSQL, Realtime JSON DB)", "Armazena o histórico das conversas do chat interativo do relatório.", $sprite="fa:fa-comments")
+    Container(storage, "Armazenamento de Arquivos", "Firebase Storage (Blob Storage)", "Armazena os arquivos CSV enviados pelos usuários e os relatórios MDX gerados.", $sprite="fa:fa-archive")
+    Container(auth, "Serviço de Autenticação", "Firebase Authentication (OAuth, Identity Management)", "Gerencia a autenticação de usuários via Google Sign-In.", $sprite="fa:fa-key")
   }
 
-  System_Ext(googleAI, "Google AI (Gemini)", "Modelos de Linguagem Generativa (LLMs) para IA.")
+  System_Ext(googleAI, "Google AI (Gemini)", "Modelos de Linguagem Generativa (LLMs) para IA.", $sprite="fa:fa-brain")
 
   Rel(user, frontendApp, "Usa", "HTTPS")
   Rel(frontendApp, serverActions, "Envia requisições para", "HTTPS/Server Actions")
@@ -48,5 +48,5 @@ C4Container
 
 ```
 
-[Voltar para: Contexto do Sistema (C1)](./index.md)
+[Voltar para: Contexto do Sistema (C1)](./c1-context.md)
 [Próximo Nível: Diagrama de Componentes (C3)](./c3-components.md)
