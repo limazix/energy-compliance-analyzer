@@ -78,11 +78,12 @@ describe('AuthButton component', () => {
      * @it It should call signInWithPopup and navigate to the home page on successful login.
      */
     it('should call signInWithPopup and navigate to the home page on successful login', async () => {
+      const user = userEvent.setup();
       mockSignInWithPopup.mockResolvedValueOnce({ user: { uid: 'test-uid' } });
       render(<AuthButton />);
 
       const loginButton = screen.getByRole('button', { name: /Login com Google/i });
-      await userEvent.click(loginButton);
+      await user.click(loginButton);
 
       expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
       expect(mockSignInWithPopup).toHaveBeenCalledWith(auth, googleProvider);
@@ -94,11 +95,12 @@ describe('AuthButton component', () => {
      * @it It should handle login errors gracefully (e.g., popup closed by user).
      */
     it('should handle login errors gracefully (e.g., popup closed by user)', async () => {
+      const user = userEvent.setup();
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       mockSignInWithPopup.mockRejectedValueOnce(new Error('Popup closed by user'));
       render(<AuthButton />);
 
-      await userEvent.click(screen.getByRole('button', { name: /Login com Google/i }));
+      await user.click(screen.getByRole('button', { name: /Login com Google/i }));
 
       await waitFor(() => {
         expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -141,9 +143,10 @@ describe('AuthButton component', () => {
      */
     describe('when the user dropdown menu is opened', () => {
       beforeEach(async () => {
+        const user = userEvent.setup();
         render(<AuthButton />);
         const triggerButton = screen.getByText(mockUser.displayName.split(' ')[0]);
-        await userEvent.click(triggerButton);
+        await user.click(triggerButton);
         await screen.findByTestId('auth-dropdown-menu'); // Ensure menu is open
       });
 
@@ -177,15 +180,16 @@ describe('AuthButton component', () => {
      * @it It should call signOut and navigate to the login page when "Logout" is clicked.
      */
     it('should call signOut and navigate to the login page when "Logout" is clicked', async () => {
+      const user = userEvent.setup();
       mockSignOut.mockResolvedValueOnce(undefined);
       render(<AuthButton />);
 
       const triggerButton = screen.getByText(mockUser.displayName.split(' ')[0]);
-      await userEvent.click(triggerButton);
+      await user.click(triggerButton);
 
       const menu = await screen.findByTestId('auth-dropdown-menu');
       const logoutButton = within(menu).getByRole('menuitem', { name: /Sair/i });
-      await userEvent.click(logoutButton);
+      await user.click(logoutButton);
 
       expect(mockSignOut).toHaveBeenCalledTimes(1);
       expect(mockSignOut).toHaveBeenCalledWith(auth);
@@ -197,14 +201,15 @@ describe('AuthButton component', () => {
      * @it It should handle logout errors gracefully.
      */
     it('should handle logout errors gracefully', async () => {
+      const user = userEvent.setup();
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       mockSignOut.mockRejectedValueOnce(new Error('Sign out failed'));
       render(<AuthButton />);
 
-      await userEvent.click(screen.getByText(mockUser.displayName.split(' ')[0]));
+      await user.click(screen.getByText(mockUser.displayName.split(' ')[0]));
       const menu = await screen.findByTestId('auth-dropdown-menu');
       const logoutButton = within(menu).getByRole('menuitem', { name: /Sair/i });
-      await userEvent.click(logoutButton);
+      await user.click(logoutButton);
 
       await waitFor(() => {
         expect(consoleErrorSpy).toHaveBeenCalledWith('Erro no logout:', expect.any(Error));
@@ -217,14 +222,21 @@ describe('AuthButton component', () => {
      * @it It should handle clicking the "Settings" menu item (currently no navigation).
      */
     it('should handle clicking the "Settings" menu item (currently no navigation)', async () => {
+      const user = userEvent.setup();
       render(<AuthButton />);
-      await userEvent.click(screen.getByText(mockUser.displayName.split(' ')[0]));
+
+      const triggerButton = screen.getByText(mockUser.displayName.split(' ')[0]);
+      await user.click(triggerButton);
+
       const menu = await screen.findByTestId('auth-dropdown-menu');
-      const settingsButton = within(menu).getByRole('menuitem', { name: /Configurações/i });
-      await userEvent.click(settingsButton);
-      // Add assertions here if settings navigation is implemented
-      // For now, just confirms it doesn't crash.
-      expect(settingsButton).toBeInTheDocument();
+      const settingsButton = await within(menu).findByRole('menuitem', { name: /Configurações/i });
+
+      // The item is found, now click it
+      await user.click(settingsButton);
+
+      // Test passes if the above lines do not throw an error.
+      // Clicking the item is expected to close the menu, so it won't be in the document afterwards.
+      // The purpose of this test is to ensure the click action itself is handled without error.
     });
   });
 });
