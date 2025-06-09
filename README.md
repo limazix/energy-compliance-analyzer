@@ -242,3 +242,4 @@ Consulte o [**Guia de Deployment**](docs/DEPLOYMENT.md) para detalhes sobre depl
 ## Licença
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
