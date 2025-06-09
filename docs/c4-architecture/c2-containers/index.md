@@ -27,7 +27,7 @@ C4Container
   Rel(frontendApp, rtdb, "Sincroniza mensagens de chat com", "Firebase SDK, WebSockets")
 
   Rel(serverActions, firestore, "Lê/Escreve metadados e relatórios em", "Firebase SDK")
-  Rel(serverActions, storage, "Gerencia upload inicial para", "Firebase SDK")
+  Rel(serverActions, storage, "Gerencia informações de upload para", "Firebase SDK")
   Rel(serverActions, googleAI, "Interage com Agente Orquestrador para chat via", "Genkit API Call")
   Rel(serverActions, firebaseFunctions, "Dispara (indiretamente via Firestore)", "Firestore Trigger")
   Rel(serverActions, rtdb, "Salva mensagens de chat e atualiza relatório via", "Firebase Admin SDK (indireto, via Functions ou Server Actions)")
@@ -60,5 +60,5 @@ Clique em um contêiner abaixo para ver mais detalhes sobre suas responsabilidad
 *   [Armazenamento de Arquivos (Firebase Storage)](./storage.md)
 *   [Serviço de Autenticação (Firebase Authentication)](./auth.md)
 
-[Voltar para: Contexto do Sistema (C1)](../c1-context.md)
+[<- Voltar para: Contexto do Sistema (C1)](../c1-context.md)
 [Próximo Nível: Diagrama de Componentes (C3)](../c3-components/index.md)
