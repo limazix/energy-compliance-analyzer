@@ -1,23 +1,23 @@
-# C4 Model: Nível 1 - Contexto do Sistema - Energy Compliance Analyzer
+# C4 Model: Level 1 - System Context - Energy Compliance Analyzer
 
-Este diagrama mostra o sistema Energy Compliance Analyzer em seu ambiente, interagindo com usuários e outros sistemas externos.
+This diagram shows the Energy Compliance Analyzer system in its environment, interacting with users and other external systems.
 
 ```mermaid
 C4Context
-  title "Contexto do Sistema para o Energy Compliance Analyzer"
+  title "System Context for the Energy Compliance Analyzer"
 
-  Actor(user, "Usuário", "Engenheiros, analistas ou consultores do setor elétrico que precisam verificar a conformidade de dados de qualidade de energia.")
+  Actor(user, "User", "Engineers, analysts, or consultants in the electrical sector who need to verify the compliance of power quality data.")
 
   System_Boundary(analyzer_boundary, "Energy Compliance Analyzer") {
-    System(energyAnalyzer, "Energy Compliance Analyzer", "Plataforma web para upload, análise de conformidade de dados de qualidade de energia elétrica com base nas normas ANEEL, e geração de relatórios interativos.")
+    System(energyAnalyzer, "Energy Compliance Analyzer", "Web platform for uploading, analyzing compliance of electrical power quality data against ANEEL standards, and generating interactive reports.")
   }
 
-  System_Ext(googleAI, "Google AI (Gemini)", "Serviço de IA generativa (LLM) usado para análise de dados, identificação de normas, geração e revisão de relatórios, e chat interativo.")
-  System_Ext(firebase, "Firebase Platform", "Plataforma do Google que fornece autenticação, banco de dados (Firestore, RTDB), armazenamento de arquivos (Storage), e ambiente para execução de código em backend (Functions & App Hosting).")
+  System_Ext(googleAI, "Google AI (Gemini)", "Generative AI service (LLM) used for data analysis, standards identification, report generation and review, and interactive chat.")
+  System_Ext(firebase, "Firebase Platform", "Google's platform providing authentication, database (Firestore, RTDB), file storage (Storage), and backend code execution environment (Functions & App Hosting).")
 
-  Rel(user, energyAnalyzer, "Usa", "HTTPS")
-  Rel(energyAnalyzer, googleAI, "Utiliza para processamento de IA", "API Calls")
-  Rel(energyAnalyzer, firebase, "Hospedado em e utiliza serviços de", "SDKs, APIs")
+  Rel(user, energyAnalyzer, "Uses", "HTTPS")
+  Rel(energyAnalyzer, googleAI, "Utilizes for AI processing", "API Calls")
+  Rel(energyAnalyzer, firebase, "Hosted on and uses services of", "SDKs, APIs")
 
   UpdateElementStyle(user, $fontColor="white", $bgColor="rgb(13, 105, 184)", $borderColor="rgb(13, 105, 184)")
   UpdateElementStyle(energyAnalyzer, $fontColor="white", $bgColor="rgb(28, 128, 74)", $borderColor="rgb(28, 128, 74)")
@@ -25,4 +25,4 @@ C4Context
   UpdateElementStyle(firebase, $fontColor="white", $bgColor="rgb(100, 100, 100)", $borderColor="rgb(100, 100, 100)")
 ```
 
-[Próximo Nível: Diagrama de Contêineres (C2)](./c2-containers.md)
+[Next Level: Container Diagram (C2)](./c2-containers.md)
