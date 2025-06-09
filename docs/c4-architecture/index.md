@@ -6,7 +6,7 @@ This diagram shows the Energy Compliance Analyzer system in its environment, int
 C4Context
   title "System Context for the Energy Compliance Analyzer"
 
-  Actor(user, "User", "Engineers, analysts, or consultants in the electrical sector who need to verify the compliance of power quality data.")
+  Person(user, "User", "Engineers, analysts, or consultants in the electrical sector who need to verify the compliance of power quality data.")
 
   System_Boundary(analyzer_boundary, "Energy Compliance Analyzer") {
     System(energyAnalyzer, "Energy Compliance Analyzer", "Web platform for uploading, analyzing compliance of electrical power quality data against ANEEL standards, and generating interactive reports.")

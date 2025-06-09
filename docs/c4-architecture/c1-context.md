@@ -1,4 +1,3 @@
-
 # C4 Model: Level 1 - System Context - Energy Compliance Analyzer
 
 This diagram shows the Energy Compliance Analyzer system in its environment, interacting with users and other external systems.
@@ -7,7 +6,7 @@ This diagram shows the Energy Compliance Analyzer system in its environment, int
 C4Context
   title System Context for the Energy Compliance Analyzer
 
-  Actor(user, "User", "Engineers, analysts, or consultants in the electrical sector who need to verify the compliance of power quality data.", $sprite="fa:fa-user")
+  Person(user, "User", "Engineers, analysts, or consultants in the electrical sector who need to verify the compliance of power quality data.", $sprite="fa:fa-user")
 
   System_Boundary(analyzer_boundary, "Energy Compliance Analyzer") {
     System(energyAnalyzer, "Energy Compliance Analyzer", "Web platform for uploading, analyzing compliance of electrical power quality data against ANEEL standards, and generating interactive reports.", $sprite="fa:fa-laptop-code")
@@ -27,5 +26,3 @@ C4Context
 ```
 
 [Next Level: Container Diagram (C2)](./c2-containers/index.md)
-
-    

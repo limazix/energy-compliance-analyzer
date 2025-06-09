@@ -1,4 +1,3 @@
-
 # C4 Model: Level 2 - Container Overview - Energy Compliance Analyzer
 
 This diagram details the main containers (applications, data stores, etc.) that make up the Energy Compliance Analyzer system. Each container is a deployable unit or a significant data store.
@@ -7,7 +6,7 @@ This diagram details the main containers (applications, data stores, etc.) that 
 C4Container
   title Container Diagram for the Energy Compliance Analyzer
 
-  Actor_Ext(user, "User", "Interacts with the system via frontend.", $sprite="fa:fa-user")
+  Person(user, "User", "Interacts with the system via frontend.", $sprite="fa:fa-user")
 
   System_Boundary(c1, "Energy Compliance Analyzer") {
     Container(frontendApp, "Frontend Web App", "Next.js, React, ShadCN UI, TailwindCSS", "User interface for login, file upload, viewing analyses, reports, and interactive chat. Hosted on Firebase App Hosting.", $sprite="fa:fa-desktop")
@@ -52,15 +51,13 @@ C4Container
 
 Click on a container below for more details on its responsibilities, technologies, and interactions:
 
-*   [Frontend Web App](./frontend-app.md)
-*   [Backend API (Next.js Server Actions)](./server-actions.md)
-*   [Background Processing (Firebase Functions)](./firebase-functions.md)
-*   [Main Database (Firebase Firestore)](./firestore-db.md)
-*   [Chat Database (Firebase Realtime Database)](./rtdb.md)
-*   [File Storage (Firebase Storage)](./storage.md)
-*   [Authentication Service (Firebase Authentication)](./auth.md)
+- [Frontend Web App](./frontend-app.md)
+- [Backend API (Next.js Server Actions)](./server-actions.md)
+- [Background Processing (Firebase Functions)](./firebase-functions.md)
+- [Main Database (Firebase Firestore)](./firestore-db.md)
+- [Chat Database (Firebase Realtime Database)](./rtdb.md)
+- [File Storage (Firebase Storage)](./storage.md)
+- [Authentication Service (Firebase Authentication)](./auth.md)
 
 [<- Back to: System Context (C1)](../c1-context.md)
 [Next Level: Component Diagram (C3)](../c3-components/index.md)
-
-    
