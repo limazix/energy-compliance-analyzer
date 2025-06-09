@@ -23,6 +23,47 @@ process.env.NEXT_PUBLIC_FIREBASE_CONFIG = JSON.stringify({
 process.env.NEXT_PUBLIC_GEMINI_API_KEY = "test-gemini-api-key";
 // --- End Mock Firebase Env Vars ---
 
+// --- Firebase Auth Mock ---
+let mockFirebaseAuthUserForListener = null;
+let authStateListenerCallback = null;
+
+jest.mock('firebase/auth', () => {
+  const actualFirebaseAuth = jest.requireActual('firebase/auth');
+  const onAuthStateChangedImplementation = (auth, listener) => {
+    authStateListenerCallback = listener;
+    // Simulate async nature of onAuthStateChanged and initial call
+    setImmediate(() => {
+      if (authStateListenerCallback) {
+        authStateListenerCallback(mockFirebaseAuthUserForListener);
+      }
+    });
+    return jest.fn(); // Return unsubscribe function
+  };
+
+  return {
+    ...actualFirebaseAuth,
+    getAuth: jest.fn(() => ({
+      // Mock any auth instance properties if needed by onAuthStateChanged or other functions
+    })),
+    onAuthStateChanged: jest.fn(onAuthStateChangedImplementation),
+    signInWithPopup: jest.fn(),
+    signOut: jest.fn(),
+    GoogleAuthProvider: actualFirebaseAuth.GoogleAuthProvider,
+    // Helper to control the mock user for onAuthStateChanged from tests
+    __setMockUserForAuthStateChangedListener: (user) => {
+      mockFirebaseAuthUserForListener = user;
+      // If a listener is already registered, call it with the new user
+      if (authStateListenerCallback) {
+        setImmediate(() => {
+          authStateListenerCallback(mockFirebaseAuthUserForListener);
+        });
+      }
+    }
+  };
+});
+// --- End Firebase Auth Mock ---
+
+
 // Mock Next.js router
 const mockRouterPush = jest.fn();
 const mockRouterReplace = jest.fn();
@@ -317,7 +358,7 @@ beforeEach(() => {
   });
   global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis.mockClear();
   global.mockUseAnalysisManagerReturnValue.setTagInput.mockClear();
-  global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses.mockClear().mockResolvedValue(undefined);
+  (global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock).mockClear().mockResolvedValue(undefined);
   global.mockUseAnalysisManagerReturnValue.startAiProcessing.mockClear().mockResolvedValue(undefined);
   global.mockUseAnalysisManagerReturnValue.handleAddTag.mockClear().mockResolvedValue(undefined);
   global.mockUseAnalysisManagerReturnValue.handleRemoveTag.mockClear().mockResolvedValue(undefined);
@@ -333,7 +374,7 @@ beforeEach(() => {
     global.mockUseFileUploadManagerReturnValue.uploadError = null;
   });
   global.mockUseFileUploadManagerReturnValue.handleFileSelection.mockClear();
-  global.mockUseFileUploadManagerReturnValue.uploadFileAndCreateRecord.mockClear().mockResolvedValue({ analysisId: 'mock-analysis-upload-id', fileName: 'mock-file.csv', error: null });
+  (global.mockUseFileUploadManagerReturnValue.uploadFileAndCreateRecord as jest.Mock).mockClear().mockResolvedValue({ analysisId: 'mock-analysis-upload-id', fileName: 'mock-file.csv', error: null });
 
   // Reset server action mocks
   jest.requireMock('@/features/analysis-listing/actions/analysisListingActions').getPastAnalysesAction.mockClear().mockResolvedValue([]);
@@ -351,6 +392,11 @@ beforeEach(() => {
   jest.requireMock('@/features/analysis-processing/actions/analysisProcessingActions').processAnalysisFile.mockClear().mockResolvedValue({ success: true, analysisId: 'mock-analysis-id' });
   jest.requireMock('@/features/tag-management/actions/tagActions').addTagToAction.mockClear().mockResolvedValue(undefined);
   jest.requireMock('@/features/tag-management/actions/tagActions').removeTagAction.mockClear().mockResolvedValue(undefined);
+
+  // Reset Firebase Auth mock state for onAuthStateChanged
+  // This ensures each test starts with a clean slate for what onAuthStateChanged reports
+  const authMock = jest.requireMock('firebase/auth');
+  authMock.__setMockUserForAuthStateChangedListener(null); // Default to no user for onAuthStateChanged
 });
 
 afterEach(() => {
@@ -372,5 +418,3 @@ if (global.EMULATORS_CONNECTED) {
 } else {
   console.warn('Jest setup: Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail.');
 }
-
-    
