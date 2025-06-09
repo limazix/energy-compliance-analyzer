@@ -36,57 +36,57 @@ O Energy Compliance Analyzer simplifica a verificação de conformidade para o s
 
 ```mermaid
 graph TD
-    subgraph "UserInteraction" ["Interação do Usuário"]
+    subgraph "UserInteraction" ["User Interaction"]
         UI["Frontend Next.js/React<br>(ShadCN, TailwindCSS)<br>Hosted on Firebase App Hosting"]
     end
 
     subgraph "BackendNextJs" ["Backend (Next.js)"]
-        ServerActions["Next.js Server Actions<br>(Disparador Upload, Orquestrador Chat)"]
+        ServerActions["Next.js Server Actions<br>(Upload Trigger, Chat Orchestrator)"]
     end
 
-    subgraph "FirebasePlatform" ["Plataforma Firebase"]
+    subgraph "FirebasePlatform" ["Firebase Platform"]
         Auth["Firebase Authentication<br>(Google Sign-In)"]
-        Firestore["Firebase Firestore<br>(Metadados Análises, Tags, Status, Relatório Estruturado)"]
-        Storage["Firebase Storage<br>(Upload CSVs, Relatórios MDX)"]
-        RTDB["Firebase Realtime Database<br>(Histórico Chat)"]
-        Functions["Firebase Functions<br>(Processamento Pesado, AI Pipeline Principal)"]
+        Firestore["Firebase Firestore<br>(Analyses Metadata, Tags, Status, Structured Report)"]
+        Storage["Firebase Storage<br>(Upload CSVs, MDX Reports)"]
+        RTDB["Firebase Realtime Database<br>(Chat History)"]
+        Functions["Firebase Functions<br>(Heavy Processing, Main AI Pipeline)"]
     end
 
-    subgraph "GenAI" ["Inteligência Artificial (Genkit & Gemini)"]
-        AIEngineFunctions["AI Engine - Functions<br>(Pipeline: Analista de Dados, Engenheiro Elétrico, Relator, Revisor)"]
-        AIEngineServerActions["AI Engine - Server Actions<br>(Agente Orquestrador do Chat Interativo)"]
+    subgraph "GenAI" ["Artificial Intelligence (Genkit & Gemini)"]
+        AIEngineFunctions["AI Engine - Functions<br>(Pipeline: Data Analyst, Electrical Engineer, Reporter, Reviewer)"]
+        AIEngineServerActions["AI Engine - Server Actions<br>(Interactive Chat Orchestrator Agent)"]
     end
 
     %% User Flows
     UI -- "Login via Google" --> Auth
-    UI -- "Upload CSV<br>(Título, Descrição)" --> ServerActions
-    ServerActions -- "Cria Registro Inicial na Análise<br>(Status: 'uploading')" --> Firestore
-    ServerActions -- "Faz Upload do CSV para o Caminho da Análise" --> Storage
-    ServerActions -- "Finaliza Registro Análise<br>(URL CSV, Status: 'summarizing_data')" --> Firestore
+    UI -- "Upload CSV<br>(Title, Description)" --> ServerActions
+    ServerActions -- "Creates Initial Analysis Record<br>(Status: 'uploading')" --> Firestore
+    ServerActions -- "Uploads CSV to Analysis Path" --> Storage
+    ServerActions -- "Finalizes Analysis Record<br>(CSV URL, Status: 'summarizing_data')" --> Firestore
 
     %% Background Processing Flow (Triggered by Firestore update)
-    Firestore -- "Gatilho (onUpdate: status='summarizing_data')" --> Functions
-    Functions -- "Lê CSV do Storage" --> Storage
-    Functions -- "Executa Pipeline de Agentes IA" --> AIEngineFunctions
-    AIEngineFunctions -- "Gera Relatório Estruturado (JSON)" --> Functions
-    Functions -- "Salva Relatório Estruturado (JSON)" --> Firestore
-    Functions -- "Converte Estruturado para MDX e Salva" --> Storage
-    Functions -- "Atualiza Status/Progresso para 'completed'" --> Firestore
+    Firestore -- "Trigger (onUpdate: status='summarizing_data')" --> Functions
+    Functions -- "Reads CSV from Storage" --> Storage
+    Functions -- "Executes AI Agent Pipeline" --> AIEngineFunctions
+    AIEngineFunctions -- "Generates Structured Report (JSON)" --> Functions
+    Functions -- "Saves Structured Report (JSON)" --> Firestore
+    Functions -- "Converts Structured to MDX and Saves" --> Storage
+    Functions -- "Updates Status/Progress to 'completed'" --> Firestore
 
     %% Report Viewing & Chat Flow
-    UI -- "Visualizar Relatório (solicita MDX)" --> ServerActions
-    ServerActions -- "Lê Caminho do MDX" --> Firestore
-    ServerActions -- "Lê Conteúdo MDX" --> Storage
-    Storage -- "Retorna Conteúdo MDX" --> ServerActions
-    ServerActions -- "Envia MDX para UI" --> UI
-    UI -- "Envia Mensagem de Chat<br>(com contexto do relatório)" --> ServerActions
-    ServerActions -- "Interage com Agente Orquestrador IA<br>(usando relatório estruturado e MDX)" --> AIEngineServerActions
-    AIEngineServerActions -- "Resposta da IA / Sugestão de Modificação no Relatório Estruturado (se houver)" --> ServerActions
-    ServerActions -- "Salva Mensagem do Chat (usuário e IA)" --> RTDB
-    ServerActions -- "Se Relatório Modificado:<br>Atualiza Relatório Estruturado (JSON)" --> Firestore
-    ServerActions -- "Se Relatório Modificado:<br>Gera e Salva novo MDX" --> Storage
-    RTDB -- "Sincroniza Chat em Tempo Real com UI" --> UI
-    Firestore -- "(Opcional) Notifica UI de mudanças no relatório via listener"-.-> UI
+    UI -- "View Report (requests MDX)" --> ServerActions
+    ServerActions -- "Reads MDX Path" --> Firestore
+    ServerActions -- "Reads MDX Content" --> Storage
+    Storage -- "Returns MDX Content" --> ServerActions
+    ServerActions -- "Sends MDX to UI" --> UI
+    UI -- "Sends Chat Message<br>(with report context)" --> ServerActions
+    ServerActions -- "Interacts with AI Orchestrator Agent<br>(using structured report and MDX)" --> AIEngineServerActions
+    AIEngineServerActions -- "AI Response / Suggested Modification to Structured Report (if any)" --> ServerActions
+    ServerActions -- "Saves Chat Message (user and AI)" --> RTDB
+    ServerActions -- "If Report Modified:<br>Updates Structured Report (JSON)" --> Firestore
+    ServerActions -- "If Report Modified:<br>Generates and Saves new MDX" --> Storage
+    RTDB -- "Syncs Chat in Real-Time with UI" --> UI
+    Firestore -- "(Optional) Notifies UI of report changes via listener"-.-> UI
 
     %% Styling (optional, for clarity in renderers that support it)
     classDef userInteraction fill:#E6E6FA,stroke:#333,stroke-width:2px;
@@ -101,7 +101,7 @@ graph TD
     %% End of diagram
 ```
 
-<p align="center" data-ai-hint="architecture diagram">Diagrama da Arquitetura da Aplicação</p>
+<p align="center" data-ai-hint="architecture diagram">Application Architecture Diagram</p>
 
 ## Executando Localmente
 
@@ -243,6 +243,8 @@ Consulte o [**Guia de Deployment**](docs/DEPLOYMENT.md) para detalhes sobre depl
 
 Este projeto é licenciado sob a Licença Apache, Versão 2.0. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
+
+    
 
     
 
