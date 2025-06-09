@@ -395,7 +395,7 @@ beforeEach(() => {
 
   // Reset Firebase Auth mock state for onAuthStateChanged
   // This ensures each test starts with a clean slate for what onAuthStateChanged reports
-  const authMock = jest.requireMock('firebase/auth');
+  const authMock = require('firebase/auth');
   authMock.__setMockUserForAuthStateChangedListener(null); // Default to no user for onAuthStateChanged
 });
 
