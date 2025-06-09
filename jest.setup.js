@@ -7,6 +7,7 @@
 import '@testing-library/jest-dom';
 import { Timestamp } from 'firebase/firestore';
 import React from 'react'; // Import React for createElement
+import { act } from '@testing-library/react';
 
 // --- Mock Firebase Env Vars for Jest ---
 process.env.NEXT_PUBLIC_FIREBASE_CONFIG = JSON.stringify({
@@ -121,7 +122,9 @@ jest.mock('@/features/tag-management/actions/tagActions', () => ({
 global.mockUseAnalysisManagerReturnValue = {
   currentAnalysis: null,
   setCurrentAnalysis: jest.fn((newAnalysis) => {
-    global.mockUseAnalysisManagerReturnValue.currentAnalysis = newAnalysis;
+    act(() => {
+      global.mockUseAnalysisManagerReturnValue.currentAnalysis = newAnalysis;
+    });
   }),
   pastAnalyses: [],
   isLoadingPastAnalyses: false,
@@ -279,6 +282,26 @@ if (typeof document.createRange === 'undefined') {
   };
 }
 
+// Mock requestIdleCallback for Next.js Link prefetching
+if (typeof window !== 'undefined') {
+  window.requestIdleCallback = window.requestIdleCallback || function (cb) {
+    const start = Date.now();
+    return setTimeout(function () {
+      cb({
+        didTimeout: false,
+        timeRemaining: function () {
+          return Math.max(0, 50 - (Date.now() - start));
+        },
+      });
+    }, 1);
+  };
+
+  window.cancelIdleCallback = window.cancelIdleCallback || function (id) {
+    clearTimeout(id);
+  };
+}
+
+
 // Clear all mocks before each test
 beforeEach(() => {
   mockRouterPush.mockClear();
@@ -286,10 +309,12 @@ beforeEach(() => {
   mockToastFn.mockClear();
 
   // Reset global useAnalysisManager mock state
-  global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
-  global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
-  global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
-  global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps = [];
+  act(() => {
+    global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
+    global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
+    global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
+    global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps = [];
+  });
   global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis.mockClear();
   global.mockUseAnalysisManagerReturnValue.setTagInput.mockClear();
   global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses.mockClear().mockResolvedValue(undefined);
@@ -301,10 +326,12 @@ beforeEach(() => {
   global.mockUseAnalysisManagerReturnValue.downloadReportAsTxt.mockClear();
 
   // Reset global useFileUploadManager mock state
-  global.mockUseFileUploadManagerReturnValue.fileToUpload = null;
-  global.mockUseFileUploadManagerReturnValue.isUploading = false;
-  global.mockUseFileUploadManagerReturnValue.uploadProgress = 0;
-  global.mockUseFileUploadManagerReturnValue.uploadError = null;
+  act(() => {
+    global.mockUseFileUploadManagerReturnValue.fileToUpload = null;
+    global.mockUseFileUploadManagerReturnValue.isUploading = false;
+    global.mockUseFileUploadManagerReturnValue.uploadProgress = 0;
+    global.mockUseFileUploadManagerReturnValue.uploadError = null;
+  });
   global.mockUseFileUploadManagerReturnValue.handleFileSelection.mockClear();
   global.mockUseFileUploadManagerReturnValue.uploadFileAndCreateRecord.mockClear().mockResolvedValue({ analysisId: 'mock-analysis-upload-id', fileName: 'mock-file.csv', error: null });
 
@@ -345,3 +372,5 @@ if (global.EMULATORS_CONNECTED) {
 } else {
   console.warn('Jest setup: Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail.');
 }
+
+    
