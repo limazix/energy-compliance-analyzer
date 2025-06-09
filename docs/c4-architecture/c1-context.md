@@ -26,4 +26,4 @@ C4Context
   UpdateElementStyle(firebase, $fontColor="white", $bgColor="rgb(100, 100, 100)", $borderColor="rgb(100, 100, 100)")
 ```
 
-[Próximo Nível: Diagrama de Contêineres (C2)](./c2-containers.md)
+[Próximo Nível: Diagrama de Contêineres (C2)](./c2-containers/index.md)
