@@ -1,0 +1,2 @@
+This directory will contain detail files for each component (action module) of the Next.js Server Actions.
+e.g., file-upload-actions.md, analysis-mgmt-actions.md, etc.

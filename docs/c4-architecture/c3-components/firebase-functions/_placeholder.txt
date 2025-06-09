@@ -1,0 +1,2 @@
+This directory will contain detail files for each component of the Firebase Functions.
+e.g., trigger.md, data-summarizer-agent.md, etc.
