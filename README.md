@@ -86,7 +86,7 @@ graph TD
     ServerActions -- "If Report Modified:<br>Updates Structured Report (JSON)" --> Firestore
     ServerActions -- "If Report Modified:<br>Generates and Saves new MDX" --> Storage
     RTDB -- "Syncs Chat in Real-Time with UI" --> UI
-    Firestore -- "(Optional) Notifies UI of report changes via listener"-.-> UI
+    Firestore -- "(Optional) Notifies UI of report changes via listener"--> UI
 
     %% Styling (optional, for clarity in renderers that support it)
     classDef userInteraction fill:#E6E6FA,stroke:#333,stroke-width:2px;
