@@ -358,7 +358,7 @@ beforeEach(() => {
   });
   global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis.mockClear();
   global.mockUseAnalysisManagerReturnValue.setTagInput.mockClear();
-  (global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock).mockClear().mockResolvedValue(undefined);
+  global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses.mockClear().mockResolvedValue(undefined);
   global.mockUseAnalysisManagerReturnValue.startAiProcessing.mockClear().mockResolvedValue(undefined);
   global.mockUseAnalysisManagerReturnValue.handleAddTag.mockClear().mockResolvedValue(undefined);
   global.mockUseAnalysisManagerReturnValue.handleRemoveTag.mockClear().mockResolvedValue(undefined);
@@ -374,7 +374,7 @@ beforeEach(() => {
     global.mockUseFileUploadManagerReturnValue.uploadError = null;
   });
   global.mockUseFileUploadManagerReturnValue.handleFileSelection.mockClear();
-  (global.mockUseFileUploadManagerReturnValue.uploadFileAndCreateRecord as jest.Mock).mockClear().mockResolvedValue({ analysisId: 'mock-analysis-upload-id', fileName: 'mock-file.csv', error: null });
+  global.mockUseFileUploadManagerReturnValue.uploadFileAndCreateRecord.mockClear().mockResolvedValue({ analysisId: 'mock-analysis-upload-id', fileName: 'mock-file.csv', error: null });
 
   // Reset server action mocks
   jest.requireMock('@/features/analysis-listing/actions/analysisListingActions').getPastAnalysesAction.mockClear().mockResolvedValue([]);
@@ -418,3 +418,5 @@ if (global.EMULATORS_CONNECTED) {
 } else {
   console.warn('Jest setup: Firebase SDKs will NOT connect to emulators (emulator env vars not set). Some tests may behave differently or fail.');
 }
+
+    
