@@ -7,15 +7,6 @@
 
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {} from // getDatabase as originalGetDatabase, // Prefixed as unused
-// ref as originalRef, // Prefixed as unused
-// onValue as originalOnValue, // Prefixed as unused
-// push as originalPush, // Prefixed as unused
-// update as originalUpdate, // Prefixed as unused
-// serverTimestamp as originalServerTimestamp, // Prefixed as unused
-// off as originalOff, // Prefixed as unused
-// child as originalChild, // Prefixed as unused
-'firebase/database'; // Correct imports
 import { useParams as originalUseParams } from 'next/navigation';
 
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
@@ -24,6 +15,7 @@ import ReportPage from './page';
 
 import type { User } from 'firebase/auth';
 import type { DatabaseReference } from 'firebase/database'; // For typing mocks
+
 // Mocks
 jest.mock('@/contexts/auth-context', () => ({
   __esModule: true,
@@ -58,36 +50,42 @@ interface MockRTDBMessage {
   isError?: boolean;
 }
 
-// Typing for Firebase database mock functions
-// Firebase database mock functions - DECLARE them here
-let mockFbGetDatabase: jest.Mock<unknown, []>;
-let mockFbRef: jest.Mock<DatabaseReference, [unknown, string?]>;
-let mockFbOnValue: jest.Mock<
-  () => void,
-  [
-    DatabaseReference,
-    (snapshot: {
-      exists: () => boolean;
-      val: () => Record<string, MockRTDBMessage> | null;
-    }) => void,
-  ]
->;
-let mockFbPush: jest.Mock<
-  Promise<{ key: string | null }>,
-  [DatabaseReference, Partial<MockRTDBMessage>]
->;
-let mockFbUpdate: jest.Mock<Promise<void>, [DatabaseReference, Partial<MockRTDBMessage>]>;
-let mockFbServerTimestamp: jest.Mock<object, []>;
-let mockFbOff: jest.Mock<void, [DatabaseReference]>;
-let mockFbChild: jest.Mock<DatabaseReference, [DatabaseReference, string]>;
+// Define a type for the exported mock functions from the mocked module
+interface FirebaseDatabaseMockAccess {
+  getDatabase: jest.Mock<unknown, []>;
+  ref: jest.Mock<DatabaseReference, [unknown, string?]>;
+  onValue: jest.Mock<
+    () => void,
+    [
+      DatabaseReference,
+      (snapshot: {
+        exists: () => boolean;
+        val: () => Record<string, MockRTDBMessage> | null;
+      }) => void,
+    ]
+  >;
+  push: jest.Mock<Promise<{ key: string | null }>, [DatabaseReference, Partial<MockRTDBMessage>]>;
+  update: jest.Mock<Promise<void>, [DatabaseReference, Partial<MockRTDBMessage>]>;
+  serverTimestamp: jest.Mock<object, []>;
+  off: jest.Mock<void, [DatabaseReference]>;
+  child: jest.Mock<DatabaseReference, [DatabaseReference, string]>;
+  // Actual mock instances for manipulation
+  __mockGetDatabase: jest.Mock;
+  __mockRef: jest.Mock;
+  __mockOnValue: jest.Mock;
+  __mockPush: jest.Mock;
+  __mockUpdate: jest.Mock;
+  __mockServerTimestamp: jest.Mock;
+  __mockOff: jest.Mock;
+  __mockChild: jest.Mock;
+}
 
 jest.mock('firebase/database', () => {
   const actualFirebaseDatabase =
     jest.requireActual<typeof import('firebase/database')>('firebase/database');
 
-  // Initialize the mock functions within the factory's scope before assigning
-  const _mockFbGetDatabase = jest.fn(() => ({}));
-  const _mockFbRef = jest.fn(
+  const _getDatabase = jest.fn(() => ({}));
+  const _ref = jest.fn(
     (_db, path) =>
       ({
         path,
@@ -95,12 +93,12 @@ jest.mock('firebase/database', () => {
         toString: () => path || '',
       }) as unknown as DatabaseReference
   );
-  const _mockFbOnValue = jest.fn();
-  const _mockFbPush = jest.fn();
-  const _mockFbUpdate = jest.fn();
-  const _mockFbServerTimestamp = jest.fn(() => actualFirebaseDatabase.serverTimestamp());
-  const _mockFbOff = jest.fn();
-  const _mockFbChild = jest.fn(
+  const _onValue = jest.fn();
+  const _push = jest.fn();
+  const _update = jest.fn();
+  const _serverTimestamp = jest.fn(() => actualFirebaseDatabase.serverTimestamp());
+  const _off = jest.fn();
+  const _child = jest.fn(
     (parentRef, childPath) =>
       ({
         ...parentRef,
@@ -110,26 +108,25 @@ jest.mock('firebase/database', () => {
       }) as unknown as DatabaseReference
   );
 
-  // Assign to the outer-scoped variables so beforeEach/afterEach can access them
-  mockFbGetDatabase = _mockFbGetDatabase;
-  mockFbRef = _mockFbRef;
-  mockFbOnValue = _mockFbOnValue;
-  mockFbPush = _mockFbPush;
-  mockFbUpdate = _mockFbUpdate;
-  mockFbServerTimestamp = _mockFbServerTimestamp;
-  mockFbOff = _mockFbOff;
-  mockFbChild = _mockFbChild;
-
   return {
     ...actualFirebaseDatabase,
-    getDatabase: _mockFbGetDatabase,
-    ref: _mockFbRef,
-    onValue: _mockFbOnValue,
-    push: _mockFbPush,
-    update: _mockFbUpdate,
-    serverTimestamp: _mockFbServerTimestamp,
-    off: _mockFbOff,
-    child: _mockFbChild,
+    getDatabase: _getDatabase,
+    ref: _ref,
+    onValue: _onValue,
+    push: _push,
+    update: _update,
+    serverTimestamp: _serverTimestamp,
+    off: _off,
+    child: _child,
+    // Export the mock instances themselves
+    __mockGetDatabase: _getDatabase,
+    __mockRef: _ref,
+    __mockOnValue: _onValue,
+    __mockPush: _push,
+    __mockUpdate: _update,
+    __mockServerTimestamp: _serverTimestamp,
+    __mockOff: _off,
+    __mockChild: _child,
   };
 });
 
@@ -219,17 +216,30 @@ const simulateRtdbChangeAndNotify = () => {
  * communication with AI orchestrator actions, and dynamic updates to the report.
  */
 describe('ReportPage', () => {
+  // Helper function to get the mock accessors
+  const getDatabaseMocks = () =>
+    jest.requireMock('firebase/database') as FirebaseDatabaseMockAccess;
+
   beforeEach(() => {
-    // Firebase database mocks are now typed and assigned in the jest.mock block above.
-    // Clear them here.
-    mockFbGetDatabase.mockClear();
-    mockFbRef.mockClear();
-    mockFbOnValue.mockClear();
-    mockFbPush.mockClear();
-    mockFbUpdate.mockClear();
-    mockFbServerTimestamp.mockClear();
-    mockFbOff.mockClear();
-    mockFbChild.mockClear();
+    const {
+      __mockGetDatabase,
+      __mockRef,
+      __mockOnValue,
+      __mockPush,
+      __mockUpdate,
+      __mockServerTimestamp,
+      __mockOff,
+      __mockChild,
+    } = getDatabaseMocks();
+
+    __mockGetDatabase.mockClear();
+    __mockRef.mockClear();
+    __mockOnValue.mockClear();
+    __mockPush.mockClear();
+    __mockUpdate.mockClear();
+    __mockServerTimestamp.mockClear();
+    __mockOff.mockClear();
+    __mockChild.mockClear();
 
     useAuth.mockReturnValue({ user: mockUser, loading: false });
     useParams.mockReturnValue({ analysisId: mockAnalysisId });
@@ -239,7 +249,6 @@ describe('ReportPage', () => {
       fileName: mockFileName,
       analysisId: mockAnalysisId,
       error: null,
-      // Ensure structuredReport is passed for initial chat context
       structuredReport: mockSeedStructuredReport,
     });
 
@@ -253,9 +262,8 @@ describe('ReportPage', () => {
     mockRtdbMessagesStore = {};
     onValueCallbackStore = null;
 
-    // Redefine mock implementations for firebase/database functions for clarity and control in each test run
-    mockFbGetDatabase.mockImplementation(() => ({})); // Return dummy DB object
-    mockFbRef.mockImplementation(
+    __mockGetDatabase.mockImplementation(() => ({}));
+    __mockRef.mockImplementation(
       (_db, path) =>
         ({
           db: _db,
@@ -264,33 +272,32 @@ describe('ReportPage', () => {
           toString: () => path || '',
         }) as unknown as DatabaseReference
     );
-    mockFbOnValue.mockImplementation((_refPassedToOnValue, callback) => {
+    __mockOnValue.mockImplementation((_refPassedToOnValue, callback) => {
       onValueCallbackStore = callback;
-      // Simulate initial call to onValue with empty data or existing data
       Promise.resolve().then(() => simulateRtdbChangeAndNotify());
-      return mockFbOff; // Return the unsubscribe function
+      return __mockOff;
     });
-    mockFbPush.mockImplementation(async (_refPassedToPush, payload) => {
+    __mockPush.mockImplementation(async (_refPassedToPush, payload) => {
       const key = `test-msg-${Date.now()}-${Object.keys(mockRtdbMessagesStore).length}`;
       mockRtdbMessagesStore[key] = {
-        id: key, // Add id to match ChatMessage
-        sender: payload.sender || 'ai', // Ensure sender is 'user' | 'ai'
+        id: key,
+        sender: payload.sender || 'ai',
         text: payload.text || '',
-        timestamp: payload.timestamp || Date.now(), // Simulate server timestamp locally if not provided
+        timestamp: payload.timestamp || Date.now(),
         isError: payload.isError,
       };
-      simulateRtdbChangeAndNotify(); // Notify listeners of the change
-      return Promise.resolve({ key } as unknown as DatabaseReference); // Return a ref-like object with a key
+      simulateRtdbChangeAndNotify();
+      return Promise.resolve({ key } as unknown as DatabaseReference);
     });
-    mockFbUpdate.mockImplementation(async (refPassedToUpdate, payload) => {
+    __mockUpdate.mockImplementation(async (refPassedToUpdate, payload) => {
       const messageKey = (refPassedToUpdate as unknown as { key: string }).key;
       if (messageKey && mockRtdbMessagesStore[messageKey]) {
         mockRtdbMessagesStore[messageKey] = { ...mockRtdbMessagesStore[messageKey], ...payload };
-        simulateRtdbChangeAndNotify(); // Notify listeners
+        simulateRtdbChangeAndNotify();
       }
       return Promise.resolve();
     });
-    mockFbChild.mockImplementation(
+    __mockChild.mockImplementation(
       (parentRef, childPath) =>
         ({
           ...parentRef,
@@ -302,14 +309,25 @@ describe('ReportPage', () => {
   });
 
   afterEach(() => {
-    mockFbGetDatabase.mockClear();
-    mockFbRef.mockClear();
-    mockFbOnValue.mockClear();
-    mockFbPush.mockClear();
-    mockFbUpdate.mockClear();
-    mockFbServerTimestamp.mockClear();
-    mockFbOff.mockClear();
-    mockFbChild.mockClear();
+    const {
+      __mockGetDatabase,
+      __mockRef,
+      __mockOnValue,
+      __mockPush,
+      __mockUpdate,
+      __mockServerTimestamp,
+      __mockOff,
+      __mockChild,
+    } = getDatabaseMocks();
+
+    __mockGetDatabase.mockClear();
+    __mockRef.mockClear();
+    __mockOnValue.mockClear();
+    __mockPush.mockClear();
+    __mockUpdate.mockClear();
+    __mockServerTimestamp.mockClear();
+    __mockOff.mockClear();
+    __mockChild.mockClear();
   });
 
   /**
@@ -321,7 +339,7 @@ describe('ReportPage', () => {
      */
     it('should redirect to the login page', async () => {
       useAuth.mockReturnValue({ user: null, loading: false });
-      getAnalysisReportActionMock.mockImplementationOnce(() => new Promise(() => {})); // Prevent report fetch
+      getAnalysisReportActionMock.mockImplementationOnce(() => new Promise(() => {}));
 
       render(<ReportPage />);
 
@@ -338,7 +356,6 @@ describe('ReportPage', () => {
    */
   describe('given the user is authenticated and navigates to a valid report', () => {
     beforeEach(async () => {
-      // Ensure getAnalysisReportActionMock is set up for success for these tests
       getAnalysisReportActionMock.mockResolvedValue({
         mdxContent: mockMdxContent,
         fileName: mockFileName,
@@ -347,12 +364,10 @@ describe('ReportPage', () => {
         structuredReport: mockSeedStructuredReport,
       });
       render(<ReportPage />);
-      // Wait for initial loading to complete and report to be displayed
       await waitFor(
         () => expect(screen.getByText(`Relatório: ${mockFileName}`)).toBeInTheDocument(),
         { timeout: 7000 }
       );
-      // Wait for welcome message
       await waitFor(
         () => {
           const welcomeMsgPattern = new RegExp(
@@ -369,11 +384,10 @@ describe('ReportPage', () => {
      * @it It should initially display a loading state then the report and chat.
      */
     it('should initially display a loading state then the report and chat', async () => {
-      // Loading state is implicitly tested by the beforeEach waitFors
       expect(getAnalysisReportActionMock).toHaveBeenCalledWith(mockUser.uid, mockAnalysisId);
       expect(screen.getByText(`Relatório: ${mockFileName}`)).toBeInTheDocument();
-      expect(screen.getByText(/Seção de Tensão/i)).toBeInTheDocument(); // From MDX
-      expect(screen.getByText(/Interagir com o Relatório/i)).toBeInTheDocument(); // Chat section title
+      expect(screen.getByText(/Seção de Tensão/i)).toBeInTheDocument();
+      expect(screen.getByText(/Interagir com o Relatório/i)).toBeInTheDocument();
       expect(
         screen.getByRole('textbox', { name: /Caixa de texto para interagir com o relatório/i })
       ).toBeInTheDocument();
@@ -402,8 +416,6 @@ describe('ReportPage', () => {
         await userEvent.type(chatInput, userMessage);
         await userEvent.click(sendButton);
 
-        // Simulate AI streaming its response by updating the RTDB store directly
-        // This needs to happen after the orchestrator action is called and the placeholder is potentially created
         await waitFor(() => expect(askReportOrchestratorActionMock).toHaveBeenCalled());
         act(() => {
           mockRtdbMessagesStore[aiRtdbKey] = {
@@ -445,7 +457,7 @@ describe('ReportPage', () => {
               mockMdxContent,
               expect.objectContaining(mockSeedStructuredReport),
               mockFileName,
-              expect.any(String) // languageCode
+              expect.any(String)
             );
           },
           { timeout: 7000 }
@@ -471,7 +483,6 @@ describe('ReportPage', () => {
         const chatInput = screen.getByRole('textbox', {
           name: /Caixa de texto para interagir com o relatório/i,
         });
-        // Wait for response display to ensure input clear has happened
         await waitFor(() => expect(screen.getByText(mockAiResponseText)).toBeInTheDocument(), {
           timeout: 7000,
         });
@@ -519,7 +530,6 @@ describe('ReportPage', () => {
         await waitFor(
           () => {
             expect(screen.getByText('Seção de Tensão - Revisada')).toBeInTheDocument();
-            // Check that old content is gone
             expect(
               screen.queryByText('Os níveis de tensão mantiveram-se dentro dos limites adequados.')
             ).not.toBeInTheDocument();
@@ -554,7 +564,7 @@ describe('ReportPage', () => {
     beforeEach(async () => {
       getAnalysisReportActionMock.mockResolvedValueOnce({
         mdxContent: null,
-        fileName: mockFileName, // May still have filename
+        fileName: mockFileName,
         analysisId: mockAnalysisId,
         error: errorMessage,
         structuredReport: null,
