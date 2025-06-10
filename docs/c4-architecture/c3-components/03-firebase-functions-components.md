@@ -95,4 +95,4 @@ The following is a list of the main components identified in the diagram. Each w
   - [Details](./firebase-functions/process-analysis-fn.md)
 
 [Previous: Server Actions Components](./02-server-actions-components.md)
-[Next: Code/Flow Diagram (C4)](../../c4-code/index.md)
+[Next: Code/Flow Diagram (C4)](../c4-code/index.md)
