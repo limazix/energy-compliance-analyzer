@@ -1,18 +1,24 @@
-@startuml
-!define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include GCPPuml/GCPC4Integration.puml
+@startuml C1 - System Context Overview - Energy Compliance Analyzer
+' Remote includes with full URLs
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
+' Include specific service icon sets as needed, e.g.:
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/Firebase.puml
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_and_Machine_Learning/VertexAI.puml ' (for Gemini/Genkit representation)
 
-' To use specific GCP icons as sprites, you'll need to include their definition files, e.g.:
-' !include GCPPuml/Firebase/Firebase.puml
-' !include GCPPuml/GoogleCloud/GoogleCloudPlatform.puml
+!include <C4/C4_Context>
 
-title System Context - Energy Compliance Analyzer
+title System Context Diagram for Energy Compliance Analyzer
 
-Person(user, "User", "Electrical sector professional")
-System_Ext(gcp, "Google Cloud Platform", "Hosting, AI, Database, Storage Services")
-System(eca, "Energy Compliance Analyzer", "Analyzes power quality data against ANEEL regulations")
+Person(user, "Energy Sector User", "Professional interacting with power quality data and compliance reports.")
+System(eca, "Energy Compliance Analyzer", "Analyzes power quality data CSVs, identifies ANEEL resolutions, generates compliance reports, and provides an interactive chat interface.")
 
-Rel(user, eca, "Uses")
-Rel(eca, gcp, "Uses", "Firebase, Gemini")
+System_Ext(googleSignIn, "Google Sign-In", "External authentication service for user login.")
+System_Ext(googleAI, "Google AI (Gemini)", "External Generative AI models used for analysis, report generation, and chat functionalities via Genkit.")
+System_Ext(aneelPortal, "ANEEL Normative Data (Conceptual)", "Conceptual external source of ANEEL regulations and standards (not directly integrated via API, but knowledge is used by AI).")
+
+Rel(user, eca, "Uploads CSV data, views reports, interacts via chat")
+Rel(eca, googleSignIn, "Authenticates users via", "Firebase Auth")
+Rel(eca, googleAI, "Uses for AI processing (Genkit)", "API")
+Rel(eca, aneelPortal, "References for compliance knowledge (AI)", "Knowledge Base")
 
 @enduml

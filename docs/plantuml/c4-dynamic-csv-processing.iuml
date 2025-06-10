@@ -1,36 +1,39 @@
-@startuml c4-dynamic-csv-processing
-!define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include GCPPuml/GCPCommon.puml
-' Optionally include specific services for sprites, e.g.:
-' !include GCPPuml/Firebase/Firebase.puml
-' !include GCPPuml/Compute/CloudFunctions.puml
-' !include GCPPuml/AIML/GenerativeAI.puml
+@startuml C4 Dynamic Diagram - CSV Analysis Processing
+' Remote includes with full URLs
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPCommon.puml
+' Include specific service icon sets as needed, e.g.:
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/Firebase.puml
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/CloudFunctions.puml
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_and_Machine_Learning/VertexAI.puml
 
-title Dynamic Diagram: CSV Analysis Processing
+title Sequence Diagram: CSV Analysis Processing
 
 actor User
 participant "Frontend Web App" as Frontend
-participant "Server Actions" as ServerActions
-participant "Firebase Firestore" as Firestore <<gcp/Firebase/Firestore>>
-participant "Firebase Storage" as Storage <<gcp/Firebase/CloudStorageForFirebase>>
-participant "Firebase Functions" as Functions <<gcp/Firebase/CloudFunctionsForFirebase>>
-participant "Google AI (Gemini)" as Gemini <<gcp/AIML/GenerativeAI>>
+participant "Server Actions (Next.js)" as ServerActions
+participant "Firebase Storage" as Storage
+participant "Firebase Firestore" as Firestore
+participant "Firebase Functions (AI Pipeline)" as Functions
+participant "Google AI (Gemini)" as Gemini
 
-autonumber
+User -> Frontend : 1. Selects CSV, enters metadata
+Frontend -> ServerActions : 2. Calls createInitialAnalysisRecordAction(metadata)
+ServerActions -> Firestore : 3. Creates analysis record (status: uploading)
+Firestore --> ServerActions : 4. Returns new analysisId
+ServerActions --> Frontend : 5. Returns analysisId
+Frontend -> Storage : 6. Uploads CSV file (using analysisId in path)
+Frontend -> ServerActions : 7. Calls finalizeFileUploadRecordAction(analysisId, storageUrl)
+ServerActions -> Firestore : 8. Updates record (status: summarizing_data, fileUrl)
 
-User -> Frontend: Uploads CSV & Metadata
-Frontend -> ServerActions: createInitialAnalysisRecordAction()
-ServerActions -> Firestore: Create Analysis (status: uploading)
-Frontend -> Storage: Upload CSV file
-Frontend -> ServerActions: finalizeFileUploadRecordAction()
-ServerActions -> Firestore: Update Analysis (URL, status: summarizing_data)
-Firestore -> Functions: Trigger onUpdate (status='summarizing_data')
-Functions -> Storage: Read CSV file
-Functions -> Gemini: Process data (Summarizer, Identifier, Analyzer, Reviewer Agents)
-Gemini --> Functions: Structured JSON report
-Functions -> Firestore: Save structured report
-Functions -> Storage: Save MDX report
-Functions -> Firestore: Update Analysis (status: completed, MDX path)
-Frontend -> Firestore: (onSnapshot) Receives updates & displays results
+Firestore --> Functions : 9. Triggers processAnalysisOnUpdate (status changed)
+Functions -> Storage : 10. Reads CSV file
+Functions -> Gemini : 11. Processes via AI Agents (Summarizer, Identifier, etc.)
+Gemini --> Functions : 12. Returns AI processing results
+Functions -> Firestore : 13. Saves structured report (JSON)
+Functions -> Storage : 14. Saves MDX report
+Functions -> Firestore : 15. Updates status to 'completed', saves MDX path
+
+Firestore --> Frontend : 16. (via onSnapshot) Notifies UI of completion/progress
+User <-- Frontend : 17. Views results/report
 
 @enduml

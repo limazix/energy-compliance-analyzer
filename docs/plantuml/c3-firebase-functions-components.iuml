@@ -1,44 +1,58 @@
-@startuml
-!define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include GCPPuml/GCPC4Integration.puml
+@startuml C3 - Firebase Functions Components - Energy Compliance Analyzer
+' Remote includes with full URLs
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/Firebase.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/CloudFunctions.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_and_Machine_Learning/VertexAI.puml
 
-' For specific icons, include service files e.g.:
-' !include GCPPuml/Firebase/FirebaseAdminSDK.puml
-' !include GCPPuml/Compute/CloudFunctions.puml
-' !include GCPPuml/AI/VertexAI.puml
+!include <C4/C4_Component>
 
-title Firebase Functions Components (Container: Background Processing)
+title Component Diagram for Background Processing (Firebase Functions)
 
-Component(trigger, "Firestore Trigger", "Firebase Functions SDK", "processAnalysisOnUpdate: Activated by Firestore document updates (status change).")
-Component(processAnalysisFn, "Pipeline Orchestrator", "Node.js, Genkit", "Main function; coordinates AI agents and utilities for analysis.")
+package "Firebase Function (processAnalysisOnUpdate)" <<CloudFunction>> {
+    Component(trigger, "Firestore Trigger", "Firebase Functions SDK", "Listens for Firestore document updates (e.g., status='summarizing_data').")
+    Component(processAnalysisFn, "Pipeline Orchestrator", "Node.js/TypeScript", "Main logic controlling the sequence of AI agents and utilities.")
 
-package "AI Agents (Genkit Flows)" {
-    Component(dataSummarizerAgent, "Agent: Data Analyst (Summarizer)", "Genkit Flow (Gemini)", "Reads CSV (chunks), generates textual summary, suggests transformations.")
-    Component(regulationIdentifierAgent, "Agent: Resolution Identifier", "Genkit Flow (Gemini)", "Identifies pertinent ANEEL resolutions from summary.")
-    Component(complianceAnalyzerAgent, "Agent: Compliance Engineer (Initial Reporter)", "Genkit Flow (Gemini)", "Generates initial structured JSON compliance report.")
-    Component(reportReviewerAgent, "Agent: Report Reviewer", "Genkit Flow (Gemini)", "Reviews and refines the structured JSON report.")
+    package "AI Agents (Genkit Flows)" <<Folder>> {
+        ComponentGCP(dataSummarizerAgent, "Data Analyst (Summarizer)", "Genkit, Gemini", "Summarizes CSV data chunks.", $sprite="gcp/AI_and_Machine_Learning/VertexAI")
+        ComponentGCP(regulationIdentifierAgent, "Regulation Identifier", "Genkit, Gemini", "Identifies relevant ANEEL resolutions.", $sprite="gcp/AI_and_Machine_Learning/VertexAI")
+        ComponentGCP(complianceAnalyzerAgent, "Compliance Engineer (Reporter)", "Genkit, Gemini", "Generates initial structured compliance report (JSON).", $sprite="gcp/AI_and_Machine_Learning/VertexAI")
+        ComponentGCP(reportReviewerAgent, "Report Reviewer", "Genkit, Gemini", "Refines and corrects the structured report.", $sprite="gcp/AI_and_Machine_Learning/VertexAI")
+    }
+
+    package "Utility Modules" <<Folder>> {
+        Component(gcsUtil, "Storage Access Utility", "Firebase Admin SDK", "Reads CSV content from Firebase Storage.")
+        Component(mdxConverterUtil, "MDX Conversion Utility", "TypeScript", "Converts structured JSON report to MDX.")
+        Component(statusUpdaterUtil, "Status/Progress Updater", "Firebase Admin SDK", "Updates analysis status and progress in Firestore.")
+    }
 }
 
-package "Utilities" {
-    Component(gcsUtil, "Storage Access Utility", "Firebase Admin SDK (Storage)", "Reads CSV file content from Firebase Storage.")
-    Component(mdxConverterUtil, "MDX Conversion Utility", "TypeScript Module (reportUtils.ts)", "Converts final JSON report to MDX format.")
-    Component(statusUpdaterUtil, "Status/Progress Updater", "Firebase Admin SDK (Firestore)", "Updates analysis status and progress in Firestore.")
-}
+' External Services
+ComponentDbGCP(firestore, "Firebase Firestore", "NoSQL Database", "Source of trigger, stores results.", $sprite="gcp/Firebase/Firestore")
+ComponentDbGCP(storage, "Firebase Storage", "Object Storage", "Stores CSVs and MDX reports.", $sprite="gcp/Firebase/CloudStorage")
+ComponentGCP(googleAI, "Google AI (Gemini)", "LLM Service", "Used by Genkit agents.", $sprite="gcp/AI_and_Machine_Learning/VertexAI")
 
-ComponentDb(firestore_admin, "Firebase Firestore (Admin)", "Firebase Admin SDK", "Interface for Firestore DB")
-ComponentDb(storage_admin, "Firebase Storage (Admin)", "Firebase Admin SDK", "Interface for Storage")
 
 ' Relationships
-trigger --> processAnalysisFn : Invokes
+trigger -> processAnalysisFn : "Invokes with event data"
+processAnalysisFn -> gcsUtil : "Uses to read CSV"
+processAnalysisFn -> dataSummarizerAgent : "Calls"
+processAnalysisFn -> regulationIdentifierAgent : "Calls"
+processAnalysisFn -> complianceAnalyzerAgent : "Calls"
+processAnalysisFn -> reportReviewerAgent : "Calls"
+processAnalysisFn -> mdxConverterUtil : "Uses to generate MDX"
+processAnalysisFn -> statusUpdaterUtil : "Uses to update Firestore"
+processAnalysisFn -> storage : "Writes MDX file"
 
-processAnalysisFn --> gcsUtil : Reads CSV
-processAnalysisFn --> dataSummarizerAgent : Summarizes Data
-processAnalysisFn --> regulationIdentifierAgent : Identifies Resolutions
-processAnalysisFn --> complianceAnalyzerAgent : Generates Report
-processAnalysisFn --> reportReviewerAgent : Reviews Report
-processAnalysisFn --> mdxConverterUtil : Converts to MDX
-processAnalysisFn --> storage_admin : Saves MDX
-processAnalysisFn --> statusUpdaterUtil : Updates Firestore (multiple times)
-processAnalysisFn --> firestore_admin : Updates Firestore (final report)
+dataSummarizerAgent -> googleAI : "Uses (via Genkit)"
+regulationIdentifierAgent -> googleAI : "Uses (via Genkit)"
+complianceAnalyzerAgent -> googleAI : "Uses (via Genkit)"
+reportReviewerAgent -> googleAI : "Uses (via Genkit)"
+
+statusUpdaterUtil -> firestore : "Writes updates"
+gcsUtil -> storage : "Reads file"
+
+' Firestore is the source of the trigger
+firestore ..> trigger : "Triggers (onUpdate)"
 
 @enduml

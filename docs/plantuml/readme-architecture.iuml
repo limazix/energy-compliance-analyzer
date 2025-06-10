@@ -1,87 +1,115 @@
-@startuml readme_architecture
+@startuml High-Level Architecture - Energy Compliance Analyzer
+' Remote includes with full URLs
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
+' Include specific service icon sets as needed, e.g.:
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/Firebase.puml
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/CloudFunctions.puml
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_and_Machine_Learning/VertexAI.puml ' (for Gemini/Genkit representation)
 
-' Define base URL for GCP icons (though not explicitly used with sprites in this high-level diagram)
-!define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include GCPPuml/GCPC4Integration.puml ' For C4 macros that can integrate GCP icons
+' C4-PlantUML Includes (already part of GCPC4Integration or standard C4 if not using GCP specific elements)
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+!include <C4/C4_Deployment>
 
-' Include standard C4-PlantUML package for base C4 elements and styling
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
-
-' Custom skinparams to achieve a style similar to the example and PRD guidelines
+' Styling
 skinparam {
-    DefaultFontName Inter, Arial, sans-serif ' Use Inter as primary, fallback to Arial
-    DefaultFontSize 12
-    Shadowing false ' For a cleaner, flatter look
-    RoundCorner 20 ' More rounded corners for elements
-
-    ArrowColor #4A5568 ' Dark Gray for arrows
+    BackgroundColor #F0F2F5
+    RoundCorner 20
+    Shadowing false
+    ArrowColor #555555
     ArrowThickness 1.5
-    LineColor #718096 ' Medium Gray for lines
+    FontName Inter, Arial, sans-serif
+    DefaultTextAlignment center
 
-    BackgroundColor #F0F2F5 ' Light Gray page background (PRD)
-
-    ' C4 Person (User)
-    PersonBackgroundColor #FFFFFF ' White background for Person
-    PersonBorderColor #3F51B5 ' Deep Blue border (PRD Primary)
-    PersonFontColor #2D3748 ' Darker Gray text
-    PersonStereotypeFontColor #4A5568
-
-    ' C4 System Boundary (Main Application System)
-    BoundaryBorderColor #3F51B5 ' Deep Blue border
-    BoundaryBackgroundColor #FFFFFF ' White background for the boundary box itself
-    BoundaryFontColor #3F51B5 ' Deep Blue text for boundary title
-    BoundaryStereotypeFontColor #3F51B5
-    BoundaryFontStyle bold
-
-    ' C4 Container (Frontend, Backend API, Functions - general application parts)
-    ContainerBorderColor #3F51B5 ' Deep Blue border
-    ContainerBackgroundColor #EBF8FF ' Very Light Blue background (subtle, professional)
-    ContainerFontColor #2D3748 ' Darker Gray text
-    ContainerStereotypeFontColor #4A5568 ' Medium Gray for stereotype (e.g., "Next.js, React")
-
-    ' C4 Database Container (Firestore, RTDB, Storage)
-    ContainerDbBorderColor #3F51B5    ' Deep Blue border, consistent
-    ContainerDbBackgroundColor #E6FFFA ' Very Light Teal/Mint background (distinct & professional for data stores)
-    ContainerDbFontColor #2D3748     ' Darker Gray text
-    ContainerDbStereotypeFontColor #4A5568 ' Medium Gray for stereotype (e.g., "Firebase Firestore")
-
-    ' C4 External System (Firebase Auth, Gemini)
-    ExtSystemBorderColor #A0AEC0 ' Medium Gray border for external systems
-    ExtSystemBackgroundColor #F7FAFC ' Off-White/Very Light Gray for externals
-    ExtSystemFontColor #4A5568   ' Medium Gray text
-    ExtSystemStereotypeFontColor #718096 ' Lighter Gray for stereotype
+    rectangle {
+        StereotypeFontSize 12
+        FontColor #FFFFFF
+        FontSize 14
+        FontStyle bold
+    }
+    database {
+        StereotypeFontSize 12
+        FontColor #FFFFFF
+        FontSize 14
+        FontStyle bold
+    }
+    queue {
+        StereotypeFontSize 12
+        FontColor #FFFFFF
+        FontSize 14
+        FontStyle bold
+    }
+    person {
+        BackgroundColor #0078D4
+        BorderColor #005A9E
+        FontColor #FFFFFF
+        StereotypeFontColor #FFFFFF
+    }
+    system {
+        BackgroundColor #3F51B5  ' Primary Blue
+        BorderColor #2C387E
+        StereotypeFontColor #E0E0E0
+    }
+    container {
+        BackgroundColor #607D8B  ' Neutral Dark Blue-Gray
+        BorderColor #37474F
+        StereotypeFontColor #E0E0E0
+    }
+    component {
+        BackgroundColor #FF9800  ' Accent Orange
+        BorderColor #E65100
+        FontColor #212121
+        StereotypeFontColor #212121
+    }
 }
+
+' High-Level Architecture
+Person(user, "Energy Sector User", "Uploads CSV data, interacts with reports.")
+System_Boundary(appBoundary, "Energy Compliance Analyzer") {
+    Container(frontend, "Frontend Web App (Next.js)", "Next.js, React, ShadCN, Tailwind", "User Interface for data upload, report viewing, and chat interaction. Hosted on Firebase App Hosting.")
+    Container(serverActions, "Backend API (Next.js Server Actions)", "Next.js Server Actions, Genkit", "Handles client requests, orchestrates chat AI, manages Firestore/Storage interactions.")
+    ContainerDb(firestore, "Main Database (Firestore)", "Firebase Firestore", "Stores analysis metadata, status, structured reports, user data.")
+    ContainerDb(storage, "File Storage (Firebase Storage)", "Firebase Storage", "Stores uploaded CSV files and generated MDX reports.")
+    ContainerDb(rtdb, "Chat Database (RTDB)", "Firebase Realtime Database", "Stores real-time chat history for reports.")
+    SystemQueue(functions, "Background Processing (Firebase Functions)", "Node.js, Genkit, Gemini", "Processes CSV data, runs AI pipeline for analysis and report generation.")
+}
+
+System_Ext(googleAI, "Google AI (Gemini)", "Generative AI Models for analysis and chat. Accessed via Genkit.")
+System_Ext(firebaseAuth, "Firebase Authentication", "Handles user authentication (Google Sign-In).")
+
+' Relationships
+user -> frontend : "Uses"
+frontend -> serverActions : "Makes API calls (Server Actions)"
+serverActions -> firestore : "Reads/Writes Data"
+serverActions -> storage : "Reads/Writes Files (MDX)"
+serverActions -> rtdb : "Manages Chat History"
+serverActions -> googleAI : "Invokes Chat Orchestrator (Genkit)"
+serverActions -> functions : "Triggers via Firestore update (indirectly)"
+
+functions -> storage : "Reads CSV, Writes MDX"
+functions -> firestore : "Reads data, Writes analysis results & status"
+functions -> googleAI : "Invokes AI Agents (Genkit)"
+
+frontend -> firebaseAuth : "Authenticates User"
+
+' Layout hints
+left to right direction
+Rel_D(user, frontend, "Interacts with")
+Rel_D(frontend, serverActions, "Communicates via")
+Rel_Group_D(group_backend, {
+  serverActions
+  Rel_D(serverActions, firestore, "Uses")
+  Rel_D(serverActions, storage, "Uses")
+  Rel_D(serverActions, rtdb, "Uses")
+  Rel_D(serverActions, functions, "Triggers")
+})
+Rel_D(functions, googleAI, "Uses")
+Rel_D(serverActions, googleAI, "Uses")
+
+Rel_D(frontend, firebaseAuth, "Authenticates via")
+
 
 title High-Level Architecture: Energy Compliance Analyzer
-
-Person(user, "End User", "Uses the web application to upload data and view compliance reports.")
-
-System_Boundary(eca_system, "Energy Compliance Analyzer System") {
-    Container(frontend, "Frontend Web App", "Next.js, React, ShadCN", "Provides the UI for data upload, analysis visualization, and report interaction. Hosted on Firebase App Hosting.")
-    Container(server_actions, "Backend API", "Next.js Server Actions", "Handles client requests, interacts with Firebase services, and orchestrates AI chat. Runs on Firebase App Hosting.")
-    ContainerDb(firestore, "Main Database", "Firebase Firestore", "Stores analysis metadata, user data, and structured reports.")
-    ContainerDb(rtdb, "Chat Database", "Firebase Realtime DB", "Stores real-time chat messages for report interaction.")
-    ContainerDb(storage, "File Storage", "Firebase Storage", "Stores uploaded CSV files and generated MDX reports.")
-    Container(functions, "Background Processing", "Firebase Functions", "Executes AI pipeline for data analysis and report generation.")
-}
-
-System_Ext(firebase_auth, "Firebase Authentication", "Handles user sign-in and identity management.")
-System_Ext(gemini, "Google AI (Gemini)", "Provides generative AI models for analysis and chat.")
-
-Rel(user, frontend, "Uses", "HTTPS")
-Rel(frontend, server_actions, "Invokes", "HTTPS")
-Rel(frontend, firebase_auth, "Authenticates via", "OAuth")
-
-Rel_D(server_actions, firestore, "Reads/Writes Data")
-Rel_D(server_actions, rtdb, "Manages Chat History")
-Rel_D(server_actions, storage, "Accesses Report Files")
-Rel_D(server_actions, gemini, "Orchestrates Report Chat via API")
-
-Rel_D(functions, firestore, "Reads Data & Updates Analysis Status/Results")
-Rel_D(functions, storage, "Reads CSV Files & Writes MDX Reports")
-Rel_D(functions, gemini, "Performs AI Analysis & Report Generation via API")
-
-' Relationship showing Firestore triggering Functions
-Rel_Neighbor(firestore, functions, "Triggers Processing (on data change)")
+caption Generated by PlantUML for Energy Compliance Analyzer
 
 @enduml

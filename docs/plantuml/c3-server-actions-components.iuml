@@ -1,45 +1,50 @@
-@startuml
-!define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include GCPPuml/GCPC4Integration.puml
+@startuml C3 - Next.js Server Actions Components - Energy Compliance Analyzer
+' Remote includes with full URLs
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/Firebase.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_and_Machine_Learning/VertexAI.puml
 
-' For specific icons, include service files e.g.:
-' !include GCPPuml/Firebase/FirebaseAdminSDK.puml
-' !include GCPPuml/AI/VertexAI.puml
+!include <C4/C4_Component>
 
-title Next.js Server Actions Components (Container: Backend API)
+title Component Diagram for Backend API (Next.js Server Actions)
 
-package "Analysis & Upload Management" {
-    Component(fileUploadActions, "File Upload Actions", "Server Actions Module", "Handles initial record creation, upload progress, finalization of CSV upload.")
-    Component(analysisProcessingActions, "Analysis Processing Actions", "Server Actions Module", "Prepares and signals analysis for background processing (sets status for Firebase Function trigger).")
-    Component(analysisMgmtActions, "Analysis Management Actions", "Server Actions Module", "Handles deletion and cancellation of analyses.")
-    Component(tagActions, "Tag Management Actions", "Server Actions Module", "Adds/removes tags for an analysis.")
+package "Server Action Modules (TypeScript)" <<Node>> {
+    Component(fileUploadActions, "File Upload Actions", "Server Actions", "Manages initial record creation, upload progress updates, finalization in Firestore.")
+    Component(analysisMgmtActions, "Analysis Management Actions", "Server Actions", "Handles deletion and cancellation of analyses.")
+    Component(analysisListActions, "Analysis Listing Actions", "Server Actions", "Fetches list of past analyses for a user.")
+    Component(tagActions, "Tag Management Actions", "Server Actions", "Adds/removes tags from analyses.")
+    Component(reportViewActions, "Report Viewing Actions", "Server Actions", "Fetches MDX report content and metadata.")
+    Component(reportChatActions, "Report Chat Actions", "Server Actions, Genkit", "Orchestrates user-report chat, invokes AI, updates report if modified.")
+    Component(analysisProcessingActions, "Analysis Processing Actions", "Server Actions", "Signals Firebase Function to start/retry processing (by updating Firestore status).")
 }
 
-package "Data Retrieval & Interaction" {
-    Component(analysisListActions, "Analysis Listing Actions", "Server Actions Module", "Fetches list of past analyses for a user.")
-    Component(reportViewActions, "Report Viewing Actions", "Server Actions Module", "Fetches MDX report content and metadata.")
-    Component(reportChatActions, "Report Chat Actions", "Server Actions Module", "Orchestrates report chat with Genkit, handles RTDB, updates Firestore/Storage on report modification.")
-}
+' External Dependencies (Databases, AI Services)
+ComponentDbGCP(firestore, "Firebase Firestore", "NoSQL Database", "Stores analysis data, user info, etc.", $sprite="gcp/Firebase/Firestore")
+ComponentDbGCP(storage, "Firebase Storage", "Object Storage", "Stores CSVs, MDX reports.", $sprite="gcp/Firebase/CloudStorage")
+ComponentDbGCP(rtdb, "Firebase Realtime DB", "Realtime NoSQL DB", "Stores chat messages.", $sprite="gcp/Firebase/RealtimeDatabase")
+ComponentGCP(googleAI, "Google AI (Gemini)", "LLM Service", "Used by Genkit for chat and report revisions.", $sprite="gcp/AI_and_Machine_Learning/VertexAI")
 
-ComponentDb(firestore, "Firebase Firestore", "Firebase SDK", "Primary database interface")
-ComponentDb(storage, "Firebase Storage", "Firebase SDK", "File storage interface")
-ComponentDb(rtdb, "Firebase Realtime DB", "Firebase SDK", "Chat history interface")
-Component(genkit_next, "Genkit (Next.js)", "Genkit SDK", "Interface for AI flows (chat orchestrator)")
+' Relationships between Server Actions and Dependencies
+fileUploadActions --> firestore : "Creates/Updates Analysis Records"
+analysisMgmtActions --> firestore : "Updates Analysis Status (deleted, cancelling)"
+analysisMgmtActions --> storage : "Deletes Files (CSV, MDX)"
+analysisListActions --> firestore : "Queries Analyses"
+tagActions --> firestore : "Updates Tags in Analysis Record"
+reportViewActions --> firestore : "Reads Analysis Metadata, MDX Path"
+reportViewActions --> storage : "Reads MDX File Content"
+reportChatActions --> rtdb : "Writes/Updates Chat Messages"
+reportChatActions --> googleAI : "Invokes Genkit Flow (Orchestrator)"
+reportChatActions --> firestore : "Updates Structured Report (if modified by AI)"
+reportChatActions --> storage : "Writes new MDX (if modified by AI)"
+analysisProcessingActions --> firestore : "Updates Analysis Status to trigger Function"
 
-' Relationships
-fileUploadActions --> firestore
-analysisProcessingActions --> firestore
-analysisMgmtActions --> firestore
-analysisMgmtActions --> storage # For deleting files
-tagActions --> firestore
-
-analysisListActions --> firestore
-reportViewActions --> firestore
-reportViewActions --> storage # For fetching MDX
-
-reportChatActions --> genkit_next
-reportChatActions --> rtdb
-reportChatActions --> firestore # If report is modified
-reportChatActions --> storage # If report MDX is re-generated
+' Client (Frontend) is the primary caller for these actions
+"Frontend Web App" ..> fileUploadActions : "Invokes"
+"Frontend Web App" ..> analysisMgmtActions : "Invokes"
+"Frontend Web App" ..> analysisListActions : "Invokes"
+"Frontend Web App" ..> tagActions : "Invokes"
+"Frontend Web App" ..> reportViewActions : "Invokes"
+"Frontend Web App" ..> reportChatActions : "Invokes"
+"Frontend Web App" ..> analysisProcessingActions : "Invokes"
 
 @enduml

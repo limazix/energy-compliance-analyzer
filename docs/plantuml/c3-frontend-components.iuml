@@ -1,47 +1,51 @@
-@startuml
-!define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include GCPPuml/GCPC4Integration.puml
+@startuml C3 - Frontend Web App Components - Energy Compliance Analyzer
+' Remote includes with full URLs
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
+' No specific GCP icons needed here directly, GCPC4Integration provides C4 macros
 
-title Frontend Web App Components (Container: Frontend Web App)
+!include <C4/C4_Component>
 
-package "UI Components (ShadCN, Custom)" {
-    Component(authUI, "Authentication UI", "React Components", "Login/Logout buttons, profile display. Interacts with AuthProvider.")
-    Component(fileUploadUI, "Upload UI", "React Components, NewAnalysisForm.tsx", "File selection, metadata input, initiates upload via useFileUploadManager.")
-    Component(analysisListUI, "Analysis Listing UI", "React Components, Accordion", "Displays past analyses, uses useAnalysisManager.")
-    Component(analysisViewUI, "Analysis View UI", "React Components, AnalysisView.tsx", "Shows details of one analysis, progress, results, tags.")
-    Component(reportViewUI, "Report View UI", "React Components, ReportPage.tsx", "Renders MDX report, integrates chat.")
-    Component(reportChatUI, "Report Chat UI", "React Components (within ReportPage)", "Handles chat messages, RTDB sync, calls chat Server Action.")
-    Component(uiLib, "Reusable UI Library", "ShadCN UI, Lucide Icons", "Buttons, Cards, Inputs, Dialogs etc.")
+title Component Diagram for Frontend Web App (Next.js/React)
+
+package "User Interface (React Components)" <<Rectangle>> {
+    Component(authUI, "Authentication UI", "React, ShadCN", "Handles login/logout buttons, user profile display.")
+    Component(fileUploadUI, "Upload UI (NewAnalysisForm)", "React, ShadCN", "Manages CSV file selection, metadata input, and upload initiation.")
+    Component(analysisListUI, "Analysis Listing UI", "React, ShadCN", "Displays list of past analyses (accordion).")
+    Component(analysisViewUI, "Analysis View UI", "React, ShadCN", "Shows details of a selected analysis (progress, results, actions).")
+    Component(reportViewUI, "Report View UI (ReportPage)", "React, Next-MDX-Remote", "Renders MDX reports, integrates chat.")
+    Component(reportChatUI, "Report Chat UI", "React, ShadCN", "Interface for user-AI chat about the report.")
+    Component(uiComponents, "Reusable UI Library (ShadCN)", "ShadCN, Radix, Tailwind", "Core visual building blocks (Buttons, Cards, etc.).")
 }
 
-package "State & Logic" {
-    Component(stateMgmt, "State & UI Logic", "React Context, Custom Hooks", "AuthProvider, QueryProvider, useAnalysisManager, useFileUploadManager, useToast.")
-    Component(routing, "Routing", "Next.js App Router", "Maps URLs to pages, handles navigation.")
+package "State & Logic (Hooks & Contexts)" <<Rectangle>> {
+    Component(stateMgmt, "State & UI Logic", "React Context, Custom Hooks", "Manages global auth state (AuthProvider), analysis data (useAnalysisManager), file upload (useFileUploadManager), notifications (useToast).")
+    Component(routing, "Routing (Next.js App Router)", "Next.js", "Maps URLs to pages, handles navigation.")
 }
 
-Component(firebaseClient, "Firebase Client Config", "TypeScript, firebase/app", "Initializes Firebase SDK, provides service instances (Auth, Firestore, Storage, RTDB), handles emulator connections.")
+package "Firebase Integration (Client-Side)" <<Rectangle>> {
+    Component(firebaseClient, "Firebase Client Config", "Firebase SDK", "Initializes Firebase SDK, provides service instances (Auth, Firestore, Storage, RTDB), handles emulator connections.")
+}
 
-' Relationships (simplified for overview)
-authUI --> stateMgmt # Use "useAuth"
-fileUploadUI --> stateMgmt # Use "useFileUploadManager"
-analysisListUI --> stateMgmt # Use "useAnalysisManager"
-analysisViewUI --> stateMgmt # Use "useAnalysisManager"
-reportViewUI --> reportChatUI
-reportChatUI --> stateMgmt ' May use toasts or global state
+' Relationships within Frontend
+authUI -> stateMgmt : "Uses useAuth hook"
+fileUploadUI -> stateMgmt : "Uses useFileUploadManager hook"
+analysisListUI -> stateMgmt : "Uses useAnalysisManager hook"
+analysisViewUI -> stateMgmt : "Uses useAnalysisManager hook"
+reportViewUI -> reportChatUI : "Integrates"
+reportChatUI -> stateMgmt : "Uses useToast, local state"
+stateMgmt -> firebaseClient : "Uses Firebase services (Auth, RTDB)"
 
-stateMgmt --> firebaseClient # AuthProvider uses Firebase Auth
-reportChatUI --> firebaseClient # For RTDB
+' All UI components use uiComponents (implicit, not drawing all lines for clarity)
+authUI ..> uiComponents
+fileUploadUI ..> uiComponents
+analysisListUI ..> uiComponents
+analysisViewUI ..> uiComponents
+reportViewUI ..> uiComponents
+reportChatUI ..> uiComponents
 
-authUI ..> uiLib
-fileUploadUI ..> uiLib
-analysisListUI ..> uiLib
-analysisViewUI ..> uiLib
-reportViewUI ..> uiLib
 
-Lay_D(authUI, fileUploadUI)
-Lay_D(fileUploadUI, analysisListUI)
-Lay_D(analysisListUI, analysisViewUI)
-Lay_D(analysisViewUI, reportViewUI)
-Lay_D(reportViewUI, reportChatUI)
+' External Interactions (Simplified - details in Container diagram)
+stateMgmt ..> "Next.js Server Actions" : "Calls for backend operations (via hooks)"
+firebaseClient ..> "Firebase Services (Auth, RTDB)" : "Connects to (Emulators/Prod)"
 
 @enduml

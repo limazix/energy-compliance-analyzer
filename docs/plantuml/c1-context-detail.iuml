@@ -1,36 +1,36 @@
-@startuml
-!define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include GCPPuml/GCPC4Integration.puml
+@startuml C1 - System Context Detail - Energy Compliance Analyzer
+' Remote includes with full URLs
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
+' Include specific service icon sets as needed, e.g.:
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/Firebase.puml
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_and_Machine_Learning/VertexAI.puml
 
-' To use specific GCP icons as sprites, you'll need to include their definition files, e.g.:
-' !include GCPPuml/Firebase/Firebase.puml
-' !include GCPPuml/GoogleCloud/GoogleCloudPlatform.puml
-' !include GCPPuml/AI/VertexAI.puml ' For Gemini if represented as Vertex AI service
+!include <C4/C4_Context>
 
-title System Context Detail - Energy Compliance Analyzer
+title Detailed System Context Diagram for Energy Compliance Analyzer
 
-Person(user, "User", "Electrical Sector Professional")
+Person(user, "Energy Sector User", "Professional (e.g., engineer, analyst) responsible for ensuring compliance with ANEEL power quality standards.")
 
-System_Boundary(gcp_boundary, "Google Cloud Platform") {
-    SystemDb_Ext(firebase_auth, "Firebase Authentication", "Firebase", "Handles user authentication via Google Sign-In")
-    SystemDb_Ext(firestore, "Firebase Firestore", "Firebase", "Stores analysis metadata, status, and structured reports")
-    SystemDb_Ext(storage, "Firebase Storage", "Firebase", "Stores uploaded CSVs and generated MDX reports")
-    SystemDb_Ext(rtdb, "Firebase Realtime DB", "Firebase", "Stores chat history for report interaction")
-    System_Ext(functions, "Firebase Functions", "Firebase", "Executes background AI processing pipeline")
-    System_Ext(app_hosting, "Firebase App Hosting", "Firebase", "Hosts the Next.js Frontend Web App")
-    System_Ext(gemini, "Google AI (Gemini)", "Google AI", "Provides LLM capabilities for analysis and chat")
-}
+System(energy_compliance_analyzer, "Energy Compliance Analyzer", "A web application that automates the analysis of power quality data from CSV files against ANEEL regulations, generates reports, and allows interactive refinement via a chat interface.")
 
-System(eca, "Energy Compliance Analyzer", "SaaS application hosted on Firebase, utilizing GCP services for its backend, AI, and data persistence.")
+System_Ext(google_auth_service, "Google Authentication Service", "Handles user sign-in via Google accounts, providing secure identity verification.")
+System_Ext(google_ai_platform, "Google AI Platform (Gemini)", "Provides the generative AI models (e.g., Gemini) used by Genkit for data analysis, regulation identification, report generation, and chat functionalities.")
+System_Ext(aneel_regulations_knowledge, "ANEEL Regulations Knowledge Base (Conceptual)", "Represents the body of ANEEL normative resolutions and technical standards. This is not a direct API integration but the knowledge embedded and utilized by the AI models.")
 
-Rel(user, eca, "Uploads CSV data, views reports, interacts via chat")
+Rel(user, energy_compliance_analyzer, "Uploads power quality CSV data")
+Rel(user, energy_compliance_analyzer, "Provides analysis title & description")
+Rel(user, energy_compliance_analyzer, "Manages analyses (views, tags, deletes)")
+Rel(user, energy_compliance_analyzer, "Views compliance reports (MDX)")
+Rel(user, energy_compliance_analyzer, "Interacts with reports via chat")
+Rel(user, google_auth_service, "Signs in using Google Account")
 
-Rel_D(eca, firebase_auth, "Uses for User Login")
-Rel_D(eca, firestore, "Stores/Retrieves Analysis Data")
-Rel_D(eca, storage, "Stores/Retrieves Files")
-Rel_D(eca, rtdb, "Manages Chat History")
-Rel_D(eca, functions, "Triggers for Processing")
-Rel_D(eca, app_hosting, "Hosted On")
-Rel_D(eca, gemini, "Uses for AI tasks")
+Rel(energy_compliance_analyzer, google_auth_service, "Uses for User Authentication", "Firebase Auth SDK")
+Rel(energy_compliance_analyzer, google_ai_platform, "Sends data summaries & prompts for AI processing (Genkit)", "API Calls")
+Rel(energy_compliance_analyzer, aneel_regulations_knowledge, "AI references for identifying relevant standards and assessing compliance", "AI Knowledge")
+
+Lay_R(user, energy_compliance_analyzer)
+Lay_D(energy_compliance_analyzer, google_auth_service)
+Lay_D(energy_compliance_analyzer, google_ai_platform)
+Lay_D(energy_compliance_analyzer, aneel_regulations_knowledge)
 
 @enduml
