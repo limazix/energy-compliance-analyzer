@@ -1,64 +1,109 @@
-@startuml C4 Deployment Diagram - Energy Compliance Analyzer
-' Remote includes with full URLs
+
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+
+!define GCP_SPRITES_LOCATION https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/Firebase.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/CloudFunctions.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Mobile/AppHosting.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_and_Machine_Learning/VertexAI.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Networking/CloudDNS.puml ' For conceptual representation of Firebase Hosting's domain serving
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Database/CloudFirestore.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Storage/CloudStorage.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Database/CloudRealtimeDatabase.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/VertexAI/VertexAI.puml
+' App Hosting can be represented by a generic web server icon or a specific CDN/Compute icon if applicable
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Networking/CloudCDN.puml (for App Hosting frontend serving)
 
-!include <C4/C4_Deployment>
+' Styling - consistent with other diagrams
+skinparam defaultFontName Inter
+skinparam dpi 150
+skinparam roundCorner 10
+skinparam shadowing false
 
-title Deployment Diagram: Energy Compliance Analyzer on Firebase/GCP
-
-Deployment_Node_L(user_device, "User's Device (Browser)", "Web Browser") {
-    Container(browser, "Web Browser", "Chrome, Firefox, Safari, Edge", "Renders the frontend application.")
+skinparam rectangle {
+    StereotypeFontSize 0
+}
+skinparam person {
+    BackgroundColor #08427B
+    FontColor #FFFFFF
+    BorderColor #073B6F
+}
+skinparam node {
+    BackgroundColor #D1C4E9 ' Purple family for GCP Nodes
+    FontColor #311B92
+    BorderColor #B39DDB
+}
+skinparam package {
+    BackgroundColor #F0F2F5 
+    FontColor #37474F
+    BorderColor #CFD8DC
+}
+skinparam database {
+    BackgroundColor #FFCCBC
+    FontColor #BF360C 
+    BorderColor #FF8A65
+}
+skinparam artifact {
+    BackgroundColor #E3F2FD
+    FontColor #1E88E5
+    BorderColor #90CAF9
+}
+skinparam arrow {
+    Color #616161
+    FontColor #616161
+    FontSize 12
 }
 
-Deployment_Node_L(firebase_platform, "Firebase Platform (GCP Region: us-central1)", "Google Cloud Platform") {
-    Deployment_Node_L(app_hosting, "Firebase App Hosting", "Managed Next.js Hosting", $sprite="gcp/Mobile/AppHosting") {
-        Container(frontend_app, "Frontend Web App", "Next.js, React", "User Interface, Client-side Logic.")
-        Container(server_actions, "Backend API", "Next.js Server Actions", "Server-side request handling, Genkit (for chat AI).")
-    }
+title Deployment Diagram: Energy Compliance Analyzer (Production on GCP/Firebase)
 
-    Deployment_Node_L(cloud_functions_env, "Firebase Functions Environment", "Node.js Runtime", $sprite="gcp/Compute/CloudFunctions") {
-        Container(functions_runtime, "Background Processing Functions", "Node.js, Genkit, Gemini", "AI pipeline, data processing (triggered by Firestore).")
-    }
+Person(user, "Usuário Final", "Acessa via navegador/dispositivo móvel")
 
-    Deployment_Node_L(firestore_service, "Firebase Firestore", "NoSQL Document Database Service", $sprite="gcp/Firebase/Firestore") {
-        ContainerDb(firestore_db, "Main Database", "Firestore Collections/Documents", "Stores analysis metadata, user data, structured reports.")
-    }
+Deployment_Node_L(gcp_region, "Google Cloud Platform (Região: us-central1)", "GCP") {
+    Deployment_Node_L(firebase_project, "Firebase Project (electric-magnitudes-analizer)", "Firebase") {
+        
+        DeploymentNodeGCP(app_hosting, "Firebase App Hosting", "Serviço gerenciado para hospedar aplicações web Next.js", $sprite="gcp/Firebase/Hosting") { // Using a generic Firebase Hosting icon as proxy
+            Container(frontend_app_instance, "Frontend Web App", "Next.js", "Instância da aplicação Next.js (com Server Actions).")
+        }
 
-    Deployment_Node_L(storage_service, "Firebase Storage", "Object Storage Service", $sprite="gcp/Firebase/CloudStorage") {
-        ContainerDb(storage_bucket, "Storage Bucket", "GCS Bucket", "Stores uploaded CSVs, generated MDX reports.")
-    }
+        DeploymentNodeGCP(cloud_functions_env, "Cloud Functions Environment", "Ambiente serverless para executar código de backend.", $sprite=$firebase_cloud_functions) {
+            Container(functions_instance, "Background Processing Logic", "Node.js, TypeScript", "Instâncias das Firebase Functions para análise de dados e IA.")
+        }
+        
+        DeploymentNodeGCP(firestore_service, "Firestore Service", "Serviço de banco de dados NoSQL gerenciado.", $sprite=$firebase_cloud_firestore) {
+            Database(firestore_db, "Main Database", "Firestore", "Armazena dados de análises, metadados, relatórios estruturados.")
+        }
 
-    Deployment_Node_L(rtdb_service, "Firebase Realtime Database", "NoSQL Realtime Database Service", $sprite="gcp/Firebase/RealtimeDatabase") {
-        ContainerDb(rtdb_instance, "Chat Database", "RTDB JSON Tree", "Stores chat messages.")
-    }
+        DeploymentNodeGCP(rtdb_service, "Realtime Database Service", "Serviço de banco de dados NoSQL em tempo real.", $sprite=$firebase_realtime_database) {
+            Database(rtdb_chat, "Chat Database", "Realtime DB", "Armazena histórico de chat.")
+        }
 
-    Deployment_Node_L(auth_service, "Firebase Authentication Service", "Identity Platform", $sprite="gcp/Firebase/Authentication") {
-        Container(auth_system, "Authentication System", "Firebase Auth Backend", "Manages user identities, Google Sign-In.")
+        DeploymentNodeGCP(storage_service, "Cloud Storage for Firebase Service", "Serviço de armazenamento de objetos.", $sprite=$firebase_cloud_storage) {
+            Database(storage_bucket, "File Storage Bucket", "Cloud Storage", "Armazena arquivos CSV e relatórios MDX.")
+        }
+        
+        DeploymentNodeGCP(auth_service, "Firebase Authentication Service", "Serviço de gerenciamento de identidade.", $sprite=$firebase_auth) {
+            ' No specific container for Auth service itself as it's a managed service endpoint
+        }
     }
-}
-
-Deployment_Node_L(google_cloud_services, "Google Cloud AI Services", "Google Cloud Platform") {
-    Deployment_Node_L(gemini_api_service, "Google AI (Gemini API)", "Generative AI Model Service", $sprite="gcp/AI_and_Machine_Learning/VertexAI") {
-         Container(gemini_model, "Gemini Models", "LLM", "Provides natural language processing and generation capabilities.")
+    Deployment_Node_L(google_ai_platform, "Google AI Platform", "Plataforma de IA do Google") {
+         DeploymentNodeGCP(gemini_api_endpoint, "Gemini API Endpoint", "Vertex AI", "Ponto de acesso para os modelos Gemini.", $sprite=$vertex_ai)
     }
 }
 
 
 ' Relationships
-user_device -> app_hosting : "Accesses Frontend App via HTTPS"
-app_hosting -> auth_service : "Authenticates User"
-app_hosting -> firestore_service : "Reads/Writes Data (Server Actions)"
-app_hosting -> storage_service : "Reads/Writes Files (Server Actions)"
-app_hosting -> rtdb_service : "Manages Chat (Client/Server Actions)"
-app_hosting -> gemini_api_service : "Calls for Chat AI (Server Actions via Genkit)"
+Rel(user, frontend_app_instance, "Acessa via HTTPS")
 
-cloud_functions_env -> firestore_service : "Triggered by, Reads/Writes Data"
-cloud_functions_env -> storage_service : "Reads/Writes Files"
-cloud_functions_env -> gemini_api_service : "Calls for Analysis AI (via Genkit)"
+Rel(frontend_app_instance, auth_service, "Usa para autenticação", "Firebase SDK")
+Rel(frontend_app_instance, firestore_db, "Lê/escreve dados da análise (via Server Actions)", "Firebase SDK/Admin SDK")
+Rel(frontend_app_instance, rtdb_chat, "Sincroniza chat (via Server Actions & direct)", "Firebase SDK")
+Rel(frontend_app_instance, storage_bucket, "Upload de CSVs, download de relatórios (via Server Actions & direct)", "Firebase SDK")
+Rel(frontend_app_instance, gemini_api_endpoint, "Chama para chat IA (via Server Actions)", "HTTPS/Genkit")
+
+Rel(functions_instance, firestore_db, "Lê/escreve dados de análise e status", "Firebase Admin SDK")
+Rel(functions_instance, storage_bucket, "Lê CSVs, grava relatórios MDX", "Firebase Admin SDK")
+Rel(functions_instance, gemini_api_endpoint, "Chama para pipeline de análise IA", "HTTPS/Genkit")
+
+' Firestore triggers Cloud Functions
+Rel_Back_Neighbor(functions_instance, firestore_db, "Disparado por eventos em")
 
 @enduml

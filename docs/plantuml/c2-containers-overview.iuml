@@ -1,49 +1,92 @@
-@startuml C2 - Container Overview - Energy Compliance Analyzer
-' Remote includes with full URLs
+
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+!define GCP_SPRITES_LOCATION https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
-' Include specific service icon sets as needed:
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/Firebase.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/CloudFunctions.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_and_Machine_Learning/VertexAI.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Mobile/AppHosting.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Database/CloudFirestore.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Storage/CloudStorage.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Database/CloudRealtimeDatabase.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/VertexAI/VertexAI.puml
+' For App Hosting, consider using a generic compute or CDN icon if a specific App Hosting icon isn't available
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/AppEngine.puml (as a proxy)
 
-!include <C4/C4_Container>
+' Styling
+skinparam defaultFontName Inter
+skinparam dpi 150
+skinparam roundCorner 10
+skinparam shadowing false
 
-title Container Diagram for Energy Compliance Analyzer
-
-Person_Ext(user, "Energy Sector User", "Uploads CSVs, views reports, interacts via chat.")
-
-System_Ext(google_ai, "Google AI (Gemini)", "Provides LLM for Genkit flows.")
-
-System_Boundary(b1, "Energy Compliance Analyzer System") {
-    ContainerGCP(frontend_app, "Frontend Web App", "Next.js, React, ShadCN", "Provides UI for all user interactions. Hosted on Firebase App Hosting.", $sprite="gcp/Mobile/AppHosting")
-    ContainerGCP(server_actions, "Backend API", "Next.js Server Actions, Genkit", "Handles client requests, report chat AI, DB/Storage interactions. Runs on App Hosting.", $sprite="gcp/Mobile/AppHosting")
-    ContainerDbGCP(firestore_db, "Main Database", "Firebase Firestore", "Stores analysis metadata, status, structured reports, tags, user data.", $sprite="gcp/Firebase/Firestore")
-    ContainerDbGCP(storage_db, "File Storage", "Firebase Storage", "Stores uploaded CSV files and generated MDX reports.", $sprite="gcp/Firebase/CloudStorage")
-    ContainerDbGCP(rtdb, "Chat Database", "Firebase Realtime Database", "Stores chat history for report interactions.", $sprite="gcp/Firebase/RealtimeDatabase")
-    ContainerQueueGCP(functions_app, "Background Processing", "Firebase Functions (Node.js, Genkit)", "Executes AI pipeline for CSV analysis, report generation, and review.", $sprite="gcp/Compute/CloudFunctions")
-    ContainerGCP(auth_service, "Authentication Service", "Firebase Authentication", "Manages user authentication via Google Sign-In.", $sprite="gcp/Firebase/Authentication")
+skinparam rectangle {
+    StereotypeFontSize 0
+}
+skinparam person {
+    BackgroundColor #08427B
+    FontColor #FFFFFF
+    BorderColor #073B6F
+}
+skinparam system_ext {
+    BackgroundColor #757575
+    FontColor #FFFFFF
+    BorderColor #616161
+}
+skinparam container {
+    BackgroundColor #E3F2FD 
+    FontColor #1E88E5
+    BorderColor #90CAF9
+}
+skinparam database {
+    BackgroundColor #FFCCBC ' Light orange for Firestore, RTDB, Storage (Firebase orange family)
+    FontColor #BF360C 
+    BorderColor #FF8A65
 }
 
-' Relationships
-Rel(user, frontend_app, "Uses", "HTTPS")
+title Container Overview: Energy Compliance Analyzer
 
-Rel(frontend_app, server_actions, "Invokes", "Next.js Server Actions")
-Rel(frontend_app, auth_service, "Authenticates via", "Firebase SDK")
-Rel(frontend_app, rtdb, "Listens for chat updates, Sends messages", "Firebase SDK") ' Chat UI directly interacts with RTDB
+Person(user, "Usuário Final", "Profissional do setor elétrico.")
 
-Rel(server_actions, firestore_db, "Reads/Writes Analysis Data & Tags")
-Rel(server_actions, storage_db, "Reads/Writes MDX Reports")
-Rel(server_actions, rtdb, "Writes User/AI Messages, Updates Chat")
-Rel(server_actions, google_ai, "Calls for Chat Orchestration (Genkit)", "API")
-' server_actions trigger functions_app indirectly via Firestore status update
-Rel(server_actions, firestore_db, "Updates status to trigger Functions")
+System_Ext(google_auth_service, "Google Sign-In", "Serviço de autenticação do Google.", $sprite=$firebase_auth)
+System_Ext(gemini_api, "Google AI (Gemini API)", "API de IA Generativa do Google.", $sprite=$vertex_ai)
+System_Ext(aneel, "ANEEL", "Fonte das resoluções normativas.")
 
-Rel(functions_app, storage_db, "Reads CSV Data, Writes MDX Reports")
-Rel(functions_app, firestore_db, "Reads Analysis Config, Writes Results & Status")
-Rel(functions_app, google_ai, "Calls for AI Pipeline (Genkit)", "API")
+System_Boundary(eca_system, "Energy Compliance Analyzer") {
+    Container(frontend_app, "Frontend Web App", "Next.js, React, ShadCN UI", "Interface com o usuário para uploads, visualização e chat. Hospedado no Firebase App Hosting.")
+    Container(server_actions_api, "Backend API", "Next.js Server Actions", "Lida com requisições da UI, orquestra interações com Firebase e Genkit para chat.")
+    Container(functions_backend, "Background Processing", "Firebase Functions", "Processa arquivos CSV, executa pipeline de IA (Genkit + Gemini) para análise e geração de relatórios.", $sprite=$firebase_cloud_functions)
+    
+    ContainerDb(firestore_db, "Main Database", "Firebase Firestore", "Armazena metadados das análises, status, tags, e relatórios estruturados (JSON).", $sprite=$firebase_cloud_firestore)
+    ContainerDb(rtdb_chat, "Chat Database", "Firebase Realtime DB", "Armazena o histórico de conversas do chat interativo do relatório.", $sprite=$firebase_realtime_database)
+    ContainerDb(storage_files, "File Storage", "Firebase Storage", "Armazena os arquivos CSV enviados pelos usuários e os relatórios MDX gerados.", $sprite=$firebase_cloud_storage)
+}
 
-' Firestore triggers Functions
-firestore_db ..> functions_app : "Triggers on document update (e.g., status change)"
+' Relationships User -> System
+Rel(user, frontend_app, "Acessa e usa", "HTTPS")
+Rel(user, google_auth_service, "Autentica via")
+
+' Relationships Frontend App -> Other Containers / External Systems
+Rel(frontend_app, server_actions_api, "Envia requisições para", "HTTPS (Server Actions)")
+Rel(frontend_app, google_auth_service, "Usa para login/logout", "Firebase SDK")
+Rel(frontend_app, rtdb_chat, "Lê/Escreve mensagens de chat", "Firebase SDK")
+Rel(frontend_app, storage_files, "Faz upload de CSV para", "Firebase SDK") ' Direct upload to Storage
+
+' Relationships Server Actions API -> Other Containers / External Systems
+Rel(server_actions_api, firestore_db, "Gerencia registros de análise e relatórios em", "Firebase Admin SDK")
+Rel(server_actions_api, storage_files, "Obtém metadados/URLs de arquivos de", "Firebase Admin SDK") ' e.g. to serve MDX
+Rel(server_actions_api, rtdb_chat, "Grava mensagens (usuário/IA) no", "Firebase Admin SDK")
+Rel(server_actions_api, gemini_api, "Chama para processamento de chat (via Genkit)", "HTTPS")
+' Server Actions don't directly call Functions, but update Firestore which triggers them.
+Rel(server_actions_api, firestore_db, "Atualiza status para disparar Functions", "Firebase Admin SDK")
+
+' Relationships Functions Backend -> Other Containers / External Systems
+Rel(functions_backend, storage_files, "Lê CSVs e grava relatórios MDX em", "Firebase Admin SDK")
+Rel(functions_backend, firestore_db, "Lê/Escreve metadados, status, progresso, resultados em", "Firebase Admin SDK")
+Rel(functions_backend, gemini_api, "Usa para pipeline de análise e geração de relatório (via Genkit)", "HTTPS")
+Rel_Back(functions_backend, firestore_db, "É disparado por atualizações em") ' Firestore trigger
+
+' Implied relationship to ANEEL for all processing components
+Rel(server_actions_api, aneel, "Considera (implícito) normas de")
+Rel(functions_backend, aneel, "Baseia análise de conformidade em")
 
 @enduml

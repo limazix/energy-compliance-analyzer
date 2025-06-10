@@ -1,30 +1,64 @@
-@startuml c1_context_detail
+
+@startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+!define GCP_SPRITES_LOCATION https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/Firebase.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_and_Machine_Learning/VertexAI.puml
-' For Google Sign-In, Firebase_Authentication icon is used as it's part of Firebase Auth.
-' Other specific services might require their own includes if not covered by Firebase.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/VertexAI/VertexAI.puml
+' Add more specific !includes here if needed, e.g.:
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/CloudFunctions.puml
 
-title Detailed System Context for Energy Compliance Analyzer
+' Styling (Can be inherited from a common style file if you create one)
+skinparam defaultFontName Inter
+skinparam dpi 150
+skinparam roundCorner 10
 
-Person(user, "User", "Electrical engineer, energy manager, or compliance officer.")
-System_Ext(google_signin, "Google Sign-In (via Firebase Auth)", "Handles user authentication via Google OAuth, managed by Firebase Authentication.", $sprite="gcp/Firebase/Firebase_Authentication")
-System_Ext(google_gemini, "Google AI (Gemini)", "Provides advanced Generative AI models (e.g., Gemini Pro) for data analysis, report generation, and chat orchestration.", $sprite="gcp/AI_and_Machine_Learning/Vertex_AI_Model_Garden")
-System_Ext(firebase_platform, "Firebase Platform", "Suite of backend services used by the application, including Firestore, Storage, Functions, Realtime DB, and App Hosting.", $sprite="gcp/Firebase/Firebase")
+skinparam person {
+    BackgroundColor #08427B
+    FontColor #FFFFFF
+    BorderColor #073B6F
+    Shadowing false
+}
+skinparam system {
+    BackgroundColor #4285F4
+    FontColor #FFFFFF
+    BorderColor #3367D6
+    Shadowing false
+}
+skinparam system_ext {
+    BackgroundColor #757575
+    FontColor #FFFFFF
+    BorderColor #616161
+    Shadowing false
+}
+skinparam database {
+    BackgroundColor #DB4437
+    FontColor #FFFFFF
+    BorderColor #C53929
+    Shadowing false
+}
+skinparam arrow {
+    Color #616161
+    FontColor #616161
+    FontSize 12
+}
 
-' External influence for regulations
-System_Ext(aneel, "ANEEL (Brazilian National Electrical Energy Agency)", "Source of normative resolutions and regulatory standards for power quality.")
+title Detailed System Context: Energy Compliance Analyzer
 
-System(energy_compliance_analyzer, "Energy Compliance Analyzer", "Web application that processes uploaded CSV power quality data, analyzes it against ANEEL regulations using AI, generates compliance reports, and allows users to interactively refine these reports.")
+Person(user, "Usuário Final", "Operador de concessionária ou profissional do setor elétrico.")
+System_Ext(google_auth_service, "Google Sign-In", "Serviço de autenticação do Google (via Firebase Authentication)", $sprite=$firebase_auth)
+System_Ext(aneel, "ANEEL", "Agência Nacional de Energia Elétrica, fonte das resoluções normativas.")
+System_Ext(gemini_api, "Google AI (Gemini API)", "API de IA Generativa do Google para análise e geração de texto.", $sprite=$vertex_ai)
 
-Rel(user, energy_compliance_analyzer, "Uploads power quality CSV files, provides analysis metadata, manages analyses, views reports, and interacts with AI chat for report refinement.")
-Rel(user, google_signin, "Authenticates using Google credentials")
-Rel(energy_compliance_analyzer, google_signin, "Delegates user authentication")
+System_Boundary(c1_boundary, "Energy Compliance Analyzer System") {
+    System(energy_analyzer, "Energy Compliance Analyzer", "Analisa conformidade de dados de qualidade de energia elétrica com resoluções ANEEL.")
+}
 
-Rel(energy_compliance_analyzer, google_gemini, "Utilizes for AI-driven data summarization, regulation identification, report generation, report review, and chat interactions.")
-Rel(energy_compliance_analyzer, firebase_platform, "Uses for Authentication, Firestore (data & metadata), Storage (files & reports), Functions (background AI pipeline), Realtime Database (chat), and App Hosting (Next.js app).")
-Rel(energy_compliance_analyzer, aneel, "Bases compliance analysis on its normative resolutions and standards")
+Rel(user, energy_analyzer, "Usa para realizar análises e obter relatórios")
+Rel(user, google_auth_service, "Autentica-se com")
+Rel(energy_analyzer, google_auth_service, "Valida identidade do usuário usando")
+Rel(energy_analyzer, gemini_api, "Usa para processamento de linguagem natural e IA")
+Rel(energy_analyzer, aneel, "Baseia análises nas resoluções de")
 
-SHOW_LEGEND()
 @enduml
