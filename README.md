@@ -33,7 +33,7 @@ The Energy Compliance Analyzer simplifies compliance verification for the electr
 
 ## High-Level Architecture
 
-![Application Architecture Diagram](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/readme-architecture.iuml)
+![uncached image](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/readme-architecture.iuml)
 
 <p align="center" data-ai-hint="architecture diagram">Application Architecture Diagram</p>
 
@@ -189,7 +189,3 @@ Consult the [**Deployment Guide**](docs/DEPLOYMENT.md) for details on manual and
 ## License
 
 This project is licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for more details.
-
-```
-
-```
