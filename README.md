@@ -36,6 +36,14 @@ The Energy Compliance Analyzer simplifies compliance verification for the electr
 ```plantuml
 @startuml HighLevelArchitecture
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!include <GCP/GCPCommon>
+!include <GCP/Compute/CloudRun>
+!include <GCP/Compute/CloudFunctions>
+!include <GCP/Firebase/FirebaseAuthentication>
+!include <GCP/Databases/CloudFirestore>
+!include <GCP/Databases/FirebaseRealtimeDatabase>
+!include <GCP/Storage/CloudStorage>
+!include <GCP/AI/VertexAI>
 
 title "Energy Compliance Analyzer - High-Level Architecture"
 
@@ -82,24 +90,24 @@ skinparam database {
 
 
 package "User Interaction" {
-  Container(ui, "Frontend Next.js/React", "ShadCN, TailwindCSS", "Hosted on Firebase App Hosting")
+  Container(ui, "Frontend Next.js/React", "ShadCN, TailwindCSS", "Hosted on Firebase App Hosting", $sprite="gcp_cloud_run")
 }
 
 package "Backend (Next.js)" {
-  Container(serverActions, "Next.js Server Actions", "Upload Trigger, Chat Orchestrator")
+  Container(serverActions, "Next.js Server Actions", "Upload Trigger, Chat Orchestrator", $sprite="gcp_cloud_run")
 }
 
 package "Firebase Platform" {
-  Container(auth, "Firebase Authentication", "Google Sign-In")
-  ContainerDb(firestore, "Firebase Firestore", "Analyses Metadata, Structured Report")
-  ContainerDb(storage, "Firebase Storage", "Upload CSVs, MDX Reports")
-  ContainerDb(rtdb, "Firebase Realtime Database", "Chat History")
-  Container(functions, "Firebase Functions", "Heavy Processing, Main AI Pipeline")
+  Container(auth, "Firebase Authentication", "Google Sign-In", $sprite="gcp_firebase_authentication")
+  ContainerDb(firestore, "Firebase Firestore", "Analyses Metadata, Structured Report", $sprite="gcp_cloud_firestore")
+  ContainerDb(storage, "Firebase Storage", "Upload CSVs, MDX Reports", $sprite="gcp_cloud_storage")
+  ContainerDb(rtdb, "Firebase Realtime Database", "Chat History", $sprite="gcp_firebase_realtime_database")
+  Container(functions, "Firebase Functions", "Heavy Processing, Main AI Pipeline", $sprite="gcp_cloud_functions")
 }
 
 package "Artificial Intelligence (Genkit & Gemini)" {
-  Component(aiEngineFunctions, "AI Engine - Functions", "Pipeline: Data Analyst, Engineer, Reporter, Reviewer")
-  Component(aiEngineServerActions, "AI Engine - Server Actions", "Interactive Chat Orchestrator Agent")
+  Component(aiEngineFunctions, "AI Engine - Functions", "Pipeline: Data Analyst, Engineer, Reporter, Reviewer", $sprite="gcp_vertex_ai")
+  Component(aiEngineServerActions, "AI Engine - Server Actions", "Interactive Chat Orchestrator Agent", $sprite="gcp_vertex_ai")
 }
 
 %% User Flows
@@ -291,3 +299,7 @@ Consult the [**Deployment Guide**](docs/DEPLOYMENT.md) for details on manual and
 ## License
 
 This project is licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for more details.
+
+```
+
+```
