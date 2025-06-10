@@ -1,5 +1,4 @@
-
-name: Run Integration Tests
+name: 1. Run Integration Tests
 
 on: push
 
@@ -7,7 +6,7 @@ jobs:
   test_production:
     name: Test
     runs-on: ubuntu-latest
-    environment: test 
+    environment: test
     permissions:
       contents: read
     steps:
@@ -29,7 +28,7 @@ jobs:
       - name: Build Firebase Functions Shared Files (for Emulators)
         run: npm run build:shared --prefix functions
         env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
+          NODE_OPTIONS: '--max-old-space-size=4096'
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools

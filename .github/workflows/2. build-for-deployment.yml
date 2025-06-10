@@ -1,8 +1,8 @@
-name: 3. Build for Deployment
+name: 2. Build for Deployment
 
 on:
   workflow_run:
-    workflows: ['Run Integration Tests'] # Matches the name in tests.yml
+    workflows: ['1. Run Integration Tests']
     types:
       - completed
 
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     if: >
-      github.event.workflow_run.workflow.name == 'Run Integration Tests' && # Ensure it's from the correct workflow
+      github.event.workflow_run.workflow.name == '1. Run Integration Tests' && 
       github.event.workflow_run.conclusion == 'success' &&
       (github.event.workflow_run.head_branch == 'main' || (github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.pull_requests[0].base.ref == 'main'))
 

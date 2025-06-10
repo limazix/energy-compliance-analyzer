@@ -1,8 +1,8 @@
-name: 4. Deploy to Firebase
+name: 3. Deploy to Firebase
 
 on:
   workflow_run:
-    workflows: ['3. Build for Deployment']
+    workflows: ['2. Build for Deployment']
     types:
       - completed
 
