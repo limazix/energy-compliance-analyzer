@@ -1,47 +1,45 @@
 @startuml
 !define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include GCPPuml/GCPC4Integration.puml
-!include GCPPuml/IconPack.puml
+!include GCPPuml/GCPGeneral.puml
+' For specific service icons, include their .puml files, e.g.:
+' !include GCPPuml/Firebase/Firebase.puml
+' !include GCPPuml/Database/CloudFirestore.puml
+' !include GCPPuml/Storage/CloudStorage.puml
 
 title Dynamic Diagram: Report Chat Interaction
 
 actor User
-participant "Frontend Web App\n(ReportPage)" as Frontend
-participant "Server Actions\n(askReportOrchestratorAction)" as ServerAction
-participant "Firebase RTDB" as RTDB
-participant "Genkit Flow\n(orchestrateReportInteractionFlow)" as OrchestratorFlow
-participant "Google AI (Gemini)" as Gemini
-participant "Genkit Tool\n(callRevisorTool)" as RevisorTool
-participant "Genkit Flow\n(reviewComplianceReportFlow)" as ReviewFlow
-participant "Firebase Firestore" as Firestore
-participant "Firebase Storage" as Storage
+participant "Frontend Web App (ReportPage)" as Frontend
+participant "Server Actions API (reportChatActions)" as ServerActions
+database "Firebase RTDB (Chat History)" as RTDB
+participant "Genkit Orchestrator Flow (Gemini)" as OrchestratorFlow
+participant "Genkit Revisor Tool (Gemini)" as RevisorTool
+database "Firebase Firestore (Analysis Doc)" as Firestore
+database "Firebase Storage (MDX Reports)" as Storage
 
-User -> Frontend: 1. Sends chat message
-Frontend -> ServerAction: 2. Calls askReportOrchestratorAction (userMsg, mdx, structuredReport, etc.)
-ServerAction -> RTDB: 3. Saves user message & AI placeholder
-ServerAction -> OrchestratorFlow: 4. Invokes with input context
-
-OrchestratorFlow -> Gemini: 5. Processes query (may decide to use tool)
+User -> Frontend : 1. Types and sends chat message
+Frontend -> ServerActions : 2. Calls askReportOrchestratorAction
+ServerActions -> RTDB : 3. Saves user message, creates AI placeholder
+ServerActions -> OrchestratorFlow : 4. Invokes with context (MDX, JSON report, user query)
+OrchestratorFlow -> OrchestratorFlow : 5. Processes query, decides if revision is needed
 alt User requests report modification
-    OrchestratorFlow -> RevisorTool: 6. Calls callRevisorTool (with structuredReport)
-    RevisorTool -> ReviewFlow: 7. Invokes reviewComplianceReportFlow
-    ReviewFlow -> Gemini: 8. Uses AI to refine structured report
-    Gemini --> ReviewFlow: Returns refined structured report
-    ReviewFlow --> RevisorTool: 9. Returns revised report
-    RevisorTool --> OrchestratorFlow: 10. Returns revised report to orchestrator
-end
-Gemini --> OrchestratorFlow: (If no tool, or after tool) Returns AI textual response
-
-OrchestratorFlow --> ServerAction: 11. Returns AI response text & (optional) revisedStructuredReport
-
-ServerAction -> RTDB: 12. Streams/Updates AI's response text
-opt Report was modified
-    ServerAction -> Firestore: 13. Updates structuredReport in Analysis doc
-    ServerAction -> Storage: 14. Generates new MDX, saves to Storage
+    OrchestratorFlow -> RevisorTool : 6. Invokes callRevisorTool with structured report
+    RevisorTool -> RevisorTool : 7. Uses Gemini to refine structured report
+    RevisorTool --> OrchestratorFlow : 8. Returns revised structured report
+    OrchestratorFlow -> ServerActions : 9. Returns AI text response AND revised structured report
+    ServerActions -> Firestore : 10. Updates structuredReport in analysis document
+    ServerActions -> Storage : 11. Generates new MDX, saves to Storage
+    ServerActions -> RTDB : 12. Streams/Updates AI textual response
+else User asks for clarification
+    OrchestratorFlow -> ServerActions : 9. Returns AI textual response
+    ServerActions -> RTDB : 10. Streams/Updates AI textual response
 end
 
-RTDB --> Frontend: 15. (via onValue) Updates chat UI with messages
-opt Report was modified (Firestore listener on ReportPage)
-    Firestore --> Frontend: 16. Updates report view with new MDX/structured data
+Frontend -> RTDB : (Listening) 13. Receives user & AI messages in real-time
+User <- Frontend : 14. Sees updated chat conversation
+alt Report was modified
+    Frontend -> Firestore : (Listening) 15. Detects change in Firestore (structuredReport/mdxPath)
+    Frontend -> Storage : 16. Re-fetches new MDX report content (via Server Action)
+    User <- Frontend : 17. Sees updated report content
 end
 @enduml

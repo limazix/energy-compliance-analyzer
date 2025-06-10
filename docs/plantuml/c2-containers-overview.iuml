@@ -1,39 +1,45 @@
 @startuml
 !define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
 !include GCPPuml/GCPC4Integration.puml
-!include GCPPuml/IconPack.puml
 
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+' Add specific service includes if you want to use their sprites, e.g.:
+' !include GCPPuml/Firebase/Firebase.puml
+' !include GCPPuml/Compute/CloudFunctions.puml
+' !include GCPPuml/Database/CloudFirestore.puml
+' !include GCPPuml/Storage/CloudStorage.puml
+' !include GCPPuml/AI/VertexAI.puml ' For Gemini
 
-title Container diagram for Energy Compliance Analyzer
+title Container Overview - Energy Compliance Analyzer
 
-Person(user, "User", "Interacts with the system")
+Person_Ext(user, "User", "Uploads data, views reports")
 
 System_Boundary(eca_system, "Energy Compliance Analyzer") {
-    Container(frontend, "Frontend Web App", "Next.js, React, ShadCN UI", "User interface for uploads, dashboards, report viewing, and chat. Hosted on Firebase App Hosting.")
-    Container(backend_api, "Backend API", "Next.js Server Actions", "Handles client requests, orchestrates chat AI, manages Firestore/Storage interactions for UI. Runs on Firebase App Hosting.")
-    ContainerDb(firestore_db, "Main Database", "Firebase Firestore (GCP)", "Stores analysis metadata, status, structured reports, user data, tags.")
-    ContainerDb(rtdb, "Chat Database", "Firebase Realtime Database (GCP)", "Stores real-time chat messages for report interaction.")
-    ContainerDb(storage, "File Storage", "Firebase Storage (GCP)", "Stores uploaded CSVs and generated MDX/PDF reports.")
-    Container(functions, "Background Processing", "Firebase Functions (GCP)", "Node.js, Genkit. Handles heavy data processing, AI pipeline execution (data summary, regulation ID, report generation, review).")
-    Container(auth_service, "Authentication Service", "Firebase Authentication (GCP)", "Manages user authentication via Google Sign-In.")
+    Container(frontend_app, "Frontend Web App", "Next.js, React, ShadCN", "Provides UI for uploads, report viewing, and chat. Hosted on Firebase App Hosting.")
+    Container(server_actions, "Backend API", "Next.js Server Actions", "Handles client requests, orchestrates chat AI, manages Firestore/Storage interactions. Runs on Firebase App Hosting.")
+    Container(bg_processing, "Background Processing", "Firebase Functions (Node.js, Genkit)", "Executes AI pipeline for data analysis and report generation.")
+    ContainerDb(main_db, "Main Database", "Firebase Firestore", "Stores analysis metadata, status, structured reports, tags.")
+    ContainerDb(chat_db, "Chat Database", "Firebase Realtime DB", "Stores real-time chat history for reports.")
+    ContainerDb(file_storage, "File Storage", "Firebase Storage", "Stores uploaded CSVs and generated MDX reports.")
+    Container(auth_service, "Authentication Service", "Firebase Authentication", "Manages user authentication via Google Sign-In.")
 }
 
-System_Ext(google_ai, "Google AI (Gemini)", "External AI models for Genkit flows")
+System_Ext(google_ai, "Google AI", "Gemini Models", "Provides LLM capabilities for Genkit flows.")
 
-Rel(user, frontend, "Uses", "HTTPS")
-Rel(frontend, backend_api, "Calls Server Actions", "HTTPS/RPC")
-Rel(frontend, rtdb, "Reads/Writes Chat Messages", "WebSockets")
-Rel(frontend, auth_service, "Authenticates via")
+Rel(user, frontend_app, "Uses")
+Rel(frontend_app, server_actions, "Makes API calls via HTTPS")
+Rel(server_actions, main_db, "Reads/Writes")
+Rel(server_actions, file_storage, "Reads/Writes MDX (via Storage SDK)")
+Rel(server_actions, chat_db, "Reads/Writes Chat History")
+Rel(server_actions, google_ai, "Invokes Genkit flows for chat")
+Rel(server_actions, auth_service, "Verifies User Identity")
+Rel(frontend_app, auth_service, "Handles Login/Logout Flow")
+Rel(frontend_app, file_storage, "Uploads CSV directly (via Storage SDK)")
+Rel(frontend_app, chat_db, "Subscribes for Real-time Chat Updates")
 
-Rel(backend_api, firestore_db, "Reads/Writes")
-Rel(backend_api, storage, "Reads MDX reports")
-Rel(backend_api, rtdb, "Writes Chat Messages, Reads Context")
-Rel(backend_api, google_ai, "Calls for Chat Orchestrator Agent")
-Rel(backend_api, auth_service, "Verifies User")
+Rel(main_db, bg_processing, "Triggers (on status update)")
+Rel(bg_processing, file_storage, "Reads CSV, Writes MDX")
+Rel(bg_processing, main_db, "Updates Status, Saves Structured Report")
+Rel(bg_processing, google_ai, "Invokes Genkit flows for analysis pipeline")
 
-Rel(functions, firestore_db, "Triggered by, Reads/Writes")
-Rel(functions, storage, "Reads CSVs, Writes MDX/PDFs")
-Rel(functions, google_ai, "Calls for Analysis Pipeline Agents")
-
+SHOW_LEGEND()
 @enduml

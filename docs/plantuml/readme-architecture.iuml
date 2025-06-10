@@ -1,32 +1,31 @@
 @startuml
 !define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include GCPPuml/GCPC4Integration.puml
-!include GCPPuml/IconPack.puml
+!include GCPPuml/GCPGeneral.puml
 
-title Energy Compliance Analyzer - System Architecture Overview
+' Example: You can add specific service icon includes here if needed
+' !include GCPPuml/Firebase/Firebase.puml
+' !include GCPPuml/Compute/CloudFunctions.puml
 
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+title Overall System Architecture
 
-GCPFirebase(firebase, "Firebase", "Platform for Backend Services")
-GCPCloudFunctions(functions, "Cloud Functions", "Serverless Processing")
-GCPCloudStorage(storage, "Cloud Storage", "File Storage")
-System_Ext(googleAI, "Google AI (Gemini)", "Generative AI Models")
-System_Ext(aneelRegs, "ANEEL Regulations", "External Knowledge Base")
+actor User
+participant "Frontend (Next.js)" as Frontend
+participant "Backend API (Server Actions)" as ServerActions
+participant "Background Processing (Firebase Functions)" as Functions
+database "Firebase Firestore" as Firestore
+database "Firebase RTDB" as RTDB
+database "Firebase Storage" as Storage
+participant "Google AI (Gemini)" as Gemini
 
-Component(frontend, "Frontend Web App (Next.js)", "User Interface & Interaction")
-Component(backendApi, "Backend API (Next.js Server Actions)", "API Layer")
-
-Rel_D(frontend, backendApi, "Makes API calls to")
-Rel_D(backendApi, firebase, "Uses")
-Rel_D(functions, firebase, "Uses")
-Rel_D(functions, storage, "Reads/Writes to")
-Rel_D(functions, googleAI, "Calls")
-Rel_D(backendApi, googleAI, "Calls for Chat Orchestration")
-Rel_D(googleAI, aneelRegs, "Consults (simulated)", "...")
-
-Lay_L(frontend, backendApi)
-Lay_L(backendApi, functions)
-Lay_L(functions, firebase)
-Lay_L(firebase, storage)
+User -> Frontend : Interacts
+Frontend -> ServerActions : API Calls
+ServerActions -> Firestore : R/W Data
+ServerActions -> Storage : Access Files (Indirectly)
+ServerActions -> RTDB : Chat History
+ServerActions -> Gemini : Orchestrates Chat AI
+Firestore -> Functions : Triggers
+Functions -> Storage : R/W Files
+Functions -> Firestore : Updates Status/Results
+Functions -> Gemini : AI Processing Pipeline
 
 @enduml

@@ -1,19 +1,18 @@
 @startuml
 !define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
 !include GCPPuml/GCPC4Integration.puml
-!include GCPPuml/IconPack.puml
 
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+' To use specific GCP icons as sprites, you'll need to include their definition files, e.g.:
+' !include GCPPuml/Firebase/Firebase.puml
+' !include GCPPuml/GoogleCloud/GoogleCloudPlatform.puml
 
-title System Context diagram for Energy Compliance Analyzer
+title System Context - Energy Compliance Analyzer
 
-Person(user, "Energy Sector Professional", "Uploads power quality data, views reports, and interacts with the system.")
-System(energyAnalyser, "Energy Compliance Analyzer", "Web application that analyzes power quality data against ANEEL regulations using AI and Firebase.")
-System_Ext(googleAI, "Google AI (Gemini)", "External Generative AI service used for analysis and chat.")
-System_Ext(aneelDB, "ANEEL Regulatory Database", "Conceptual external source of ANEEL norms and resolutions.")
+Person(user, "User", "Electrical sector professional")
+System_Ext(gcp, "Google Cloud Platform", "Hosting, AI, Database, Storage Services")
+System(eca, "Energy Compliance Analyzer", "Analyzes power quality data against ANEEL regulations")
 
-Rel(user, energyAnalyser, "Uses", "HTTPS")
-Rel(energyAnalyser, googleAI, "Makes API calls to", "HTTPS/gRPC")
-Rel(energyAnalyser, aneelDB, "References regulations from", "Conceptual")
+Rel(user, eca, "Uses")
+Rel(eca, gcp, "Uses", "Firebase, Gemini")
 
 @enduml

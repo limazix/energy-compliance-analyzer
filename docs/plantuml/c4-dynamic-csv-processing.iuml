@@ -1,35 +1,39 @@
 @startuml
 !define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include GCPPuml/GCPC4Integration.puml
-!include GCPPuml/IconPack.puml
+!include GCPPuml/GCPGeneral.puml
+' For specific service icons, include their .puml files, e.g.:
+' !include GCPPuml/Firebase/Firebase.puml
+' !include GCPPuml/Compute/CloudFunctions.puml
+' !include GCPPuml/Database/CloudFirestore.puml
+' !include GCPPuml/Storage/CloudStorage.puml
 
 title Dynamic Diagram: CSV Analysis Processing
 
 actor User
-participant "Frontend Web App" as Frontend
-participant "Server Actions" as ServerActions
-participant "Firebase Firestore" as Firestore
-participant "Firebase Storage" as Storage
-participant "Firebase Functions\n(processAnalysisOnUpdate)" as Functions
+participant "Frontend Web App (Next.js)" as Frontend
+participant "Server Actions API" as ServerActions
+database "Firebase Firestore" as Firestore
+database "Firebase Storage" as Storage
+participant "Firebase Functions (AI Pipeline)" as Functions
 participant "Google AI (Gemini)" as Gemini
 
-User -> Frontend: 1. Selects CSV, provides metadata
-Frontend -> ServerActions: 2. Calls createInitialAnalysisRecordAction
-ServerActions -> Firestore: 3. Creates analysis record (status: "uploading")
-ServerActions --> Frontend: Returns analysisId
-Frontend -> Storage: 4. Uploads CSV file (managed by useFileUploadManager)
-Frontend -> ServerActions: 5. Calls finalizeFileUploadRecordAction (updates Firestore status to "summarizing_data", adds Storage URL)
+User -> Frontend : 1. Selects CSV, provides metadata
+Frontend -> ServerActions : 2. Calls createInitialAnalysisRecordAction
+ServerActions -> Firestore : 3. Creates initial record (status: uploading)
+Frontend -> Storage : 4. Uploads CSV file directly (via SDK)
+Frontend -> ServerActions : 5. Calls finalizeFileUploadRecordAction (with Storage URL)
+ServerActions -> Firestore : 6. Updates record (status: summarizing_data, file URL)
 
-Firestore -> Functions: 6. Triggers processAnalysisOnUpdate (on status change)
-Functions -> Storage: 7. Reads CSV file content
-Functions -> Gemini: 8. Orchestrates AI Agent Pipeline (Summarizer, Regulation ID, Initial Reporter, Reviewer)
-loop For each agent in pipeline
-    Functions -> Gemini: Calls AI agent
-    Gemini --> Functions: Returns agent output
-end
-Functions -> Firestore: 9. Saves final structured report (JSON)
-Functions -> Storage: 10. Converts JSON to MDX, saves MDX report
-Functions -> Firestore: 11. Updates analysis (status: "completed", MDX path)
-Firestore --> Frontend: 12. (via onSnapshot) Updates UI with progress/results
+Firestore -> Functions : 7. Triggers processAnalysisOnUpdate Function
+Functions -> Storage : 8. Reads CSV file
+Functions -> Gemini : 9. Executes AI Agent Pipeline (Summarizer, Identifier, Reporter, Reviewer)
+note right of Functions : Updates Firestore with progress during pipeline
+
+Functions -> Firestore : 10. Saves final structured JSON report
+Functions -> Storage : 11. Converts to MDX, saves MDX to Storage
+Functions -> Firestore : 12. Updates status to "completed", stores MDX path
+
+Firestore -> Frontend : 13. Real-time updates (onSnapshot) reflect progress & completion
+User <- Frontend : 14. Views analysis results/report
 
 @enduml

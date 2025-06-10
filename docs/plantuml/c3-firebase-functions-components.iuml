@@ -1,51 +1,44 @@
 @startuml
 !define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
 !include GCPPuml/GCPC4Integration.puml
-!include GCPPuml/IconPack.puml
 
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+' For specific icons, include service files e.g.:
+' !include GCPPuml/Firebase/FirebaseAdminSDK.puml
+' !include GCPPuml/Compute/CloudFunctions.puml
+' !include GCPPuml/AI/VertexAI.puml
 
-title Firebase Functions Components (Background Processing)
+title Firebase Functions Components (Container: Background Processing)
 
-ContainerDb_Ext(firestore, "Firebase Firestore", "GCP")
-ContainerDb_Ext(storage, "Firebase Storage", "GCP")
-System_Ext(genkitGemini, "Genkit + Google AI (Gemini)")
+Component(trigger, "Firestore Trigger", "Firebase Functions SDK", "processAnalysisOnUpdate: Activated by Firestore document updates (status change).")
+Component(processAnalysisFn, "Pipeline Orchestrator", "Node.js, Genkit", "Main function; coordinates AI agents and utilities for analysis.")
 
-package "Firebase Function: processAnalysisOnUpdate" {
-    Component(trigger, "Firestore Trigger", "functions.firestore.document().onUpdate", "Watches users/{uid}/analyses/{aid}")
-    Component(processAnalysisFn, "Pipeline Orchestrator", "processAnalysis() in processAnalysis.js", "Main logic orchestrating AI agents and utilities")
-    
-    package "AI Agents (Genkit Flows)" {
-        Component(dataSummarizerAgent, "Agent: Data Analyst (Summarizer)", "summarizePowerQualityDataFlow", "Reads CSV chunk, generates textual summary, suggests transformations/visualizations")
-        Component(regulationIdentifierAgent, "Agent: Resolution Identifier", "identifyAEEEResolutionsFlow", "Identifies pertinent ANEEL resolutions from summary")
-        Component(complianceAnalyzerAgent, "Agent: Compliance Engineer (Initial Reporter)", "analyzeReportFlow", "Generates initial structured compliance report (JSON)")
-        Component(reportReviewerAgent, "Agent: Report Reviewer", "reviewReportFlow", "Refines structured report (grammar, clarity, citations)")
-    }
-
-    package "Utilities" {
-        Component(gcsUtil, "Storage Access Utility", "getFileContentFromStorage()", "Reads CSV from Firebase Storage")
-        Component(mdxConverterUtil, "MDX Conversion Utility", "convertStructuredReportToMdx()", "Transforms JSON report to MDX")
-        Component(statusUpdaterUtil, "Status/Progress Updater", "Firestore update calls", "Updates analysis document in Firestore")
-    }
+package "AI Agents (Genkit Flows)" {
+    Component(dataSummarizerAgent, "Agent: Data Analyst (Summarizer)", "Genkit Flow (Gemini)", "Reads CSV (chunks), generates textual summary, suggests transformations.")
+    Component(regulationIdentifierAgent, "Agent: Resolution Identifier", "Genkit Flow (Gemini)", "Identifies pertinent ANEEL resolutions from summary.")
+    Component(complianceAnalyzerAgent, "Agent: Compliance Engineer (Initial Reporter)", "Genkit Flow (Gemini)", "Generates initial structured JSON compliance report.")
+    Component(reportReviewerAgent, "Agent: Report Reviewer", "Genkit Flow (Gemini)", "Reviews and refines the structured JSON report.")
 }
 
-Rel(firestore, trigger, "Triggers on update (e.g., status='summarizing_data')")
-Rel(trigger, processAnalysisFn, "Invokes with event data")
+package "Utilities" {
+    Component(gcsUtil, "Storage Access Utility", "Firebase Admin SDK (Storage)", "Reads CSV file content from Firebase Storage.")
+    Component(mdxConverterUtil, "MDX Conversion Utility", "TypeScript Module (reportUtils.ts)", "Converts final JSON report to MDX format.")
+    Component(statusUpdaterUtil, "Status/Progress Updater", "Firebase Admin SDK (Firestore)", "Updates analysis status and progress in Firestore.")
+}
 
-Rel(processAnalysisFn, gcsUtil, "Calls to get CSV")
-Rel(processAnalysisFn, dataSummarizerAgent, "Calls with CSV chunk")
-Rel(processAnalysisFn, regulationIdentifierAgent, "Calls with summary")
-Rel(processAnalysisFn, complianceAnalyzerAgent, "Calls with summary & resolutions")
-Rel(processAnalysisFn, reportReviewerAgent, "Calls with initial report")
-Rel(processAnalysisFn, mdxConverterUtil, "Calls with final JSON report")
-Rel(processAnalysisFn, statusUpdaterUtil, "Calls to update Firestore")
-Rel(processAnalysisFn, storage, "Writes MDX file")
-Rel(processAnalysisFn, firestore, "Writes final structured report, status")
+ComponentDb(firestore_admin, "Firebase Firestore (Admin)", "Firebase Admin SDK", "Interface for Firestore DB")
+ComponentDb(storage_admin, "Firebase Storage (Admin)", "Firebase Admin SDK", "Interface for Storage")
 
+' Relationships
+trigger --> processAnalysisFn : Invokes
 
-Rel(dataSummarizerAgent, genkitGemini, "Uses")
-Rel(regulationIdentifierAgent, genkitGemini, "Uses")
-Rel(complianceAnalyzerAgent, genkitGemini, "Uses")
-Rel(reportReviewerAgent, genkitGemini, "Uses")
+processAnalysisFn --> gcsUtil : Reads CSV
+processAnalysisFn --> dataSummarizerAgent : Summarizes Data
+processAnalysisFn --> regulationIdentifierAgent : Identifies Resolutions
+processAnalysisFn --> complianceAnalyzerAgent : Generates Report
+processAnalysisFn --> reportReviewerAgent : Reviews Report
+processAnalysisFn --> mdxConverterUtil : Converts to MDX
+processAnalysisFn --> storage_admin : Saves MDX
+processAnalysisFn --> statusUpdaterUtil : Updates Firestore (multiple times)
+processAnalysisFn --> firestore_admin : Updates Firestore (final report)
 
 @enduml

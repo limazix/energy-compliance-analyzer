@@ -1,24 +1,36 @@
 @startuml
 !define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
 !include GCPPuml/GCPC4Integration.puml
-!include GCPPuml/IconPack.puml
 
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+' To use specific GCP icons as sprites, you'll need to include their definition files, e.g.:
+' !include GCPPuml/Firebase/Firebase.puml
+' !include GCPPuml/GoogleCloud/GoogleCloudPlatform.puml
+' !include GCPPuml/AI/VertexAI.puml ' For Gemini if represented as Vertex AI service
 
-title Detailed System Context for Energy Compliance Analyzer
+title System Context Detail - Energy Compliance Analyzer
 
-Person(user, "Energy Sector User", "Uploads CSV data, defines analysis parameters, views compliance reports, and interacts via chat.")
-System(energyComplianceAnalyzer, "Energy Compliance Analyzer", "The core application providing data analysis, report generation, and user interaction features.")
-System_Ext(googleSignIn, "Google Sign-In", "External identity provider for user authentication.")
-System_Ext(firebasePlatform, "Firebase Platform (GCP)", "Underlying BaaS including Authentication, Firestore, Storage, Functions, RTDB.")
-System_Ext(googleAI, "Google AI (Gemini)", "Provides AI models for data interpretation, regulation identification, report generation, and chat.")
-System_Ext(aneelRegulatoryDocs, "ANEEL Regulatory Documents", "External knowledge base of normative resolutions and technical standards.")
+Person(user, "User", "Electrical Sector Professional")
 
-Rel(user, energyComplianceAnalyzer, "Accesses and Uses", "HTTPS")
-Rel(user, googleSignIn, "Authenticates via", "OAuth2")
-Rel(energyComplianceAnalyzer, googleSignIn, "Delegates Authentication to")
-Rel(energyComplianceAnalyzer, firebasePlatform, "Built on / Deployed to")
-Rel(energyComplianceAnalyzer, googleAI, "Utilizes AI Models from")
-Rel(energyComplianceAnalyzer, aneelRegulatoryDocs, "Consults (via AI) for Compliance Rules")
+System_Boundary(gcp_boundary, "Google Cloud Platform") {
+    SystemDb_Ext(firebase_auth, "Firebase Authentication", "Firebase", "Handles user authentication via Google Sign-In")
+    SystemDb_Ext(firestore, "Firebase Firestore", "Firebase", "Stores analysis metadata, status, and structured reports")
+    SystemDb_Ext(storage, "Firebase Storage", "Firebase", "Stores uploaded CSVs and generated MDX reports")
+    SystemDb_Ext(rtdb, "Firebase Realtime DB", "Firebase", "Stores chat history for report interaction")
+    System_Ext(functions, "Firebase Functions", "Firebase", "Executes background AI processing pipeline")
+    System_Ext(app_hosting, "Firebase App Hosting", "Firebase", "Hosts the Next.js Frontend Web App")
+    System_Ext(gemini, "Google AI (Gemini)", "Google AI", "Provides LLM capabilities for analysis and chat")
+}
+
+System(eca, "Energy Compliance Analyzer", "SaaS application hosted on Firebase, utilizing GCP services for its backend, AI, and data persistence.")
+
+Rel(user, eca, "Uploads CSV data, views reports, interacts via chat")
+
+Rel_D(eca, firebase_auth, "Uses for User Login")
+Rel_D(eca, firestore, "Stores/Retrieves Analysis Data")
+Rel_D(eca, storage, "Stores/Retrieves Files")
+Rel_D(eca, rtdb, "Manages Chat History")
+Rel_D(eca, functions, "Triggers for Processing")
+Rel_D(eca, app_hosting, "Hosted On")
+Rel_D(eca, gemini, "Uses for AI tasks")
 
 @enduml

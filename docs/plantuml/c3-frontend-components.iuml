@@ -1,55 +1,47 @@
 @startuml
 !define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
 !include GCPPuml/GCPC4Integration.puml
-!include GCPPuml/IconPack.puml
 
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+title Frontend Web App Components (Container: Frontend Web App)
 
-title Frontend Web App Components (Energy Compliance Analyzer)
-
-package "User Interface (React Components)" {
-    Component(authUI, "Authentication UI", "Login/Logout buttons, Profile display")
-    Component(fileUploadUI, "Upload UI", "Form for CSV upload, title, description")
-    Component(analysisListUI, "Analysis Listing UI", "Displays past analyses (accordion)")
-    Component(analysisViewUI, "Analysis View UI", "Shows details of one analysis (progress/results, tags, actions)")
-    Component(reportViewUI, "Report View UI", "Renders MDX report content")
-    Component(reportChatUI, "Report Chat UI", "Interface for user-AI chat about a report")
-    Component(uiComponents, "Reusable UI Library (ShadCN)", "Buttons, Cards, Inputs, etc.")
+package "UI Components (ShadCN, Custom)" {
+    Component(authUI, "Authentication UI", "React Components", "Login/Logout buttons, profile display. Interacts with AuthProvider.")
+    Component(fileUploadUI, "Upload UI", "React Components, NewAnalysisForm.tsx", "File selection, metadata input, initiates upload via useFileUploadManager.")
+    Component(analysisListUI, "Analysis Listing UI", "React Components, Accordion", "Displays past analyses, uses useAnalysisManager.")
+    Component(analysisViewUI, "Analysis View UI", "React Components, AnalysisView.tsx", "Shows details of one analysis, progress, results, tags.")
+    Component(reportViewUI, "Report View UI", "React Components, ReportPage.tsx", "Renders MDX report, integrates chat.")
+    Component(reportChatUI, "Report Chat UI", "React Components (within ReportPage)", "Handles chat messages, RTDB sync, calls chat Server Action.")
+    Component(uiLib, "Reusable UI Library", "ShadCN UI, Lucide Icons", "Buttons, Cards, Inputs, Dialogs etc.")
 }
 
 package "State & Logic" {
-    Component(stateMgmt, "State & UI Logic", "React Contexts (Auth), Custom Hooks (useAnalysisManager, useFileUploadManager), Toast Notifications")
-    Component(routing, "Routing (Next.js App Router)", "Manages navigation and URL mapping")
-    Component(firebaseClient, "Firebase Client Config", "Initializes Firebase SDK (Auth, Firestore, Storage, RTDB), Emulator Connect")
+    Component(stateMgmt, "State & UI Logic", "React Context, Custom Hooks", "AuthProvider, QueryProvider, useAnalysisManager, useFileUploadManager, useToast.")
+    Component(routing, "Routing", "Next.js App Router", "Maps URLs to pages, handles navigation.")
 }
 
-System_Ext(browser, "User's Web Browser")
-Container_Ext(serverActions, "Backend API (Next.js Server Actions)", "Handles API requests")
-ContainerDb_Ext(firebaseAuth, "Firebase Authentication")
-ContainerDb_Ext(firebaseRTDB, "Firebase RTDB", "Chat messages")
+Component(firebaseClient, "Firebase Client Config", "TypeScript, firebase/app", "Initializes Firebase SDK, provides service instances (Auth, Firestore, Storage, RTDB), handles emulator connections.")
 
-Rel(browser, authUI, "Interacts with")
-Rel(browser, fileUploadUI, "Interacts with")
-Rel(browser, analysisListUI, "Views")
-Rel(browser, analysisViewUI, "Views/Interacts with")
-Rel(browser, reportViewUI, "Views")
-Rel(browser, reportChatUI, "Interacts with")
+' Relationships (simplified for overview)
+authUI --> stateMgmt # Use "useAuth"
+fileUploadUI --> stateMgmt # Use "useFileUploadManager"
+analysisListUI --> stateMgmt # Use "useAnalysisManager"
+analysisViewUI --> stateMgmt # Use "useAnalysisManager"
+reportViewUI --> reportChatUI
+reportChatUI --> stateMgmt ' May use toasts or global state
 
-Rel(authUI, stateMgmt, "Uses AuthContext")
-Rel(fileUploadUI, stateMgmt, "Uses useFileUploadManager")
-Rel(analysisListUI, stateMgmt, "Uses useAnalysisManager")
-Rel(analysisViewUI, stateMgmt, "Uses useAnalysisManager")
-Rel(reportViewUI, stateMgmt, "Uses state for MDX, structured report")
-Rel(reportChatUI, stateMgmt, "Uses state for messages")
+stateMgmt --> firebaseClient # AuthProvider uses Firebase Auth
+reportChatUI --> firebaseClient # For RTDB
 
-Rel(authUI, firebaseClient, "Uses Firebase Auth SDK")
-Rel(reportChatUI, firebaseClient, "Uses Firebase RTDB SDK")
-Rel(stateMgmt, firebaseClient, "Uses Firebase SDKs (indirectly via hooks)")
+authUI ..> uiLib
+fileUploadUI ..> uiLib
+analysisListUI ..> uiLib
+analysisViewUI ..> uiLib
+reportViewUI ..> uiLib
 
-Rel(stateMgmt, serverActions, "Invokes actions for data operations")
-Rel(reportChatUI, serverActions, "Invokes chat orchestrator action")
-
-Rel(firebaseClient, firebaseAuth, "Connects to")
-Rel(firebaseClient, firebaseRTDB, "Connects to")
+Lay_D(authUI, fileUploadUI)
+Lay_D(fileUploadUI, analysisListUI)
+Lay_D(analysisListUI, analysisViewUI)
+Lay_D(analysisViewUI, reportViewUI)
+Lay_D(reportViewUI, reportChatUI)
 
 @enduml
