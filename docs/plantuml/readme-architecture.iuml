@@ -1,98 +1,128 @@
-@startuml readme_architecture
 
+@startuml Energy Compliance Analyzer - High-Level Architecture
+!theme materia
+' C4-PlantUML includes for C4 modelling.
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+' GCP C4 Integration - THIS IS THE ONLY GCP-SPECIFIC INCLUDE WE WILL USE
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
+' NOTE: GCPC4Integration.puml internally includes GCPCommon.puml,
+' which defines $GCP_SPRITES_LOCATION = "." by default if not already defined,
+' and provides generic icons like $generic_database, $generic_compute, $generic_security, etc.
+' It also includes some FontAwesome icons like $fa_users, $fa_server, $fa_database.
 
-' Styling for a professional look and feel, incorporating PRD colors
-skinparam defaultTextAlignment center
-skinparam roundcorner 15
-skinparam shadowing false
-skinparam handwritten false
-skinparam backgroundColor #F0F2F5 ' Light gray background
+' Styling - Professional Look
+skinparam {
+    HyperlinkColor #2E7D32
+    DefaultFontName Inter
+    DefaultFontSize 14
+    RoundCorner 10
+    Shadowing false
 
-skinparam rectangle<<boundary>> {
-    borderColor #3F51B5 ' Deep blue
-    borderThickness 2
-    backgroundColor #FFFFFF
-    fontColor #333333
-    stereotypeFontColor #555555
-}
-skinparam person {
-    borderColor #3F51B5 ' Deep blue
-    backgroundColor #FFFFFF
-    fontColor #333333
-    stereotypeFontColor #555555
-}
-skinparam system {
-    borderColor #3F51B5 ' Deep blue
-    backgroundColor #E3F2FD ' Lighter blue for systems
-    fontColor #333333
-    stereotypeFontColor #555555
-}
-skinparam system_ext {
-    borderColor #757575
-    backgroundColor #EEEEEE
-    fontColor #333333
-    stereotypeFontColor #555555
-}
-skinparam container {
-    borderColor #FF9800 ' Orange accent
-    backgroundColor #FFF3E0 ' Lighter orange
-    fontColor #333333
-    stereotypeFontColor #555555
-}
-skinparam database {
-    borderColor #FF9800 ' Orange accent
-    backgroundColor #FFF3E0 ' Lighter orange
-    fontColor #333333
-    stereotypeFontColor #555555
-}
-skinparam arrow {
-    color #3F51B5 ' Deep blue
-    fontColor #3F51B5
-    fontSize 12
-}
+    ArrowColor #555555
+    ArrowThickness 1.5
 
+    RectangleBorderColor #B0BEC5
+    RectangleBorderThickness 1.5
+    RectangleStereotypeFontSize 11
+
+    DatabaseBorderColor #B0BEC5
+    DatabaseBorderThickness 1.5
+    DatabaseStereotypeFontSize 11
+
+    BoundaryBorderColor #78909C
+    BoundaryBorderThickness 2
+    BoundaryStereotypeFontSize 12
+    BoundaryBackgroundColor #ECEFF1
+
+    Person {
+        BackgroundColor #E3F2FD
+        BorderColor #90CAF9
+        StereotypeFontColor #1E88E5
+        FontColor #1E88E5
+    }
+    System {
+        BackgroundColor #FCE4EC
+        BorderColor #F48FB1
+        StereotypeFontColor #D81B60
+        FontColor #D81B60
+    }
+    System_Ext {
+        BackgroundColor #F1F8E9
+        BorderColor #AED581
+        StereotypeFontColor #689F38
+        FontColor #558B2F
+    }
+    Container {
+        BackgroundColor #FFFDE7
+        BorderColor #FFF59D
+        StereotypeFontColor #FBC02D
+        FontColor #F9A825
+    }
+    ContainerDb {
+        BackgroundColor #E8EAF6
+        BorderColor #C5CAE9
+        StereotypeFontColor #3F51B5
+        FontColor #3949AB
+    }
+    Component {
+        BackgroundColor #E0F2F1
+        BorderColor #A7FFEB
+        StereotypeFontColor #00796B
+        FontColor #00695C
+    }
+}
 hide stereotype
-title Energy Compliance Analyzer - High-Level Architecture
 
+' Layout direction
 top to bottom direction
 
-Person(user, "User", "Electrical sector professional, facility manager, or consultant responsible for energy compliance.", $sprite="person")
-System_Ext(aneel, "ANEEL", "Brazilian National Electrical Energy Agency - Source of Normative Resolutions (e.g., PRODIST).", $sprite="gov_building")
+' Elements
+Person(user, "Energy Sector User", "Professional analyzing power quality data (e.g., Engineer, Technician, Consultant)", $sprite=$fa_users)
+System_Ext(aneel, "ANEEL Regulations", "ANEEL Normative Resolutions and PRODIST standards", $sprite="application") ' Using a generic application/doc icon
 
-Boundary(b_app_hosting, "Firebase App Hosting", "Hosts the Next.js application", $sprite="Mobile/Firebase.png") {
-    ContainerGCP(frontend, "Frontend Web App", "Next.js, React, ShadCN UI, Tailwind", "Provides UI for data upload, analysis visualization, report viewing, and interactive chat.", $sprite="Generic_Web_Frontend.png")
-    ContainerGCP(server_actions, "Next.js Server Actions", "Node.js (Next.js Backend)", "Handles API requests from frontend, manages analysis lifecycle (initiation, status updates), orchestrates chat interactions.", $sprite="Compute/CloudRun.png")
+System_Boundary(b_system, "Energy Compliance Analyzer", "Cloud-Native Web Application") {
+
+    Boundary(b_app_hosting, "Firebase App Hosting", "Hosts the frontend and server-side logic for user interaction.", $sprite=$generic_compute) {
+        ContainerGCP(frontend, "Frontend Web App", "Next.js, React, ShadCN, Tailwind", "Provides UI for data upload, analysis visualization, report viewing, and interactive chat.", $sprite="Generic_Web_Frontend.png") ' Assuming GCPC4Integration provides a way to specify raw relative paths if needed, or uses a default
+        ContainerGCP(server_actions, "Next.js Server Actions", "Node.js", "Backend API for frontend; handles file upload metadata, triggers background processes, and orchestrates report chat interactions.", $sprite=$generic_api)
+    }
+
+    Boundary(b_firebase_platform, "Firebase Platform Services", "Core backend services for data, auth, and functions.", $sprite=$google_cloud_logo) {
+        ContainerGCP(auth, "Firebase Authentication", "Handles user sign-in and identity management.", $sprite=$generic_security)
+        ContainerDbGCP(firestore, "Firebase Firestore", "NoSQL Database", "Stores analysis metadata, status, tags, structured reports, and user data.", $sprite=$generic_database)
+        ContainerDbGCP(storage, "Firebase Storage", "Object Storage", "Stores uploaded CSV files and generated MDX report files.", $sprite=$generic_storage)
+        ContainerDbGCP(rtdb, "Firebase Realtime Database", "NoSQL Database", "Stores chat messages for real-time interaction with reports.", $sprite=$generic_database)
+        ContainerGCP(functions, "Firebase Functions", "Serverless Compute", "Executes background processing pipeline for data analysis and AI report generation.", $sprite=$generic_serverless)
+    }
 }
 
-Boundary(b_firebase_backend, "Firebase Backend Services", "Core backend infrastructure") {
-    ContainerGCP(auth, "Firebase Authentication", "Google Sign-In", "Manages user authentication and session management.", $sprite="Identity_Security/FirebaseAuthentication.png")
-    ContainerDbGCP(firestore, "Firebase Firestore", "NoSQL Document DB", "Stores analysis metadata, status, progress, structured reports, user tags.", $sprite="Databases/Firestore.png")
-    ContainerGCP(storage, "Firebase Storage", "Object Storage", "Stores uploaded CSV files and generated MDX/PDF reports.", $sprite="Storage/CloudStorage.png")
-    ContainerDbGCP(rtdb, "Firebase Realtime Database", "NoSQL JSON DB", "Manages real-time chat history for report interaction.", $sprite="Databases/FirebaseRealtimeDatabase.png")
-    ContainerGCP(functions, "Firebase Functions", "Node.js (Serverless)", "Executes background processing: CSV parsing, AI agent pipeline (data summarization, regulation identification, compliance assessment, report review), MDX/PDF generation.", $sprite="Compute/CloudFunctions.png")
-}
-
-SystemGCP_Ext(google_ai, "Google AI (Gemini)", "Generative AI Models", "Powers AI agents in Firebase Functions and Next.js Server Actions for data analysis, report generation, and chat.", $sprite="AI_Machine_Learning/VertexAI.png")
+SystemGCP_Ext(google_ai, "Google AI (Gemini)", "Generative AI Models", "Provides LLM capabilities for data summarization, regulation identification, report generation/review, and chat responses.", $sprite=$generic_machine_learning)
 
 ' Relationships
-user -> frontend : Interacts with
-frontend -> server_actions : Makes API calls (upload, get reports, chat)
-server_actions -> auth : Verifies user identity
-server_actions -> firestore : Manages analysis records & metadata
-server_actions -> storage : Gets/Puts report file references (indirectly for uploads)
-server_actions -> rtdb : Manages chat history
-server_actions -> functions : Triggers analysis processing (via Firestore status update)
-server_actions -> google_ai : For chat orchestrator agent
+user -> frontend : "Uploads CSV Data, Views Reports, Interacts via Chat"
 
-functions -> storage : Reads CSV data, Writes MDX/PDF reports
-functions -> firestore : Updates analysis status, progress, results
-functions -> google_ai : For AI agent pipeline (Summarizer, Engineer, Reviewer)
+frontend -> server_actions : "Submits Upload Form, Fetches Report Data, Sends Chat Messages"
+server_actions -> auth : "Validates User Identity"
+server_actions -> firestore : "Manages Analysis Records (Create, Update, List, Delete)"
+server_actions -> storage : "Gets MDX Report URLs (for frontend)"
+server_actions -> rtdb : "Stores/Retrieves Chat Messages"
+server_actions -> google_ai : "Invokes Chat Orchestrator Agent (Genkit)"
+server_actions -> functions : "Signals for background processing (via Firestore trigger)"
 
-functions -> aneel : (Implicitly) Uses knowledge of regulations
-google_ai -> aneel : (Implicitly) Uses knowledge of regulations for analysis
+functions -> storage : "Reads CSV Files, Writes MDX Reports"
+functions -> firestore : "Updates Analysis Status, Progress, and Results"
+functions -> google_ai : "Invokes AI Agents Pipeline (Data Analyst, Engineer, Reporter, Reviewer via Genkit)"
 
-aneel ..> functions : Regulations
-aneel ..> google_ai : Regulations (for context)
+' External System Interactions
+functions -> aneel : "Considers Regulations for Analysis (Implicit)"
+google_ai -> aneel : "References ANEEL Standards for Report Generation (Implicit)"
 
+
+Rel_D(frontend, auth, "Initiates Google Sign-In")
+Rel_D(user, auth, "Authenticates with Google Credentials")
 @enduml
+
+    
