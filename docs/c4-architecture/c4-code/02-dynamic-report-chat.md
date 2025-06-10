@@ -4,51 +4,57 @@
 
 This diagram illustrates the communication flow when a user interacts with the AI agent via a report's chat interface, including the possibility of report revision.
 
-```mermaid
-C4Dynamic
-  title "Report Chat Interaction Flow"
+```plantuml
+@startuml Dynamic_Report_Chat
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+!include <GCP/GCPCommon>
+!include <GCP/Databases/FirebaseRealtimeDatabase>
+!include <GCP/Databases/CloudFirestore>
+!include <GCP/Storage/CloudStorage>
+!include <GCP/AI/VertexAI>
 
-  Person(user, "User", "Interacts with chat UI.", $sprite="fa:fa-user")
-  Container(frontendApp, "Frontend Web App", "Next.js/React", "Report & chat UI.", $sprite="fa:fa-desktop")
-  Container(serverActions, "Backend API (SA)", "Next.js", "Orchestrates chat interaction.", $sprite="fa:fa-cogs")
-  Component(orchestrationFlow, "`orchestrateReportInteractionFlow`", "Genkit Flow (in SA)", "Processes user input, uses AI/tools.", $sprite="fa:fa-brain")
-  Component(revisorTool, "`callRevisorTool`", "Genkit Tool", "Invokes review flow for report modification.", $sprite="fa:fa-tools")
-  Component(reviewFlow, "`reviewComplianceReportFlow`", "Genkit Flow", "Reviews/refines structured report.", $sprite="fa:fa-clipboard-check")
-  ContainerDb(rtdb, "Firebase RTDB", "NoSQL", "Stores chat messages.", $sprite="fa:fa-comments")
-  ContainerDb(firestore, "Firebase Firestore", "NoSQL", "Stores structured report.", $sprite="fa:fa-database")
-  Container(storage, "Firebase Storage", "Blob", "Stores MDX reports.", $sprite="fa:fa-archive")
-  System_Ext(googleAI, "Google AI (Gemini)", "LLM for Genkit.", $sprite="fa:fa-robot")
+title "Report Chat Interaction Flow"
 
-  Rel(user, frontendApp, "1. Sends chat message (text, report context)")
-  Rel(frontendApp, serverActions, "2. Calls `askReportOrchestratorAction` SA")
-  Rel(serverActions, rtdb, "3. Saves user message & AI placeholder to RTDB")
-  Rel(serverActions, orchestrationFlow, "4. Invokes flow with user message & report data")
+actor User as user
+participant "Frontend Web App" as frontendApp <<Container>>
+participant "Backend API (SA)" as serverActions <<Container>>
+participant "`orchestrateReportInteractionFlow`" as orchestrationFlow <<Component>>
+participant "`callRevisorTool`" as revisorTool <<Component>>
+participant "`reviewComplianceReportFlow`" as reviewFlow <<Component>>
+database "Firebase RTDB" as rtdb <<ContainerDb>> #APPLICATION;sprite=gcp_firebase_realtime_database
+database "Firebase Firestore" as firestore <<ContainerDb>> #APPLICATION;sprite=gcp_cloud_firestore
+participant "Firebase Storage" as storage <<Container>> #APPLICATION;sprite=gcp_cloud_storage
+participant "Google AI (Gemini)" as googleAI <<System_Ext>> #EXTERNAL_SYSTEM;sprite=gcp_vertex_ai
 
-  Rel(orchestrationFlow, googleAI, "5. LLM processes user query")
-  Rel(orchestrationFlow, revisorTool, "6. Optional: Calls `callRevisorTool` if revision needed")
-  Rel(revisorTool, reviewFlow, "7. Optional: Invokes `reviewComplianceReportFlow`")
-  Rel(reviewFlow, googleAI, "8. Optional: LLM reviews structured report")
-  Rel(reviewFlow, revisorTool, "9. Optional: Returns revised structured report to tool")
-  Rel(revisorTool, orchestrationFlow, "10. Optional: Returns revised report to main flow")
-  Rel(orchestrationFlow, serverActions, "11. Returns AI response (and optionally, revised report) to SA")
+autonumber "<b>[0]"
 
-  Rel(serverActions, rtdb, "12. Updates/Streams final AI response in RTDB")
-  Rel(serverActions, firestore, "13. Optional: Updates structured report in Firestore if modified")
-  Rel(serverActions, storage, "14. Optional: Saves new MDX to Storage if modified")
-  Rel(frontendApp, rtdb, "15. Listens to RTDB for new/updated messages")
-  Rel(frontendApp, firestore, "16. Optional: Listens for report document updates (MDX/Structured) to re-render report")
+user -> frontendApp: Sends chat message (text, report context)
+frontendApp -> serverActions: Calls `askReportOrchestratorAction` SA
+serverActions -> rtdb: Saves user message & AI placeholder to RTDB
+serverActions -> orchestrationFlow: Invokes flow with user message & report data
 
+orchestrationFlow -> googleAI: LLM processes user query
+alt Optional: Report Revision Requested
+  orchestrationFlow -> revisorTool: Calls `callRevisorTool` if revision needed
+  revisorTool -> reviewFlow: Invokes `reviewComplianceReportFlow`
+  reviewFlow -> googleAI: LLM reviews structured report
+  reviewFlow --> revisorTool: Returns revised structured report
+  revisorTool --> orchestrationFlow: Returns revised report to main flow
+end
+orchestrationFlow --> serverActions: Returns AI response (and optionally, revised report) to SA
 
-  UpdateElementStyle(user, $fontColor="white", $bgColor="rgb(13, 105, 184)")
-  UpdateElementStyle(frontendApp, $fontColor="white", $bgColor="rgb(43, 135, 209)")
-  UpdateElementStyle(serverActions, $fontColor="white", $bgColor="rgb(68, 158, 228)")
-  UpdateElementStyle(orchestrationFlow, $fontColor="black", $bgColor="rgb(200, 200, 200)")
-  UpdateElementStyle(revisorTool, $fontColor="black", $bgColor="rgb(200, 200, 200)")
-  UpdateElementStyle(reviewFlow, $fontColor="black", $bgColor="rgb(200, 200, 200)")
-  UpdateElementStyle(rtdb, $fontColor="white", $bgColor="rgb(112, 112, 214)")
-  UpdateElementStyle(firestore, $fontColor="white", $bgColor="rgb(112, 112, 214)")
-  UpdateElementStyle(storage, $fontColor="white", $bgColor="rgb(112, 112, 214)")
-  UpdateElementStyle(googleAI, $fontColor="white", $bgColor="rgb(100, 100, 100)")
+serverActions -> rtdb: Updates/Streams final AI response in RTDB
+alt Optional: Report was Modified
+  serverActions -> firestore: Updates structured report in Firestore
+  serverActions -> storage: Saves new MDX to Storage
+end
+frontendApp <-- rtdb: Listens to RTDB for new/updated messages
+alt Optional: Report content updated
+  frontendApp <-- firestore: Listens for report document updates (MDX/Structured) to re-render report
+end
+
+@enduml
 ```
 
 ## Flow Description

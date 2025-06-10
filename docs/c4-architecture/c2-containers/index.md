@@ -2,55 +2,53 @@
 
 This diagram details the main containers (applications, data stores, etc.) that make up the Energy Compliance Analyzer system. Each container is a deployable unit or a significant data store.
 
-```mermaid
-C4Container
-  title "Container Diagram for Energy Compliance Analyzer"
+```plantuml
+@startuml C4_Container_ECA
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!include <GCP/GCPCommon>
+!include <GCP/Compute/CloudRun>
+!include <GCP/Compute/CloudFunctions>
+!include <GCP/Firebase/FirebaseAuthentication>
+!include <GCP/Databases/CloudFirestore>
+!include <GCP/Databases/FirebaseRealtimeDatabase>
+!include <GCP/Storage/CloudStorage>
+!include <GCP/AI/VertexAI>
 
-  Person(user, "User", "Interacts via frontend.", $sprite="fa:fa-user")
+title "Container Diagram for Energy Compliance Analyzer"
 
-  System_Boundary(c1, "Energy Compliance Analyzer") {
-    %% User-facing and API Layer
-    Container(frontendApp, "Frontend Web App", "Next.js, React, ShadCN UI", "UI for login, upload, reports, chat. Hosted on Firebase App Hosting.", $sprite="fa:fa-desktop")
-    Container(serverActions, "Backend API", "Next.js Server Actions, Genkit", "Handles uploads, triggers processing, orchestrates chat. Runs on App Hosting.", $sprite="fa:fa-cogs")
+Person(user, "User", "Interacts via frontend.")
 
-    %% Backend Processing Layer
-    Container(firebaseFunctions, "Background Processing", "Firebase Functions, Node.js, Genkit", "Executes AI analysis pipeline, generates reports.", $sprite="fa:fa-bolt")
+System_Boundary(c1, "Energy Compliance Analyzer") {
+    Container(frontendApp, "Frontend Web App", "Next.js, React", "UI for login, upload, reports, chat. Hosted on Firebase App Hosting.", $sprite="gcp_cloud_run")
+    Container(serverActions, "Backend API", "Next.js Server Actions", "Handles uploads, triggers processing, orchestrates chat. Runs on App Hosting.", $sprite="gcp_cloud_run")
+    Container(firebaseFunctions, "Background Processing", "Firebase Functions", "Executes AI analysis pipeline, generates reports.", $sprite="gcp_cloud_functions")
 
-    %% Data Storage & Auth Layer
-    Container(auth, "Authentication Service", "Firebase Authentication", "Manages user authentication (Google Sign-In).", $sprite="fa:fa-key")
-    ContainerDb(firestore, "Main Database", "Firebase Firestore", "Stores analysis metadata, status, tags, structured report (JSON).", $sprite="fa:fa-database")
-    ContainerDb(rtdb, "Chat Database", "Firebase Realtime DB", "Stores interactive report chat history.", $sprite="fa:fa-comments")
-    Container(storage, "File Storage", "Firebase Storage", "Stores uploaded CSVs and generated MDX reports.", $sprite="fa:fa-archive")
-  }
+    Container(auth, "Authentication Service", "Firebase Authentication", "Manages user authentication (Google Sign-In).", $sprite="gcp_firebase_authentication")
+    ContainerDb(firestore, "Main Database", "Firebase Firestore", "Stores analysis metadata, status, tags, structured report (JSON).", $sprite="gcp_cloud_firestore")
+    ContainerDb(rtdb, "Chat Database", "Firebase Realtime DB", "Stores interactive report chat history.", $sprite="gcp_firebase_realtime_database")
+    Container(storage, "File Storage", "Firebase Storage", "Stores uploaded CSVs and generated MDX reports.", $sprite="gcp_cloud_storage")
+}
 
-  System_Ext(googleAI, "Google AI (Gemini)", "LLMs for AI.", $sprite="fa:fa-brain")
+System_Ext(googleAI, "Google AI (Gemini)", "LLMs for AI.", $sprite="gcp_vertex_ai")
 
-  Rel(user, frontendApp, "Uses", "HTTPS")
+Rel(user, frontendApp, "Uses", "HTTPS")
 
-  Rel(frontendApp, serverActions, "Sends requests to", "HTTPS/SA")
-  Rel(frontendApp, auth, "Authenticates with", "Firebase SDK")
-  Rel(frontendApp, rtdb, "Syncs chat messages", "Firebase SDK, WebSockets")
+Rel(frontendApp, serverActions, "Sends requests to", "HTTPS/SA")
+Rel(frontendApp, auth, "Authenticates with", "Firebase SDK")
+Rel(frontendApp, rtdb, "Syncs chat messages", "Firebase SDK, WebSockets")
 
-  Rel(serverActions, firestore, "Reads/Writes (metadata, reports)", "Firebase SDK")
-  Rel(serverActions, storage, "Manages upload info for", "Firebase SDK")
-  Rel(serverActions, googleAI, "Interacts with Chat Orchestrator", "Genkit API")
-  Rel(serverActions, firebaseFunctions, "Triggers processing (via Firestore)", "Firestore Trigger")
-  Rel(serverActions, rtdb, "Saves chat messages", "Firebase Admin SDK")
+Rel(serverActions, firestore, "Reads/Writes (metadata, reports)", "Firebase SDK")
+Rel(serverActions, storage, "Manages upload info for", "Firebase SDK")
+Rel(serverActions, googleAI, "Interacts with Chat Orchestrator", "Genkit API")
+Rel(serverActions, firebaseFunctions, "Triggers processing (via Firestore)", "Firestore Trigger")
+Rel(serverActions, rtdb, "Saves chat messages", "Firebase Admin SDK")
 
-  Rel(firebaseFunctions, storage, "Reads CSVs & Saves MDX", "Firebase Admin SDK")
-  Rel(firebaseFunctions, firestore, "Reads/Updates status & saves report", "Firebase Admin SDK")
-  Rel(firebaseFunctions, googleAI, "Executes AI pipeline", "Genkit API")
+Rel(firebaseFunctions, storage, "Reads CSVs & Saves MDX", "Firebase Admin SDK")
+Rel(firebaseFunctions, firestore, "Reads/Updates status & saves report", "Firebase Admin SDK")
+Rel(firebaseFunctions, googleAI, "Executes AI pipeline", "Genkit API")
 
-  UpdateElementStyle(user, $fontColor="white", $bgColor="rgb(13, 105, 184)", $borderColor="rgb(13, 105, 184)")
-  UpdateElementStyle(frontendApp, $fontColor="white", $bgColor="rgb(43, 135, 209)", $borderColor="rgb(43, 135, 209)")
-  UpdateElementStyle(serverActions, $fontColor="white", $bgColor="rgb(43, 135, 209)", $borderColor="rgb(43, 135, 209)")
-  UpdateElementStyle(firebaseFunctions, $fontColor="white", $bgColor="rgb(43, 135, 209)", $borderColor="rgb(43, 135, 209)")
-  UpdateElementStyle(firestore, $fontColor="white", $bgColor="rgb(112, 112, 214)", $borderColor="rgb(112, 112, 214)")
-  UpdateElementStyle(rtdb, $fontColor="white", $bgColor="rgb(112, 112, 214)", $borderColor="rgb(112, 112, 214)")
-  UpdateElementStyle(storage, $fontColor="white", $bgColor="rgb(112, 112, 214)", $borderColor="rgb(112, 112, 214)")
-  UpdateElementStyle(auth, $fontColor="white", $bgColor="rgb(112, 112, 214)", $borderColor="rgb(112, 112, 214)")
-  UpdateElementStyle(googleAI, $fontColor="white", $bgColor="rgb(100, 100, 100)", $borderColor="rgb(100, 100, 100)")
-
+SHOW_LEGEND()
+@enduml
 ```
 
 ## Container Details

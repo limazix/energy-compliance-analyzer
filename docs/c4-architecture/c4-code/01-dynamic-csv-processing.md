@@ -4,39 +4,42 @@
 
 This diagram illustrates the sequence of interactions and data flow when a user uploads a CSV file and the compliance analysis is processed by the AI pipeline in Firebase Functions.
 
-```mermaid
-C4Dynamic
-  title "CSV Analysis Processing (Upload to Report)"
+```plantuml
+@startuml Dynamic_CSV_Processing
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!include <GCP/GCPCommon>
+!include <GCP/Compute/CloudRun>
+!include <GCP/Databases/CloudFirestore>
+!include <GCP/Storage/CloudStorage>
+!include <GCP/Compute/CloudFunctions>
+!include <GCP/AI/VertexAI>
 
-  Person(user, "User", "Interacts for upload.", $sprite="fa:fa-user")
-  Container(frontendApp, "Frontend Web App", "Next.js/React", "UI for upload.", $sprite="fa:fa-desktop")
-  Container(serverActions, "Backend API (SA)", "Next.js", "Initial upload & triggering.", $sprite="fa:fa-cogs")
-  ContainerDb(firestore, "Firebase Firestore", "NoSQL", "Analysis metadata/status.", $sprite="fa:fa-database")
-  Container(storage, "Firebase Storage", "Blob", "CSV & MDX files.", $sprite="fa:fa-archive")
-  Container(firebaseFunctions, "Background Processing (Functions)", "Node.js, Genkit", "AI pipeline.", $sprite="fa:fa-bolt")
-  System_Ext(googleAI, "Google AI (Gemini)", "LLM", "Analysis & generation.", $sprite="fa:fa-brain")
+title "CSV Analysis Processing (Upload to Report)"
 
-  Rel_Back(user, frontendApp, "1. Uploads CSV & metadata")
-  Rel(frontendApp, serverActions, "2. Calls create/finalize SA; Manages Storage upload")
-  Rel(serverActions, firestore, "3. Creates record (status 'uploading'); Updates (status 'summarizing_data', URL)")
-  Rel(frontendApp, storage, "4. Uploads CSV to Storage (client-side)")
-  %% Step 5 & 6 from original are covered by step 3's combined action description.
+actor User as user
+participant "Frontend Web App" as frontendApp <<Container>>
+participant "Backend API (SA)" as serverActions <<Container>>
+database "Firebase Firestore" as firestore <<ContainerDb>> #APPLICATION;sprite=gcp_cloud_firestore
+participant "Firebase Storage" as storage <<Container>> #APPLICATION;sprite=gcp_cloud_storage
+participant "Background Processing (Functions)" as firebaseFunctions <<Container>> #APPLICATION;sprite=gcp_cloud_functions
+participant "Google AI (Gemini)" as googleAI <<System_Ext>> #EXTERNAL_SYSTEM;sprite=gcp_vertex_ai
 
-  Rel(firestore, firebaseFunctions, "5. Triggers 'processAnalysisOnUpdate'")
-  Rel(firebaseFunctions, storage, "6. Reads CSV from Storage")
-  Rel(firebaseFunctions, googleAI, "7. Executes AI Agent pipeline (Summarizer, Identifier, Analyzer, Reviewer)")
-  Rel(firebaseFunctions, firestore, "8. Saves structured report (JSON) to Firestore")
-  Rel(firebaseFunctions, storage, "9. Converts to MDX, saves to Storage")
-  Rel(firebaseFunctions, firestore, "10. Updates status to 'completed' & MDX path in Firestore")
-  Rel(frontendApp, firestore, "11. Listens for status updates (onSnapshot) & displays result")
+autonumber "<b>[0]"
 
-  UpdateElementStyle(user, $fontColor="white", $bgColor="rgb(13, 105, 184)")
-  UpdateElementStyle(frontendApp, $fontColor="white", $bgColor="rgb(43, 135, 209)")
-  UpdateElementStyle(serverActions, $fontColor="white", $bgColor="rgb(68, 158, 228)")
-  UpdateElementStyle(firestore, $fontColor="white", $bgColor="rgb(112, 112, 214)")
-  UpdateElementStyle(storage, $fontColor="white", $bgColor="rgb(112, 112, 214)")
-  UpdateElementStyle(firebaseFunctions, $fontColor="white", $bgColor="rgb(43, 135, 209)")
-  UpdateElementStyle(googleAI, $fontColor="white", $bgColor="rgb(100, 100, 100)")
+user -> frontendApp: Uploads CSV & metadata
+frontendApp -> serverActions: Calls create/finalize SA; Manages Storage upload
+serverActions -> firestore: Creates record (status 'uploading'); Updates (status 'summarizing_data', URL)
+frontendApp -> storage: Uploads CSV to Storage (client-side)
+
+firestore -> firebaseFunctions: Triggers 'processAnalysisOnUpdate'
+firebaseFunctions -> storage: Reads CSV from Storage
+firebaseFunctions -> googleAI: Executes AI Agent pipeline (Summarizer, Identifier, Analyzer, Reviewer)
+firebaseFunctions -> firestore: Saves structured report (JSON) to Firestore
+firebaseFunctions -> storage: Converts to MDX, saves to Storage
+firebaseFunctions -> firestore: Updates status to 'completed' & MDX path in Firestore
+frontendApp <-- firestore: Listens for status updates (onSnapshot) & displays result
+
+@enduml
 ```
 
 ## Flow Description

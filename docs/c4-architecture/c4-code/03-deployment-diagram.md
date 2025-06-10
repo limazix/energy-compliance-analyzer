@@ -4,57 +4,63 @@
 
 This diagram describes how the Energy Compliance Analyzer system containers are deployed to the Firebase and Google Cloud Platform (GCP) infrastructure for a typical production environment.
 
-```mermaid
-C4Deployment
-  title "Deployment Diagram - Energy Compliance Analyzer (Production)"
+```plantuml
+@startuml C4_Deployment_ECA
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+!include <GCP/GCPCommon>
+!include <GCP/Compute/CloudRun>
+!include <GCP/Compute/CloudFunctions>
+!include <GCP/Firebase/FirebasePlatform>
+!include <GCP/Firebase/FirebaseAuthentication>
+!include <GCP/Databases/CloudFirestore>
+!include <GCP/Databases/FirebaseRealtimeDatabase>
+!include <GCP/Storage/CloudStorage>
+!include <GCP/AI/VertexAI>
 
-  Deployment_Node(userDevice, "User's Device", "Desktop/Mobile Browser", $sprite="fa:fa-desktop") {
-    Container_Instance(browserFrontendInstance, frontendApp, "Runs Frontend Web App (client-side from App Hosting)")
-  }
+title "Deployment Diagram - Energy Compliance Analyzer (Production)"
 
-  Deployment_Node(gcp, "Google Cloud Platform (GCP)", "Google's Managed Infrastructure", $sprite="fa:fa-cloud") {
-    Deployment_Node(appHosting, "Firebase App Hosting", "Managed web app hosting", "Region: us-central1 (example)") {
-      Container_Instance(nextJsAppInstance, frontendApp, "Hosts Next.js App (UI & Server Actions)", "Next.js, Node.js")
+!define FRONTEND_APP_ALIAS frontendApp
+!define FIREBASE_FUNCTIONS_ALIAS firebaseFunctions
+!define FIRESTORE_ALIAS firestore
+!define RTDB_ALIAS rtdb
+!define STORAGE_ALIAS storage
+!define AUTH_ALIAS auth
+
+Deployment_Node(userDevice, "User's Device", "Desktop/Mobile Browser") {
+    Container_Instance(FRONTEND_APP_ALIAS, browserFrontendInstance, "Runs Frontend Web App (client-side)")
+}
+
+Deployment_Node(gcp, "Google Cloud Platform (GCP)", "Google's Managed Infrastructure", $sprite="gcp_cloud_platform") {
+    Deployment_Node(appHosting, "Firebase App Hosting", "Managed web app hosting (via Cloud Run)", "Region: us-central1 (example)", $sprite="gcp_cloud_run") {
+        Container_Instance(FRONTEND_APP_ALIAS, nextJsAppInstance, "Hosts Next.js App (UI & Server Actions)")
     }
 
-    Deployment_Node(cloudFunctions, "Firebase Functions", "Serverless backend execution", "Region: us-central1 (example)") {
-      Container_Instance(analysisProcessorInstance, firebaseFunctions, "Executes AI analysis pipeline", "Node.js, Genkit, Gemini")
+    Deployment_Node(cloudFunctionsNode, "Firebase Functions Execution", "Serverless backend execution", "Region: us-central1 (example)", $sprite="gcp_cloud_functions") {
+        Container_Instance(FIREBASE_FUNCTIONS_ALIAS, analysisProcessorInstance, "Executes AI analysis pipeline")
     }
 
-    Deployment_Node(firebaseCoreServices, "Firebase Core Services", "Managed backend platform services", $sprite="fa:fa-fire") {
-      ContainerDb_Instance(firestoreInstance, firestore, "Stores analysis metadata, structured reports", "Firestore NoSQL Database")
-      ContainerDb_Instance(rtdbInstance, rtdb, "Stores chat conversation history", "Realtime NoSQL Database")
-      Container_Instance(storageInstance, storage, "Stores uploaded CSVs & MDX reports", "Firebase Storage (via GCS)")
-      Container_Instance(authInstance, auth, "Manages user authentication", "Firebase Authentication Service")
+    Deployment_Node(firebaseCoreServices, "Firebase Core Services", "Managed backend platform services", $sprite="gcp_firebase_platform") {
+        ContainerDb_Instance(FIRESTORE_ALIAS, firestoreInstance, "Stores analysis metadata, structured reports", $sprite="gcp_cloud_firestore")
+        ContainerDb_Instance(RTDB_ALIAS, rtdbInstance, "Stores chat conversation history", $sprite="gcp_firebase_realtime_database")
+        Container_Instance(STORAGE_ALIAS, storageInstance, "Stores uploaded CSVs & MDX reports", $sprite="gcp_cloud_storage")
+        Container_Instance(AUTH_ALIAS, authInstance, "Manages user authentication", $sprite="gcp_firebase_authentication")
     }
-  }
+}
 
-  System_Ext(googleAI, "Google AI (Gemini)", "Generative Language Model (LLM) services", $sprite="fa:fa-brain")
+System_Ext(googleAI, "Google AI (Gemini)", "Generative Language Model (LLM) services", $sprite="gcp_vertex_ai")
 
-  Rel(browserFrontendInstance, nextJsAppInstance, "Accesses (HTTPS)")
-  Rel(nextJsAppInstance, authInstance, "Authenticates via (SDK)", "HTTPS")
-  Rel(nextJsAppInstance, firestoreInstance, "Reads/Writes data (SDK)", "HTTPS/gRPC")
-  Rel(nextJsAppInstance, rtdbInstance, "Syncs chat (SDK)", "WebSockets")
-  Rel(nextJsAppInstance, storageInstance, "Manages files (SDK)", "HTTPS")
-  Rel(nextJsAppInstance, googleAI, "Calls Chat AI (Genkit API)", "HTTPS")
+Rel(browserFrontendInstance, nextJsAppInstance, "Accesses", "HTTPS")
+Rel(nextJsAppInstance, authInstance, "Authenticates via", "Firebase SDK")
+Rel(nextJsAppInstance, firestoreInstance, "Reads/Writes data", "Firebase SDK")
+Rel(nextJsAppInstance, rtdbInstance, "Syncs chat", "WebSockets/SDK")
+Rel(nextJsAppInstance, storageInstance, "Manages files", "Firebase SDK")
+Rel(nextJsAppInstance, googleAI, "Calls Chat AI", "Genkit API/HTTPS")
 
-  Rel(firestoreInstance, analysisProcessorInstance, "Triggers Function (via Eventarc/Firestore Triggers)")
-  Rel(analysisProcessorInstance, firestoreInstance, "Reads/Writes data (Admin SDK)", "HTTPS/gRPC")
-  Rel(analysisProcessorInstance, storageInstance, "Reads/Writes files (Admin SDK)", "HTTPS")
-  Rel(analysisProcessorInstance, googleAI, "Calls AI Pipeline (Genkit API)", "HTTPS")
+Rel(firestoreInstance, analysisProcessorInstance, "Triggers Function", "Firestore Triggers")
+Rel(analysisProcessorInstance, firestoreInstance, "Reads/Writes data", "Firebase Admin SDK")
+Rel(analysisProcessorInstance, storageInstance, "Reads/Writes files", "Firebase Admin SDK")
+Rel(analysisProcessorInstance, googleAI, "Calls AI Pipeline", "Genkit API/HTTPS")
 
-  %% Alias to reference elements defined at C2 Level
-  Component_Ext(frontendApp, "Frontend Web App", "C2 Level Container")
-  Component_Ext(firebaseFunctions, "Background Processing", "C2 Level Container")
-  ComponentDb_Ext(firestore, "Main Database (Firestore)", "C2 Level Container")
-  ComponentDb_Ext(rtdb, "Chat Database (RTDB)", "C2 Level Container")
-  Component_Ext(storage, "File Storage (Storage)", "C2 Level Container")
-  Component_Ext(auth, "Authentication Service", "C2 Level Container")
-
-  UpdateElementStyle(userDevice, $fontColor="white", $bgColor="rgb(13, 105, 184)")
-  UpdateElementStyle(gcp, $fontColor="white", $bgColor="rgb(66, 133, 244)")
-  UpdateElementStyle(appHosting, $fontColor="black", $bgColor="rgb(251, 188, 5)")
-  UpdateElementStyle(cloudFunctions, $fontColor="black", $bgColor="rgb(251, 188, 5)")
-  UpdateElementStyle(firebaseCoreServices, $fontColor="black", $bgColor="rgb(255, 160, 0)")
-  UpdateElementStyle(googleAI, $fontColor="white", $bgColor="rgb(100, 100, 100)")
+SHOW_LEGEND()
+@enduml
 ```
