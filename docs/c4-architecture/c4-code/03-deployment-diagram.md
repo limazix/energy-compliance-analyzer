@@ -9,39 +9,39 @@ C4Deployment
   title Deployment Diagram - Energy Compliance Analyzer (Production)
 
   Deployment_Node(userDevice, "User's Device", "Desktop/Mobile Browser", $sprite="fa:fa-desktop") {
-    Container_Instance(browserFrontendInstance, frontendApp, "Runs the Frontend Web App (client-side) downloaded from App Hosting.")
+    Container_Instance(browserFrontendInstance, frontendApp, "Runs Frontend Web App (client-side from App Hosting)")
   }
 
-  Deployment_Node(gcp, "Google Cloud Platform (GCP)", "Google's Managed Infrastructure and Services", $sprite="fa:fa-cloud") {
-    Deployment_Node(appHosting, "Firebase App Hosting", "Managed hosting service for web applications", "Region: us-central1 (configurable)") {
-      Container_Instance(nextJsAppInstance, frontendApp, "Hosts the Next.js app including UI and Server Actions.", "Next.js v15+, Node.js v20+")
+  Deployment_Node(gcp, "Google Cloud Platform (GCP)", "Google's Managed Infrastructure", $sprite="fa:fa-cloud") {
+    Deployment_Node(appHosting, "Firebase App Hosting", "Managed web app hosting", "Region: us-central1 (example)") {
+      Container_Instance(nextJsAppInstance, frontendApp, "Hosts Next.js App (UI & Server Actions)", "Next.js, Node.js")
     }
 
-    Deployment_Node(cloudFunctions, "Firebase Functions", "Serverless platform for backend code", "Region: us-central1 (configurable)") {
-      Container_Instance(analysisProcessorInstance, firebaseFunctions, "Executes the AI analysis pipeline.", "Node.js v20+, Genkit, Gemini API")
+    Deployment_Node(cloudFunctions, "Firebase Functions", "Serverless backend execution", "Region: us-central1 (example)") {
+      Container_Instance(analysisProcessorInstance, firebaseFunctions, "Executes AI analysis pipeline", "Node.js, Genkit, Gemini")
     }
 
-    Deployment_Node(firebaseCoreServices, "Firebase Core Services", "Fully managed backend services", $sprite="fa:fa-fire") {
-      ContainerDb_Instance(firestoreInstance, firestore, "Stores analysis metadata, status, and structured reports.", "Firestore NoSQL Database (Multi-Region or Regional)")
-      ContainerDb_Instance(rtdbInstance, rtdb, "Stores chat conversation history.", "Realtime NoSQL Database (Regional)")
-      Container_Instance(storageInstance, storage, "Stores uploaded CSV files and generated MDX reports.", "Firebase Storage (GCS Buckets Multi-Regional or Regional)")
-      Container_Instance(authInstance, auth, "Manages user authentication.", "Firebase Authentication Service (Global)")
+    Deployment_Node(firebaseCoreServices, "Firebase Core Services", "Managed backend platform services", $sprite="fa:fa-fire") {
+      ContainerDb_Instance(firestoreInstance, firestore, "Stores analysis metadata, structured reports", "Firestore NoSQL Database")
+      ContainerDb_Instance(rtdbInstance, rtdb, "Stores chat conversation history", "Realtime NoSQL Database")
+      Container_Instance(storageInstance, storage, "Stores uploaded CSVs & MDX reports", "Firebase Storage (via GCS)")
+      Container_Instance(authInstance, auth, "Manages user authentication", "Firebase Authentication Service")
     }
   }
 
-  System_Ext(googleAI, "Google AI (Gemini)", "Generative Language Model (LLM) services for AI.", $sprite="fa:fa-brain")
+  System_Ext(googleAI, "Google AI (Gemini)", "Generative Language Model (LLM) services", $sprite="fa:fa-brain")
 
   Rel(browserFrontendInstance, nextJsAppInstance, "Accesses (HTTPS)")
-  Rel(nextJsAppInstance, firestoreInstance, "Reads/Writes (Firebase SDK)", "HTTPS/gRPC")
-  Rel(nextJsAppInstance, rtdbInstance, "Reads/Writes (Firebase SDK)", "WebSockets")
-  Rel(nextJsAppInstance, storageInstance, "Uploads/Downloads (Firebase SDK)", "HTTPS")
-  Rel(nextJsAppInstance, authInstance, "Authenticates via (Firebase SDK)", "HTTPS")
-  Rel(nextJsAppInstance, googleAI, "Calls for chat AI (Genkit API Call)", "HTTPS")
+  Rel(nextJsAppInstance, authInstance, "Authenticates via (SDK)", "HTTPS")
+  Rel(nextJsAppInstance, firestoreInstance, "Reads/Writes data (SDK)", "HTTPS/gRPC")
+  Rel(nextJsAppInstance, rtdbInstance, "Syncs chat (SDK)", "WebSockets")
+  Rel(nextJsAppInstance, storageInstance, "Manages files (SDK)", "HTTPS")
+  Rel(nextJsAppInstance, googleAI, "Calls Chat AI (Genkit API)", "HTTPS")
 
-  Rel(firestoreInstance, analysisProcessorInstance, "Triggers (via Eventarc/Firestore Triggers)")
-  Rel(analysisProcessorInstance, firestoreInstance, "Reads/Writes (Firebase Admin SDK)", "HTTPS/gRPC")
-  Rel(analysisProcessorInstance, storageInstance, "Reads/Writes (Firebase Admin SDK)", "HTTPS")
-  Rel(analysisProcessorInstance, googleAI, "Calls for AI pipeline (Genkit API Call)", "HTTPS")
+  Rel(firestoreInstance, analysisProcessorInstance, "Triggers Function (via Eventarc/Firestore Triggers)")
+  Rel(analysisProcessorInstance, firestoreInstance, "Reads/Writes data (Admin SDK)", "HTTPS/gRPC")
+  Rel(analysisProcessorInstance, storageInstance, "Reads/Writes files (Admin SDK)", "HTTPS")
+  Rel(analysisProcessorInstance, googleAI, "Calls AI Pipeline (Genkit API)", "HTTPS")
 
   %% Alias to reference elements defined at C2 Level
   Component_Ext(frontendApp, "Frontend Web App", "C2 Level Container")

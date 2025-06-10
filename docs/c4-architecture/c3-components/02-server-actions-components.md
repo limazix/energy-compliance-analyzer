@@ -1,4 +1,3 @@
-
 # C3: Next.js Server Actions Components (Container)
 
 This diagram details the main components that make up the "Backend API (Next.js Server Actions)" container of the Energy Compliance Analyzer.
@@ -10,34 +9,42 @@ This diagram details the main components that make up the "Backend API (Next.js 
 C4Component
   title Next.js Server Actions Components (Container)
 
-  System_Ext(firestoreExt, "Firebase Firestore", "Firestore database service", $sprite="fa:fa-database")
+  // External Systems (Targets of actions)
+  System_Ext(firestoreExt, "Firebase Firestore", "Firestore DB service", $sprite="fa:fa-database")
   System_Ext(storageExt, "Firebase Storage", "File storage service", $sprite="fa:fa-archive")
-  System_Ext(rtdbExt, "Firebase Realtime DB", "Database service for chat", $sprite="fa:fa-comments")
-  System_Ext(genkitSA, "Genkit (in Server Actions)", "Framework and SDK for AI", $sprite="fa:fa-robot")
+  System_Ext(rtdbExt, "Firebase Realtime DB", "Chat DB service", $sprite="fa:fa-comments")
+  System_Ext(genkitSA, "Genkit (in Server Actions)", "AI Framework/SDK", $sprite="fa:fa-robot")
 
   Container_Boundary(serverActionsContainer, "Backend API (Next.js Server Actions)") {
-    Component(fileUploadActions, "File Upload Actions", "TypeScript (`fileUploadActions.ts`)", "Creates initial Firestore record, manages progress, finalizes upload to Storage.", $sprite="fa:fa-file-upload")
-    Component(analysisMgmtActions, "Analysis Management Actions", "TypeScript (`analysisManagementActions.ts`)", "Deletes or cancels analyses (updates Firestore, removes from Storage).", $sprite="fa:fa-tasks")
-    Component(analysisListActions, "Analysis Listing Actions", "TypeScript (`analysisListingActions.ts`)", "Fetches user's analyses from Firestore.", $sprite="fa:fa-history")
-    Component(tagActions, "Tag Management Actions", "TypeScript (`tagActions.ts`)", "Adds/Removes tags from analyses in Firestore.", $sprite="fa:fa-tags")
-    Component(reportViewActions, "Report Viewing Actions", "TypeScript (`reportViewingActions.ts`)", "Fetches MDX path from Firestore and content from Storage.", $sprite="fa:fa-file-invoice")
-    Component(reportChatActions, "Report Chat Actions", "TypeScript (`reportChatActions.ts`), Genkit", "Receives user message, calls Genkit flow (`orchestrateReportInteractionFlow`), saves messages to RTDB, updates report in Firestore/Storage if modified.", $sprite="fa:fa-headset")
-    Component(analysisProcessingActions, "Analysis Processing Actions", "TypeScript (`analysisProcessingActions.ts`)", "Prepares analysis to be processed by Firebase Function (updates status in Firestore).", $sprite="fa:fa-cogs")
+    // Grouped by general function area
+    Component(fileUploadActions, "File Upload Actions", "TS (`fileUploadActions.ts`)", "Manages analysis record creation & upload finalization.", $sprite="fa:fa-file-upload")
+    Component(analysisProcessingActions, "Analysis Processing Actions", "TS (`analysisProcessingActions.ts`)", "Updates Firestore status to trigger Function processing.", $sprite="fa:fa-cogs")
+    Component(analysisMgmtActions, "Analysis Management Actions", "TS (`analysisManagementActions.ts`)", "Handles deletion/cancellation of analyses.", $sprite="fa:fa-tasks")
+    Component(analysisListActions, "Analysis Listing Actions", "TS (`analysisListingActions.ts`)", "Fetches user's analyses from Firestore.", $sprite="fa:fa-history")
+    Component(tagActions, "Tag Management Actions", "TS (`tagActions.ts`)", "Adds/Removes tags from analyses in Firestore.", $sprite="fa:fa-tags")
+    Component(reportViewActions, "Report Viewing Actions", "TS (`reportViewingActions.ts`)", "Fetches MDX path from Firestore & content from Storage.", $sprite="fa:fa-file-invoice")
+    Component(reportChatActions, "Report Chat Actions", "TS (`reportChatActions.ts`), Genkit", "Orchestrates report chat: calls Genkit, saves to RTDB, updates report.", $sprite="fa:fa-headset")
   }
 
-  Rel(fileUploadActions, firestoreExt, "Creates/Updates records in")
-  Rel(fileUploadActions, storageExt, "Manages upload information for")
-  Rel(analysisMgmtActions, firestoreExt, "Updates records in")
-  Rel(analysisMgmtActions, storageExt, "Removes files from")
-  Rel(analysisListActions, firestoreExt, "Reads records from")
-  Rel(tagActions, firestoreExt, "Updates tags in")
-  Rel(reportViewActions, firestoreExt, "Reads metadata from")
-  Rel(reportViewActions, storageExt, "Reads MDX content from")
-  Rel(reportChatActions, rtdbExt, "Saves chat history to")
-  Rel(reportChatActions, firestoreExt, "Updates structured report in")
-  Rel(reportChatActions, storageExt, "Saves new MDX to")
-  Rel(reportChatActions, genkitSA, "Calls Orchestrator Agent flow")
-  Rel(analysisProcessingActions, firestoreExt, "Updates status to start processing by Functions")
+  // Relationships: grouped by action component
+  Rel(fileUploadActions, firestoreExt, "Creates/Updates analysis records")
+
+  Rel(analysisProcessingActions, firestoreExt, "Updates status to trigger Functions")
+
+  Rel(analysisMgmtActions, firestoreExt, "Updates records (delete/cancel)")
+  Rel(analysisMgmtActions, storageExt, "Removes files from Storage")
+
+  Rel(analysisListActions, firestoreExt, "Reads analysis records")
+
+  Rel(tagActions, firestoreExt, "Updates tags in analysis records")
+
+  Rel(reportViewActions, firestoreExt, "Reads report metadata")
+  Rel(reportViewActions, storageExt, "Reads MDX content")
+
+  Rel(reportChatActions, rtdbExt, "Saves chat history")
+  Rel(reportChatActions, firestoreExt, "Updates structured report (if AI modified)")
+  Rel(reportChatActions, storageExt, "Saves new MDX (if AI modified)")
+  Rel(reportChatActions, genkitSA, "Calls Chat Orchestrator Agent")
 
   UpdateElementStyle(fileUploadActions, $fontColor="white", $bgColor="rgb(68, 158, 228)", $borderColor="rgb(68, 158, 228)")
   UpdateElementStyle(analysisMgmtActions, $fontColor="white", $bgColor="rgb(68, 158, 228)", $borderColor="rgb(68, 158, 228)")
@@ -56,22 +63,20 @@ C4Component
 
 The following is a list of the main components (action modules) identified in the diagram above. Each will have its own detail page.
 
-*   **File Upload Actions (`fileUploadActions`)**:
-    *   [Details](./server-actions/file-upload-actions.md)
-*   **Analysis Management Actions (`analysisMgmtActions`)**:
-    *   [Details](./server-actions/analysis-mgmt-actions.md)
-*   **Analysis Listing Actions (`analysisListActions`)**:
-    *   [Details](./server-actions/analysis-list-actions.md)
-*   **Tag Management Actions (`tagActions`)**:
-    *   [Details](./server-actions/tag-actions.md)
-*   **Report Viewing Actions (`reportViewActions`)**:
-    *   [Details](./server-actions/report-view-actions.md)
-*   **Report Chat Actions (`reportChatActions`)**:
-    *   [Details](./server-actions/report-chat-actions.md)
-*   **Analysis Processing Actions (`analysisProcessingActions`)**:
-    *   [Details](./server-actions/analysis-processing-actions.md)
+- **File Upload Actions (`fileUploadActions`)**:
+  - [Details](./server-actions/file-upload-actions.md)
+- **Analysis Management Actions (`analysisMgmtActions`)**:
+  - [Details](./server-actions/analysis-mgmt-actions.md)
+- **Analysis Listing Actions (`analysisListActions`)**:
+  - [Details](./server-actions/analysis-list-actions.md)
+- **Tag Management Actions (`tagActions`)**:
+  - [Details](./server-actions/tag-actions.md)
+- **Report Viewing Actions (`reportViewActions`)**:
+  - [Details](./server-actions/report-view-actions.md)
+- **Report Chat Actions (`reportChatActions`)**:
+  - [Details](./server-actions/report-chat-actions.md)
+- **Analysis Processing Actions (`analysisProcessingActions`)**:
+  - [Details](./server-actions/analysis-processing-actions.md)
 
 [Previous: Frontend Components](./01-frontend-app-components.md)
 [Next: Firebase Functions Components](./03-firebase-functions-components.md)
-
-    

@@ -9,31 +9,33 @@ C4Container
   Person(user, "User", "Interacts with the system via frontend.", $sprite="fa:fa-user")
 
   System_Boundary(c1, "Energy Compliance Analyzer") {
-    Container(frontendApp, "Frontend Web App", "Next.js, React, ShadCN UI, TailwindCSS", "User interface for login, file upload, viewing analyses, reports, and interactive chat. Hosted on Firebase App Hosting.", $sprite="fa:fa-desktop")
-    Container(serverActions, "Backend API", "Next.js Server Actions, Node.js, Genkit", "Handles file uploads, triggers processing, orchestrates report chat, and interacts with Firebase services. Runs on Firebase App Hosting.", $sprite="fa:fa-cogs")
-    Container(firebaseFunctions, "Background Processing", "Firebase Functions, Node.js, TypeScript, Genkit", "Executes the main AI analysis pipeline (specialist agents) for CSV data and generates structured reports.", $sprite="fa:fa-bolt")
-    ContainerDb(firestore, "Main Database", "Firebase Firestore (NoSQL, Document DB)", "Stores analysis metadata, status, tags, and the structured report (JSON).", $sprite="fa:fa-database")
-    ContainerDb(rtdb, "Chat Database", "Firebase Realtime Database (NoSQL, Realtime JSON DB)", "Stores the conversation history of the interactive report chat.", $sprite="fa:fa-comments")
-    Container(storage, "File Storage", "Firebase Storage (Blob Storage)", "Stores CSV files uploaded by users and the generated MDX reports.", $sprite="fa:fa-archive")
-    Container(auth, "Authentication Service", "Firebase Authentication (OAuth, Identity Management)", "Manages user authentication via Google Sign-In.", $sprite="fa:fa-key")
+    Container(frontendApp, "Frontend Web App", "Next.js, React, ShadCN UI", "UI for login, upload, viewing analyses, reports, chat. Hosted on Firebase App Hosting.", $sprite="fa:fa-desktop")
+    Container(serverActions, "Backend API", "Next.js Server Actions, Genkit", "Handles uploads, triggers processing, orchestrates report chat. Runs on App Hosting.", $sprite="fa:fa-cogs")
+    Container(firebaseFunctions, "Background Processing", "Firebase Functions, Node.js, Genkit", "Executes AI analysis pipeline for CSV data, generates structured reports.", $sprite="fa:fa-bolt")
+
+    Container(auth, "Authentication Service", "Firebase Authentication", "Manages user authentication via Google Sign-In.", $sprite="fa:fa-key")
+    ContainerDb(firestore, "Main Database", "Firebase Firestore", "Stores analysis metadata, status, tags, structured report (JSON).", $sprite="fa:fa-database")
+    ContainerDb(rtdb, "Chat Database", "Firebase Realtime DB", "Stores interactive report chat history.", $sprite="fa:fa-comments")
+    Container(storage, "File Storage", "Firebase Storage", "Stores uploaded CSVs and generated MDX reports.", $sprite="fa:fa-archive")
   }
 
-  System_Ext(googleAI, "Google AI (Gemini)", "Generative Language Models (LLMs) for AI.", $sprite="fa:fa-brain")
+  System_Ext(googleAI, "Google AI (Gemini)", "LLMs for AI.", $sprite="fa:fa-brain")
 
   Rel(user, frontendApp, "Uses", "HTTPS")
+
   Rel(frontendApp, serverActions, "Sends requests to", "HTTPS/Server Actions")
   Rel(frontendApp, auth, "Authenticates with", "Firebase SDK")
-  Rel(frontendApp, rtdb, "Syncs chat messages with", "Firebase SDK, WebSockets")
+  Rel(frontendApp, rtdb, "Syncs chat messages", "Firebase SDK, WebSockets")
 
-  Rel(serverActions, firestore, "Reads/Writes metadata and reports in", "Firebase SDK")
-  Rel(serverActions, storage, "Manages upload information for", "Firebase SDK")
-  Rel(serverActions, googleAI, "Interacts with Orchestrator Agent for chat via", "Genkit API Call")
-  Rel(serverActions, firebaseFunctions, "Triggers (indirectly via Firestore)", "Firestore Trigger")
-  Rel(serverActions, rtdb, "Saves chat messages and updates report via", "Firebase Admin SDK (indirect, via Functions or Server Actions)")
+  Rel(serverActions, firestore, "Reads/Writes metadata & reports", "Firebase SDK")
+  Rel(serverActions, storage, "Manages upload info for", "Firebase SDK")
+  Rel(serverActions, googleAI, "Interacts with Chat Orchestrator Agent", "Genkit API Call")
+  Rel(serverActions, firebaseFunctions, "Triggers processing (indirectly via Firestore)", "Firestore Trigger")
+  Rel(serverActions, rtdb, "Saves chat messages, may update report", "Firebase Admin SDK (indirect)")
 
-  Rel(firebaseFunctions, storage, "Reads CSVs and Saves MDX reports in", "Firebase Admin SDK")
-  Rel(firebaseFunctions, firestore, "Reads/Updates status and saves structured report in", "Firebase Admin SDK")
-  Rel(firebaseFunctions, googleAI, "Executes AI pipeline (specialist agents) via", "Genkit API Call")
+  Rel(firebaseFunctions, storage, "Reads CSVs & Saves MDX reports", "Firebase Admin SDK")
+  Rel(firebaseFunctions, firestore, "Reads/Updates status & saves report", "Firebase Admin SDK")
+  Rel(firebaseFunctions, googleAI, "Executes AI pipeline (specialist agents)", "Genkit API Call")
 
   UpdateElementStyle(user, $fontColor="white", $bgColor="rgb(13, 105, 184)", $borderColor="rgb(13, 105, 184)")
   UpdateElementStyle(frontendApp, $fontColor="white", $bgColor="rgb(43, 135, 209)", $borderColor="rgb(43, 135, 209)")
