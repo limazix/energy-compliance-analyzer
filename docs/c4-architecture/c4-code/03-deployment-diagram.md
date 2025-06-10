@@ -6,7 +6,7 @@ This diagram describes how the Energy Compliance Analyzer system containers are 
 
 ```mermaid
 C4Deployment
-  title Deployment Diagram - Energy Compliance Analyzer (Production)
+  title "Deployment Diagram - Energy Compliance Analyzer (Production)"
 
   Deployment_Node(userDevice, "User's Device", "Desktop/Mobile Browser", $sprite="fa:fa-desktop") {
     Container_Instance(browserFrontendInstance, frontendApp, "Runs Frontend Web App (client-side from App Hosting)")

@@ -7,51 +7,51 @@ This diagram details the main components that make up the "Background Processing
 
 ```mermaid
 C4Component
-  title Firebase Functions Components (Background Processing Container)
+  title "Firebase Functions Components (Background Processing)"
 
-  // External Systems
+  %% External Systems
   System_Ext(firestoreExt, "Firebase Firestore", "Trigger source & data store", $sprite="fa:fa-database")
   System_Ext(storageExt, "Firebase Storage", "Storage for CSVs & MDX reports", $sprite="fa:fa-archive")
   System_Ext(genkitFunc, "Genkit & Google AI", "AI framework & LLMs", $sprite="fa:fa-robot")
 
   Container_Boundary(functionsContainer, "Background Processing (Firebase Functions)") {
-    // Pipeline Flow: Define in execution order for better visual flow
+    %% Pipeline Flow: Define in execution order for better visual flow
     Component(trigger, "Firestore Trigger", "Functions SDK", "Observes Firestore to start analysis.", $sprite="fa:fa-bell")
     Component(processAnalysisFn, "Pipeline Orchestrator", "Functions SDK, TS", "Coordinates AI agents & utilities.", $sprite="fa:fa-cogs")
 
-    // Utilities used by Orchestrator (can be defined after orchestrator)
+    %% Utilities used by Orchestrator (can be defined after orchestrator)
     Component(gcsUtil, "Storage Access Util", "Admin SDK", "Reads CSV from Storage.", $sprite="fa:fa-download")
     Component(statusUpdaterUtil, "Status Updater Util", "Admin SDK", "Updates Firestore (progress/status).", $sprite="fa:fa-sync-alt")
     Component(mdxConverterUtil, "MDX Converter Util", "TS (`reportUtils.ts`)", "Converts JSON report to MDX.", $sprite="fa:fa-file-export")
 
-    // AI Agents (called by Orchestrator) - In pipeline sequence
+    %% AI Agents (called by Orchestrator) - In pipeline sequence
     Component(dataSummarizerAgent, "Agent: Data Summarizer", "Genkit Flow, Gemini", "Summarizes CSV data.", $sprite="fa:fa-calculator")
     Component(regulationIdentifierAgent, "Agent: Resolution Identifier", "Genkit Flow, Gemini", "Identifies ANEEL resolutions.", $sprite="fa:fa-search")
     Component(complianceAnalyzerAgent, "Agent: Compliance Engineer", "Genkit Flow, Gemini", "Generates initial structured report.", $sprite="fa:fa-balance-scale")
     Component(reportReviewerAgent, "Agent: Report Reviewer", "Genkit Flow, Gemini", "Refines structured report.", $sprite="fa:fa-user-check")
   }
 
-  // Relationships - Defined to suggest pipeline flow
+  %% Relationships - Defined to suggest pipeline flow
   Rel(trigger, processAnalysisFn, "Invokes")
 
-  // Orchestrator using utilities
+  %% Orchestrator using utilities
   Rel(processAnalysisFn, gcsUtil, "Uses to read CSV")
   Rel(processAnalysisFn, statusUpdaterUtil, "Uses to update Firestore")
   Rel(processAnalysisFn, mdxConverterUtil, "Uses to convert report to MDX")
 
-  // Orchestrator calling AI Agents in sequence
+  %% Orchestrator calling AI Agents in sequence
   Rel(processAnalysisFn, dataSummarizerAgent, "1. Calls Data Summarizer")
   Rel(processAnalysisFn, regulationIdentifierAgent, "2. Calls Regulation Identifier")
   Rel(processAnalysisFn, complianceAnalyzerAgent, "3. Calls Compliance Engineer")
   Rel(processAnalysisFn, reportReviewerAgent, "4. Calls Report Reviewer")
 
-  // Agent interactions with Genkit/AI
+  %% Agent interactions with Genkit/AI
   Rel(dataSummarizerAgent, genkitFunc, "Uses Genkit/AI")
   Rel(regulationIdentifierAgent, genkitFunc, "Uses Genkit/AI")
   Rel(complianceAnalyzerAgent, genkitFunc, "Uses Genkit/AI")
   Rel(reportReviewerAgent, genkitFunc, "Uses Genkit/AI")
 
-  // Utility interactions with external systems
+  %% Utility interactions with external systems
   Rel(gcsUtil, storageExt, "Reads CSV from")
   Rel(statusUpdaterUtil, firestoreExt, "Updates status/report in")
   Rel(mdxConverterUtil, storageExt, "Saves MDX report to")

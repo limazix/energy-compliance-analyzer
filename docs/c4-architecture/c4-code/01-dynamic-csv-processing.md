@@ -6,7 +6,7 @@ This diagram illustrates the sequence of interactions and data flow when a user 
 
 ```mermaid
 C4Dynamic
-  title CSV Analysis Processing (Upload to Report)
+  title "CSV Analysis Processing (Upload to Report)"
 
   Person(user, "User", "Interacts for upload.", $sprite="fa:fa-user")
   Container(frontendApp, "Frontend Web App", "Next.js/React", "UI for upload.", $sprite="fa:fa-desktop")
@@ -17,10 +17,10 @@ C4Dynamic
   System_Ext(googleAI, "Google AI (Gemini)", "LLM", "Analysis & generation.", $sprite="fa:fa-brain")
 
   Rel_Back(user, frontendApp, "1. Uploads CSV & metadata")
-  Rel(frontendApp, serverActions, "2. Calls create/finalize actions; Manages Storage upload")
+  Rel(frontendApp, serverActions, "2. Calls create/finalize SA; Manages Storage upload")
   Rel(serverActions, firestore, "3. Creates record (status 'uploading'); Updates (status 'summarizing_data', URL)")
   Rel(frontendApp, storage, "4. Uploads CSV to Storage (client-side)")
-  // Step 5 & 6 from original are covered by step 3's combined action description.
+  %% Step 5 & 6 from original are covered by step 3's combined action description.
 
   Rel(firestore, firebaseFunctions, "5. Triggers 'processAnalysisOnUpdate'")
   Rel(firebaseFunctions, storage, "6. Reads CSV from Storage")

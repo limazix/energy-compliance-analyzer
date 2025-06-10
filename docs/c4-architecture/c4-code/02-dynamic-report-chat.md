@@ -6,7 +6,7 @@ This diagram illustrates the communication flow when a user interacts with the A
 
 ```mermaid
 C4Dynamic
-  title Report Chat Interaction Flow
+  title "Report Chat Interaction Flow"
 
   Person(user, "User", "Interacts with chat UI.", $sprite="fa:fa-user")
   Container(frontendApp, "Frontend Web App", "Next.js/React", "Report & chat UI.", $sprite="fa:fa-desktop")
@@ -20,7 +20,7 @@ C4Dynamic
   System_Ext(googleAI, "Google AI (Gemini)", "LLM for Genkit.", $sprite="fa:fa-robot")
 
   Rel(user, frontendApp, "1. Sends chat message (text, report context)")
-  Rel(frontendApp, serverActions, "2. Calls `askReportOrchestratorAction`")
+  Rel(frontendApp, serverActions, "2. Calls `askReportOrchestratorAction` SA")
   Rel(serverActions, rtdb, "3. Saves user message & AI placeholder to RTDB")
   Rel(serverActions, orchestrationFlow, "4. Invokes flow with user message & report data")
 
@@ -30,7 +30,7 @@ C4Dynamic
   Rel(reviewFlow, googleAI, "8. Optional: LLM reviews structured report")
   Rel(reviewFlow, revisorTool, "9. Optional: Returns revised structured report to tool")
   Rel(revisorTool, orchestrationFlow, "10. Optional: Returns revised report to main flow")
-  Rel(orchestrationFlow, serverActions, "11. Returns AI response (and optionally, revised report)")
+  Rel(orchestrationFlow, serverActions, "11. Returns AI response (and optionally, revised report) to SA")
 
   Rel(serverActions, rtdb, "12. Updates/Streams final AI response in RTDB")
   Rel(serverActions, firestore, "13. Optional: Updates structured report in Firestore if modified")

@@ -7,10 +7,10 @@ This diagram details the main components that make up the "Frontend Web App" con
 
 ```mermaid
 C4Component
-  title Frontend Web App Components (Container)
+  title "Frontend Web App Components"
 
   Container_Boundary(frontendContainer, "Frontend Web App") {
-    // Top Layer: User-facing Interaction & Routing
+    %% Top Layer: User-facing Interaction & Routing
     Component(routing, "Routing", "Next.js App Router", "Manages navigation (Login, Home, Report).", $sprite="fa:fa-route")
     Component(authUI, "Authentication UI", "React Components, Firebase SDK", "Login/logout UI, profile display.", $sprite="fa:fa-sign-in-alt")
     Component(fileUploadUI, "Upload UI", "React Components, Hooks", "Form for CSV upload & metadata.", $sprite="fa:fa-upload")
@@ -19,10 +19,10 @@ C4Component
     Component(reportViewUI, "Report View UI", "React Component, MDX", "Renders MDX report & chat.", $sprite="fa:fa-file-alt")
     Component(reportChatUI, "Report Chat UI", "React Components, RTDB SDK", "User interaction with report agent.", $sprite="fa:fa-comments")
 
-    // Middle Layer: State Management & Core Logic
-    Component(stateMgmt, "State & UI Logic", "Contexts, Custom Hooks", "Manages app state, auth, analysis data, notifications.", $sprite="fa:fa-project-diagram")
+    %% Middle Layer: State Management & Core Logic
+    Component(stateMgmt, "State & UI Logic", "Contexts, Custom Hooks", "Manages app state (auth, analysis data, notifications).", $sprite="fa:fa-project-diagram")
 
-    // Bottom Layer: Utilities & Generic Components
+    %% Bottom Layer: Utilities & Generic Components
     Component(firebaseClient, "Firebase Client Config", "Firebase SDK (`firebase.ts`)", "Initializes client-side Firebase SDK.", $sprite="fa:fa-plug")
     Component(uiComponents, "Reusable UI Library", "ShadCN UI, TailwindCSS", "Buttons, Cards, Inputs, etc.", $sprite="fa:fa-puzzle-piece")
   }
@@ -31,7 +31,7 @@ C4Component
   System_Ext(firebaseAuthExt, "Firebase Authentication", "External auth service.", $sprite="fa:fa-key")
   System_Ext(firebaseRtdbExt, "Firebase Realtime DB", "DB service for chat.", $sprite="fa:fa-comments")
 
-  // Relationships - Grouped by source component or logical flow
+  %% Relationships - Grouped by source component or logical flow
   Rel(routing, authUI, "Controls access based on auth state")
   Rel(routing, reportViewUI, "Navigates to report page")
 
@@ -53,7 +53,7 @@ C4Component
   Rel(reportChatUI, firebaseRtdbExt, "Syncs chat messages with")
 
   Rel(stateMgmt, firebaseClient, "Utilizes configured Firebase instance from")
-  // uiComponents are used by many UI components; relationship is implicit to reduce clutter.
+  %% uiComponents are used by many UI components; relationship is implicit to reduce clutter.
 
   UpdateElementStyle(authUI, $fontColor="white", $bgColor="rgb(68, 158, 228)", $borderColor="rgb(68, 158, 228)")
   UpdateElementStyle(fileUploadUI, $fontColor="white", $bgColor="rgb(68, 158, 228)", $borderColor="rgb(68, 158, 228)")

@@ -7,16 +7,16 @@ This diagram details the main components that make up the "Backend API (Next.js 
 
 ```mermaid
 C4Component
-  title Next.js Server Actions Components (Container)
+  title "Next.js Server Actions Components"
 
-  // External Systems (Targets of actions)
+  %% External Systems (Targets of actions)
   System_Ext(firestoreExt, "Firebase Firestore", "Firestore DB service", $sprite="fa:fa-database")
   System_Ext(storageExt, "Firebase Storage", "File storage service", $sprite="fa:fa-archive")
   System_Ext(rtdbExt, "Firebase Realtime DB", "Chat DB service", $sprite="fa:fa-comments")
   System_Ext(genkitSA, "Genkit (in Server Actions)", "AI Framework/SDK", $sprite="fa:fa-robot")
 
   Container_Boundary(serverActionsContainer, "Backend API (Next.js Server Actions)") {
-    // Grouped by general function area
+    %% Grouped by general function area
     Component(fileUploadActions, "File Upload Actions", "TS (`fileUploadActions.ts`)", "Manages analysis record creation & upload finalization.", $sprite="fa:fa-file-upload")
     Component(analysisProcessingActions, "Analysis Processing Actions", "TS (`analysisProcessingActions.ts`)", "Updates Firestore status to trigger Function processing.", $sprite="fa:fa-cogs")
     Component(analysisMgmtActions, "Analysis Management Actions", "TS (`analysisManagementActions.ts`)", "Handles deletion/cancellation of analyses.", $sprite="fa:fa-tasks")
@@ -26,7 +26,7 @@ C4Component
     Component(reportChatActions, "Report Chat Actions", "TS (`reportChatActions.ts`), Genkit", "Orchestrates report chat: calls Genkit, saves to RTDB, updates report.", $sprite="fa:fa-headset")
   }
 
-  // Relationships: grouped by action component
+  %% Relationships: grouped by action component
   Rel(fileUploadActions, firestoreExt, "Creates/Updates analysis records")
 
   Rel(analysisProcessingActions, firestoreExt, "Updates status to trigger Functions")
