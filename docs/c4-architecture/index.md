@@ -2,30 +2,6 @@
 
 This diagram shows the Energy Compliance Analyzer system in its environment, interacting with users and other external systems.
 
-```plantuml
-@startuml C4_Context_Overall_ECA
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
-!include <GCP/GCPCommon>
-!include <GCP/AI/VertexAI>
-!include <GCP/Firebase/FirebasePlatform>
-
-title "System Context for the Energy Compliance Analyzer"
-
-Person(user, "User", "Engineers, analysts, or consultants in the electrical sector who need to verify the compliance of power quality data.")
-
-System_Boundary(analyzer_boundary, "Energy Compliance Analyzer") {
-  System(energyAnalyzer, "Energy Compliance Analyzer", "Web platform for uploading, analyzing compliance of electrical power quality data against ANEEL standards, and generating interactive reports.")
-}
-
-System_Ext(googleAI, "Google AI (Gemini)", "Generative AI service (LLM) used for data analysis, standards identification, report generation/review, and interactive chat.", $sprite="gcp_vertex_ai")
-System_Ext(firebase, "Firebase Platform", "Google's platform providing authentication, database (Firestore, RTDB), file storage (Storage), and backend execution (Functions & App Hosting).", $sprite="gcp_firebase_platform")
-
-Rel(user, energyAnalyzer, "Uses", "HTTPS")
-Rel(energyAnalyzer, googleAI, "Utilizes for AI processing", "API Calls")
-Rel(energyAnalyzer, firebase, "Hosted on & uses services of", "SDKs, APIs")
-
-SHOW_LEGEND()
-@enduml
-```
+![System Context for the Energy Compliance Analyzer](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_GITHUB_REPO_NAME/main/docs/plantuml/c1-context-overview.iuml)
 
 [Next Level: Container Diagram (C2)](./c2-containers/index.md)

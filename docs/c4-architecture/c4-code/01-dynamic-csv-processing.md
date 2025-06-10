@@ -4,43 +4,7 @@
 
 This diagram illustrates the sequence of interactions and data flow when a user uploads a CSV file and the compliance analysis is processed by the AI pipeline in Firebase Functions.
 
-```plantuml
-@startuml Dynamic_CSV_Processing
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
-!include <GCP/GCPCommon>
-!include <GCP/Compute/CloudRun>
-!include <GCP/Databases/CloudFirestore>
-!include <GCP/Storage/CloudStorage>
-!include <GCP/Compute/CloudFunctions>
-!include <GCP/AI/VertexAI>
-
-title "CSV Analysis Processing (Upload to Report)"
-
-actor User as user
-participant "Frontend Web App" as frontendApp <<Container>>
-participant "Backend API (SA)" as serverActions <<Container>>
-database "Firebase Firestore" as firestore <<ContainerDb>> #APPLICATION;sprite=gcp_cloud_firestore
-participant "Firebase Storage" as storage <<Container>> #APPLICATION;sprite=gcp_cloud_storage
-participant "Background Processing (Functions)" as firebaseFunctions <<Container>> #APPLICATION;sprite=gcp_cloud_functions
-participant "Google AI (Gemini)" as googleAI <<System_Ext>> #EXTERNAL_SYSTEM;sprite=gcp_vertex_ai
-
-autonumber "<b>[0]"
-
-user -> frontendApp: Uploads CSV & metadata
-frontendApp -> serverActions: Calls create/finalize SA; Manages Storage upload
-serverActions -> firestore: Creates record (status 'uploading'); Updates (status 'summarizing_data', URL)
-frontendApp -> storage: Uploads CSV to Storage (client-side)
-
-firestore -> firebaseFunctions: Triggers 'processAnalysisOnUpdate'
-firebaseFunctions -> storage: Reads CSV from Storage
-firebaseFunctions -> googleAI: Executes AI Agent pipeline (Summarizer, Identifier, Analyzer, Reviewer)
-firebaseFunctions -> firestore: Saves structured report (JSON) to Firestore
-firebaseFunctions -> storage: Converts to MDX, saves to Storage
-firebaseFunctions -> firestore: Updates status to 'completed' & MDX path in Firestore
-frontendApp <-- firestore: Listens for status updates (onSnapshot) & displays result
-
-@enduml
-```
+![CSV Analysis Processing Diagram](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_GITHUB_REPO_NAME/main/docs/plantuml/c4-dynamic-csv-processing.iuml)
 
 ## Flow Description
 
