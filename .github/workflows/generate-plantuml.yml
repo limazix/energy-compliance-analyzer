@@ -1,0 +1,50 @@
+name: 1. Generate PlantUML Diagrams
+
+on:
+  push:
+    branches:
+      - main
+      - development
+    paths: # Only run if markdown files that might contain PlantUML change
+      - 'docs/**/*.md'
+      - 'README.md'
+  pull_request:
+    branches:
+      - main
+      - development
+    paths:
+      - 'docs/**/*.md'
+      - 'README.md'
+  workflow_dispatch: # Allows manual triggering
+
+permissions:
+  contents: write # Required for the action to commit changes back to the repository
+
+jobs:
+  generate_diagrams:
+    name: Generate and Commit PlantUML Diagrams
+    runs-on: ubuntu-latest
+    # Prevent the action from re-triggering itself if it commits with the default github-actions bot actor
+    if: github.actor != 'github-actions[bot]'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # For PRs, checkout the head of the PR so changes are committed to the PR branch.
+          # For direct pushes, it checks out the commit that triggered the workflow.
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+          # The GITHUB_TOKEN is implicitly available and used by actions/checkout for commits
+          # but explicitly providing it to the plantuml-action via env var is good practice.
+
+      - name: Generate PlantUML Diagrams and Commit
+        uses: qjebbs/plantuml-action@v1
+        with:
+          # This action searches for plantuml code blocks in .md files,
+          # generates SVGs (by default), places them in .plantuml-cache/,
+          # replaces the code blocks with <img> tags in the .md files,
+          # and commits all changes.
+          commit_message: 'docs: Auto-generate PlantUML diagrams'
+          # args: "-tsvg" # Default is SVG, so this is optional unless other args needed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
