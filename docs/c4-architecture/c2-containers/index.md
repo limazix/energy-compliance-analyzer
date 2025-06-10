@@ -2,7 +2,7 @@
 
 This diagram details the main containers (applications, data stores, etc.) that make up the Energy Compliance Analyzer system. Each container is a deployable unit or a significant data store.
 
-![Container Diagram for Energy Compliance Analyzer](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_GITHUB_REPO_NAME/main/docs/plantuml/c2-containers-overview.iuml)
+![Container Diagram for Energy Compliance Analyzer](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/c2-containers-overview.iuml)
 
 ## Container Details
 

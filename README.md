@@ -33,7 +33,7 @@ The Energy Compliance Analyzer simplifies compliance verification for the electr
 
 ## High-Level Architecture
 
-![High-Level Architecture](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_GITHUB_REPO_NAME/main/docs/plantuml/readme-architecture.iuml)
+![Application Architecture Diagram](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/readme-architecture.iuml)
 
 <p align="center" data-ai-hint="architecture diagram">Application Architecture Diagram</p>
 

@@ -4,7 +4,7 @@
 
 This diagram illustrates the communication flow when a user interacts with the AI agent via a report's chat interface, including the possibility of report revision.
 
-![Report Chat Interaction Diagram](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_GITHUB_REPO_NAME/main/docs/plantuml/c4-dynamic-report-chat.iuml)
+![Report Chat Interaction Diagram](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/c4-dynamic-report-chat.iuml)
 
 ## Flow Description
 

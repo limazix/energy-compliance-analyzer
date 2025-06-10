@@ -5,7 +5,7 @@ This diagram details the main components that make up the "Frontend Web App" con
 [<- Back to Component Overview (C3)](./index.md)
 [<- Back to Container Overview (C2)](../c2-containers/index.md)
 
-![Frontend Web App Components](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_GITHUB_REPO_NAME/main/docs/plantuml/c3-frontend-components.iuml)
+![Frontend Web App Components](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/c3-frontend-components.iuml)
 
 ## Frontend Component Details
 
