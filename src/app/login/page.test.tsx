@@ -36,7 +36,7 @@ jest.mock('firebase/auth', () => {
     ...actualFirebaseAuth,
     signInWithPopup: jest.fn(),
     GoogleAuthProvider: actualFirebaseAuth.GoogleAuthProvider,
-    onAuthStateChanged: jest.fn(() => jest.fn()),
+    onAuthStateChanged: jest.fn(() => jest.fn()), // Keep the onAuthStateChanged mock as is
     signOut: jest.fn(),
   };
 });
@@ -65,6 +65,12 @@ describe('LoginPage', () => {
     mockRouterReplace.mockClear();
     useToast.mockReturnValue({ toast: mockToastFn });
     mockToastFn.mockClear();
+    // Clear the globally mocked console.error before each test in this suite
+    if (typeof window !== 'undefined' && (window.console.error as jest.Mock)?.mockClear) {
+      (window.console.error as jest.Mock).mockClear();
+    } else if ((global.console.error as jest.Mock)?.mockClear) {
+      (global.console.error as jest.Mock).mockClear();
+    }
   });
 
   /**
@@ -127,6 +133,8 @@ describe('LoginPage', () => {
     describe('and login is successful', () => {
       beforeEach(() => {
         useAuth.mockReturnValue({ user: null, loading: false });
+        // Reset to ensure it's a fresh "once" for this block if needed, or rely on general mock if set per test
+        mockSignInWithPopup.mockReset();
         mockSignInWithPopup.mockResolvedValueOnce({ user: { uid: 'test-uid' } });
       });
 
@@ -172,15 +180,17 @@ describe('LoginPage', () => {
      * @describe Scenario: Login fails.
      */
     describe('and login fails', () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
       beforeEach(() => {
+        // This beforeEach applies to all tests in "and login fails"
         useAuth.mockReturnValue({ user: null, loading: false });
-        mockSignInWithPopup.mockRejectedValueOnce(new Error('Login failed'));
-      });
-
-      afterEach(() => {
-        consoleErrorSpy.mockRestore();
+        (firebaseSignInWithPopupModule as jest.Mock).mockRejectedValue(new Error('Login failed'));
+        // Clear the global console.error mock before each test in this specific describe block
+        const consoleErrorMock = (
+          typeof window !== 'undefined' ? window.console.error : global.console.error
+        ) as jest.Mock;
+        if (consoleErrorMock?.mockClear) {
+          consoleErrorMock.mockClear();
+        }
       });
 
       /**
@@ -200,12 +210,25 @@ describe('LoginPage', () => {
         render(<LoginPage />);
         const loginButton = screen.getByRole('button', { name: /Entrar com Google/i });
         await userEvent.click(loginButton);
+
+        // Wait for the toast message as a synchronization point,
+        // because console.error is called before toast in the component.
         await waitFor(() => {
-          expect(consoleErrorSpy).toHaveBeenCalledWith(
-            'Erro no login com Google:',
-            expect.any(Error)
-          );
+          expect(mockToastFn).toHaveBeenCalledWith({
+            title: 'Erro no Login',
+            description: 'Não foi possível fazer login com Google. Tente novamente.',
+            variant: 'destructive',
+          });
         });
+
+        // Now assert that console.error (which is globally mocked in jest.setup.js) was called.
+        const consoleErrorMock = (
+          typeof window !== 'undefined' ? window.console.error : global.console.error
+        ) as jest.Mock;
+        expect(consoleErrorMock).toHaveBeenCalledWith(
+          'Erro no login com Google:',
+          expect.any(Error)
+        );
       });
 
       /**
