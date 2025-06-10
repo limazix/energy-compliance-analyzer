@@ -2,7 +2,7 @@ name: 4. Deploy to Firebase
 
 on:
   workflow_run:
-    workflows: ['3. Build for Deployment'] # Updated to match new name
+    workflows: ['3. Build for Deployment']
     types:
       - completed
 
@@ -52,7 +52,7 @@ jobs:
         uses: firebase-tools/action-apphosting-deploy@v0
         with:
           projectId: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }}
-          backendId: ${{ secrets.FIREBASE_BACKEND_ID_PRODUCTION }} # Changed Secret Name
+          backendId: ${{ secrets.FIREBASE_BACKEND_ID_PRODUCTION }}
           region: ${{ secrets.GCP_REGION }}
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
