@@ -429,33 +429,21 @@ describe('HomePage', () => {
      */
     describe('when past analyses exist', () => {
       beforeEach(async () => {
-        let fetchAnalysesPromiseResolve: () => void;
-        const fetchAnalysesPromise = new Promise<void>((resolve) => {
-          fetchAnalysesPromiseResolve = resolve;
-        });
-
         mockFetchPastAnalysesGlobal.mockImplementation(async () => {
           await act(async () => {
+            // Wrap all async state updates in one act
             global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = true;
-          });
-          await new Promise((r) => setTimeout(r, 10));
-          await act(async () => {
+            await new Promise((r) => setTimeout(r, 10)); // Simulate network delay
             global.mockUseAnalysisManagerReturnValue.pastAnalyses = [
               mockAnalysisItemCompleted,
               mockAnalysisItemInProgress,
             ];
             global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
           });
-          if (fetchAnalysesPromiseResolve) fetchAnalysesPromiseResolve();
         });
 
-        await act(async () => {
-          render(<HomePage />);
-        });
-
-        await act(async () => {
-          await fetchAnalysesPromise;
-        });
+        render(<HomePage />);
+        // The findByText in the test will wait for the component to settle after these updates.
       });
 
       /**
@@ -560,6 +548,7 @@ describe('HomePage', () => {
         });
         mockFetchPastAnalysesGlobal.mockImplementation(async () => {
           await act(async () => {
+            // Wrap in act
             global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
             global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
           });
@@ -671,6 +660,7 @@ describe('HomePage', () => {
 
         mockFetchPastAnalysesGlobal.mockImplementationOnce(async () => {
           await act(async () => {
+            // Wrap in act
             global.mockUseAnalysisManagerReturnValue.pastAnalyses = [mockAnalysisItemCompleted];
             global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
           });
@@ -735,6 +725,7 @@ describe('HomePage', () => {
         mockFetchPastAnalysesGlobal.mockImplementationOnce(async () => {
           // For the fetch after deletion
           await act(async () => {
+            // Wrap in act
             global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
             global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
             global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
@@ -750,6 +741,7 @@ describe('HomePage', () => {
         });
 
         await act(async () => {
+          // Ensure React processes state changes from the delete & subsequent fetch
           await secondFetchCompletedPromise;
         });
         expect(
