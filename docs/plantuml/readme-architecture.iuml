@@ -1,128 +1,104 @@
 
 @startuml Energy Compliance Analyzer - High-Level Architecture
 !theme materia
-' C4-PlantUML includes for C4 modelling.
+' C4-PlantUML includes
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+' !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml ' Not strictly needed for this level, but good for completeness
+' !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml ' For deployment views
 
-' GCP C4 Integration - THIS IS THE ONLY GCP-SPECIFIC INCLUDE WE WILL USE
+' GCP C4 Integration - for GCP-specific C4 elements if used and available generic icons
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
-' NOTE: GCPC4Integration.puml internally includes GCPCommon.puml,
-' which defines $GCP_SPRITES_LOCATION = "." by default if not already defined,
-' and provides generic icons like $generic_database, $generic_compute, $generic_security, etc.
-' It also includes some FontAwesome icons like $fa_users, $fa_server, $fa_database.
 
-' Styling - Professional Look
-skinparam {
-    HyperlinkColor #2E7D32
-    DefaultFontName Inter
-    DefaultFontSize 14
-    RoundCorner 10
-    Shadowing false
+' Styling
+skinparam defaultFontName "Inter"
+skinparam defaultMonospacedFontName "Menlo"
+skinparam dpi 150
+skinparam shadowing false
 
-    ArrowColor #555555
-    ArrowThickness 1.5
-
-    RectangleBorderColor #B0BEC5
-    RectangleBorderThickness 1.5
-    RectangleStereotypeFontSize 11
-
-    DatabaseBorderColor #B0BEC5
-    DatabaseBorderThickness 1.5
-    DatabaseStereotypeFontSize 11
-
-    BoundaryBorderColor #78909C
-    BoundaryBorderThickness 2
-    BoundaryStereotypeFontSize 12
-    BoundaryBackgroundColor #ECEFF1
-
-    Person {
-        BackgroundColor #E3F2FD
-        BorderColor #90CAF9
-        StereotypeFontColor #1E88E5
-        FontColor #1E88E5
-    }
-    System {
-        BackgroundColor #FCE4EC
-        BorderColor #F48FB1
-        StereotypeFontColor #D81B60
-        FontColor #D81B60
-    }
-    System_Ext {
-        BackgroundColor #F1F8E9
-        BorderColor #AED581
-        StereotypeFontColor #689F38
-        FontColor #558B2F
-    }
-    Container {
-        BackgroundColor #FFFDE7
-        BorderColor #FFF59D
-        StereotypeFontColor #FBC02D
-        FontColor #F9A825
-    }
-    ContainerDb {
-        BackgroundColor #E8EAF6
-        BorderColor #C5CAE9
-        StereotypeFontColor #3F51B5
-        FontColor #3949AB
-    }
-    Component {
-        BackgroundColor #E0F2F1
-        BorderColor #A7FFEB
-        StereotypeFontColor #00796B
-        FontColor #00695C
-    }
+skinparam person {
+  StereotypeFontColor #FFFFFF
+  BackgroundColor #0D47A1 ' Dark Blue
+  BorderColor #0D47A1
+  FontColor #FFFFFF
+  roundCorner 20
 }
-hide stereotype
+skinparam system {
+  StereotypeFontColor #FFFFFF
+  BackgroundColor #1E88E5 ' Medium Blue
+  BorderColor #1E88E5
+  FontColor #FFFFFF
+  roundCorner 20
+}
+skinparam system_ext {
+  StereotypeFontColor #37474F
+  BackgroundColor #CFD8DC ' Light Blue-Gray
+  BorderColor #78909C
+  FontColor #37474F
+  roundCorner 20
+}
+skinparam container {
+  StereotypeFontColor #FFFFFF
+  BackgroundColor #4CAF50 ' Green
+  BorderColor #388E3C
+  FontColor #FFFFFF
+  roundCorner 20
+}
+skinparam containerDb {
+  StereotypeFontColor #FFFFFF
+  BackgroundColor #7E57C2 ' Deep Purple (for databases)
+  BorderColor #5E35B1
+  FontColor #FFFFFF
+  roundCorner 20
+  shape C4ContainerDb
+}
+skinparam boundary {
+  BorderColor #FF9800 ' Orange for boundaries
+  BackgroundColor #FFF3E0 ' Light Orange
+  FontColor #3E2723
+  StereotypeFontColor #3E2723
+  roundCorner 20
+  shadowing false
+}
 
-' Layout direction
+' Layout direction hint
 top to bottom direction
 
-' Elements
-Person(user, "Energy Sector User", "Professional analyzing power quality data (e.g., Engineer, Technician, Consultant)", $sprite=$fa_users)
-System_Ext(aneel, "ANEEL Regulations", "ANEEL Normative Resolutions and PRODIST standards", $sprite="application") ' Using a generic application/doc icon
+' Definitions
+Person(user, "User", "Interacts with the system to upload data, view reports, and chat about analyses.", $sprite=$fa_users)
+System_Ext(aneel, "ANEEL", "Brazilian National Electrical Energy Agency. Source of normative resolutions.", $sprite=$gov_building)
 
-System_Boundary(b_system, "Energy Compliance Analyzer", "Cloud-Native Web Application") {
-
-    Boundary(b_app_hosting, "Firebase App Hosting", "Hosts the frontend and server-side logic for user interaction.", $sprite=$generic_compute) {
-        ContainerGCP(frontend, "Frontend Web App", "Next.js, React, ShadCN, Tailwind", "Provides UI for data upload, analysis visualization, report viewing, and interactive chat.", $sprite="Generic_Web_Frontend.png") ' Assuming GCPC4Integration provides a way to specify raw relative paths if needed, or uses a default
-        ContainerGCP(server_actions, "Next.js Server Actions", "Node.js", "Backend API for frontend; handles file upload metadata, triggers background processes, and orchestrates report chat interactions.", $sprite=$generic_api)
-    }
-
-    Boundary(b_firebase_platform, "Firebase Platform Services", "Core backend services for data, auth, and functions.", $sprite=$google_cloud_logo) {
-        ContainerGCP(auth, "Firebase Authentication", "Handles user sign-in and identity management.", $sprite=$generic_security)
-        ContainerDbGCP(firestore, "Firebase Firestore", "NoSQL Database", "Stores analysis metadata, status, tags, structured reports, and user data.", $sprite=$generic_database)
-        ContainerDbGCP(storage, "Firebase Storage", "Object Storage", "Stores uploaded CSV files and generated MDX report files.", $sprite=$generic_storage)
-        ContainerDbGCP(rtdb, "Firebase Realtime Database", "NoSQL Database", "Stores chat messages for real-time interaction with reports.", $sprite=$generic_database)
-        ContainerGCP(functions, "Firebase Functions", "Serverless Compute", "Executes background processing pipeline for data analysis and AI report generation.", $sprite=$generic_serverless)
-    }
+Boundary(b_app_hosting, "Firebase App Hosting", "Hosts Next.js Frontend & Backend", $sprite=$gcp_generic_platform) {
+  Container(frontend, "Frontend Web App (Next.js/React)", "SPA, ShadCN, Tailwind", "User Interface for data upload, visualization, and interaction.", $sprite=$gcp_generic_compute)
+  Container(server_actions, "Next.js Server Actions", "Node.js", "Backend API for frontend, triggers background processes, chat orchestration.", $sprite=$gcp_generic_api)
 }
 
-SystemGCP_Ext(google_ai, "Google AI (Gemini)", "Generative AI Models", "Provides LLM capabilities for data summarization, regulation identification, report generation/review, and chat responses.", $sprite=$generic_machine_learning)
+Boundary(b_firebase_services, "Firebase Backend Services", "Core backend infrastructure", $sprite=$gcp_generic_platform) {
+  ContainerGCP(auth, "Firebase Authentication", "Identity Management", "Manages user authentication via Google Sign-In.", $sprite=$generic_security)
+  ContainerDbGCP(firestore, "Firebase Firestore", "NoSQL Document DB", "Stores analysis metadata, status, structured reports, and user data.", $sprite=$generic_database)
+  ContainerDbGCP(storage, "Firebase Storage", "Object Storage", "Stores uploaded CSV files and generated MDX reports.", $sprite=$generic_storage)
+  ContainerDbGCP(rtdb, "Firebase Realtime Database", "NoSQL JSON DB", "Stores chat history for report interactions.", $sprite=$generic_database)
+  ContainerGCP(functions, "Firebase Functions", "Serverless Compute", "Executes background AI processing pipeline for data analysis and report generation.", $sprite=$generic_serverless)
+}
+
+SystemGCP_Ext(google_ai, "Google AI (Gemini)", "Generative AI Models", "Provides AI capabilities for data summarization, regulation identification, report generation/review, and chat responses via Genkit.", $sprite=$generic_machine_learning)
 
 ' Relationships
-user -> frontend : "Uploads CSV Data, Views Reports, Interacts via Chat"
+user --> frontend : "Uses (Uploads CSV, Views Reports, Chats)"
+frontend --> server_actions : "Invokes (HTTPS/gRPC)"
 
-frontend -> server_actions : "Submits Upload Form, Fetches Report Data, Sends Chat Messages"
-server_actions -> auth : "Validates User Identity"
-server_actions -> firestore : "Manages Analysis Records (Create, Update, List, Delete)"
-server_actions -> storage : "Gets MDX Report URLs (for frontend)"
-server_actions -> rtdb : "Stores/Retrieves Chat Messages"
-server_actions -> google_ai : "Invokes Chat Orchestrator Agent (Genkit)"
-server_actions -> functions : "Signals for background processing (via Firestore trigger)"
+server_actions --> auth : "Verifies User Identity"
+server_actions --> firestore : "Manages Analysis Records, Tags (CRUD)"
+server_actions --> rtdb : "Manages Chat History (CRUD)"
+server_actions --> storage : "Gets MDX Report URLs"
+server_actions --> google_ai : "Orchestrates Report Chat (via Genkit)"
+server_actions --> functions : "Triggers Analysis Processing (via Firestore status update)"
 
-functions -> storage : "Reads CSV Files, Writes MDX Reports"
-functions -> firestore : "Updates Analysis Status, Progress, and Results"
-functions -> google_ai : "Invokes AI Agents Pipeline (Data Analyst, Engineer, Reporter, Reviewer via Genkit)"
+functions --> storage : "Reads CSV, Writes MDX Report"
+functions --> firestore : "Updates Analysis Status, Saves Structured Report"
+functions --> google_ai : "Executes AI Analysis Pipeline (via Genkit)"
 
-' External System Interactions
-functions -> aneel : "Considers Regulations for Analysis (Implicit)"
-google_ai -> aneel : "References ANEEL Standards for Report Generation (Implicit)"
+Rel_Back_Neighbor(aneel, functions, "Influences (Regulations used by AI)")
+Rel_Back_Neighbor(aneel, server_actions, "Influences (Regulations referenced in chat context)")
 
-
-Rel_D(frontend, auth, "Initiates Google Sign-In")
-Rel_D(user, auth, "Authenticates with Google Credentials")
 @enduml
-
-    
