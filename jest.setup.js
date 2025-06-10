@@ -202,9 +202,17 @@ global.mockUseAnalysisManagerReturnValue = {
   downloadReportAsTxt: jest.fn(),
   displayedAnalysisSteps: [],
 };
-jest.mock('@/hooks/useAnalysisManager', () => ({
-  useAnalysisManager: jest.fn(() => global.mockUseAnalysisManagerReturnValue),
-}));
+
+jest.mock('@/hooks/useAnalysisManager', () => {
+  const actualHookModule = jest.requireActual('@/hooks/useAnalysisManager');
+  return {
+    ...actualHookModule,
+    useAnalysisManager: jest.fn(() => {
+      // Return a new object (shallow copy) each time to better mimic React's re-render on hook output change
+      return { ...global.mockUseAnalysisManagerReturnValue };
+    }),
+  };
+});
 
 // Mock useFileUploadManager
 const mockUploadFileAndCreateRecord = jest.fn(() =>
@@ -219,7 +227,7 @@ global.mockUseFileUploadManagerReturnValue = {
   uploadFileAndCreateRecord: mockUploadFileAndCreateRecord,
 };
 jest.mock('@/features/file-upload/hooks/useFileUploadManager', () => ({
-  useFileUploadManager: jest.fn(() => global.mockUseFileUploadManagerReturnValue),
+  useFileUploadManager: jest.fn(() => ({ ...global.mockUseFileUploadManagerReturnValue })), // Also return a shallow copy
 }));
 
 global.Timestamp = Timestamp;
