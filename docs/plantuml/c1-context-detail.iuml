@@ -1,23 +1,24 @@
-@startuml C4_Context_ECA
+@startuml
+!define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
+!include GCPPuml/GCPC4Integration.puml
+!include GCPPuml/IconPack.puml
+
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
-!include <GCP/GCPCommon>
-!include <GCP/AI/VertexAI>
-!include <GCP/Firebase/FirebasePlatform>
 
-title "System Context for the Energy Compliance Analyzer"
+title Detailed System Context for Energy Compliance Analyzer
 
-Person(user, "User", "Engineers, analysts, consultants needing to verify power quality data compliance.")
+Person(user, "Energy Sector User", "Uploads CSV data, defines analysis parameters, views compliance reports, and interacts via chat.")
+System(energyComplianceAnalyzer, "Energy Compliance Analyzer", "The core application providing data analysis, report generation, and user interaction features.")
+System_Ext(googleSignIn, "Google Sign-In", "External identity provider for user authentication.")
+System_Ext(firebasePlatform, "Firebase Platform (GCP)", "Underlying BaaS including Authentication, Firestore, Storage, Functions, RTDB.")
+System_Ext(googleAI, "Google AI (Gemini)", "Provides AI models for data interpretation, regulation identification, report generation, and chat.")
+System_Ext(aneelRegulatoryDocs, "ANEEL Regulatory Documents", "External knowledge base of normative resolutions and technical standards.")
 
-System_Boundary(analyzer_boundary, "Energy Compliance Analyzer") {
-  System(energyAnalyzer, "Energy Compliance Analyzer", "Web platform for uploading, analyzing electrical power quality data against ANEEL standards, generating interactive reports.")
-}
+Rel(user, energyComplianceAnalyzer, "Accesses and Uses", "HTTPS")
+Rel(user, googleSignIn, "Authenticates via", "OAuth2")
+Rel(energyComplianceAnalyzer, googleSignIn, "Delegates Authentication to")
+Rel(energyComplianceAnalyzer, firebasePlatform, "Built on / Deployed to")
+Rel(energyComplianceAnalyzer, googleAI, "Utilizes AI Models from")
+Rel(energyComplianceAnalyzer, aneelRegulatoryDocs, "Consults (via AI) for Compliance Rules")
 
-System_Ext(googleAI, "Google AI (Gemini)", "Generative AI service (LLM) for data analysis, standards identification, report generation/review, and chat.", $sprite="gcp_vertex_ai")
-System_Ext(firebase, "Firebase Platform", "Google's platform for auth, database (Firestore, RTDB), file storage (Storage), and backend execution (Functions & App Hosting).", $sprite="gcp_firebase_platform")
-
-Rel(user, energyAnalyzer, "Uses", "HTTPS")
-Rel(energyAnalyzer, googleAI, "Utilizes for AI processing", "API Calls")
-Rel(energyAnalyzer, firebase, "Hosted on & uses services of", "SDKs, APIs")
-
-SHOW_LEGEND()
 @enduml

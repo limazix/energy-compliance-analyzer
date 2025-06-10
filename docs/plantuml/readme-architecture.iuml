@@ -1,109 +1,32 @@
-@startuml HighLevelArchitecture
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
-!include <GCP/GCPCommon>
-!include <GCP/Compute/CloudRun>
-!include <GCP/Compute/CloudFunctions>
-!include <GCP/Firebase/FirebaseAuthentication>
-!include <GCP/Databases/CloudFirestore>
-!include <GCP/Databases/FirebaseRealtimeDatabase>
-!include <GCP/Storage/CloudStorage>
-!include <GCP/AI/VertexAI>
+@startuml
+!define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
+!include GCPPuml/GCPC4Integration.puml
+!include GCPPuml/IconPack.puml
 
-title "Energy Compliance Analyzer - High-Level Architecture"
+title Energy Compliance Analyzer - System Architecture Overview
 
-skinparam defaultTextAlignment center
-skinparam roundcorner 20
-skinparam shadowing false
-skinparam ArrowColor #666666
-skinparam ArrowThickness 1.5
-skinparam package {
-  borderColor #AAAAAA
-  backgroundColor #WhiteSmoke
-  borderThickness 2
-  fontName Arial
-  fontSize 14
-  fontColor #333333
-  stereotypeFontColor #333333
-}
-skinparam container {
-  borderColor #008249
-  backgroundColor #LightGreen
-  fontColor #000000
-  stereotypeFontColor #000000
-  borderThickness 2
-  fontName Arial
-  fontSize 12
-}
-skinparam component {
-  borderColor #DarkGreen
-  backgroundColor #PaleGreen
-  fontColor #000000
-  borderThickness 1
-  fontName Arial
-  fontSize 11
-}
-skinparam database {
-  borderColor #OrangeRed
-  backgroundColor #LightSalmon
-  fontColor #000000
-  stereotypeFontColor #000000
-  borderThickness 2
-  fontName Arial
-  fontSize 12
-}
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
+GCPFirebase(firebase, "Firebase", "Platform for Backend Services")
+GCPCloudFunctions(functions, "Cloud Functions", "Serverless Processing")
+GCPCloudStorage(storage, "Cloud Storage", "File Storage")
+System_Ext(googleAI, "Google AI (Gemini)", "Generative AI Models")
+System_Ext(aneelRegs, "ANEEL Regulations", "External Knowledge Base")
 
-package "User Interaction" {
-  Container(ui, "Frontend Next.js/React", "ShadCN, TailwindCSS", "Hosted on Firebase App Hosting", $sprite="gcp_cloud_run")
-}
+Component(frontend, "Frontend Web App (Next.js)", "User Interface & Interaction")
+Component(backendApi, "Backend API (Next.js Server Actions)", "API Layer")
 
-package "Backend (Next.js)" {
-  Container(serverActions, "Next.js Server Actions", "Upload Trigger, Chat Orchestrator", $sprite="gcp_cloud_run")
-}
+Rel_D(frontend, backendApi, "Makes API calls to")
+Rel_D(backendApi, firebase, "Uses")
+Rel_D(functions, firebase, "Uses")
+Rel_D(functions, storage, "Reads/Writes to")
+Rel_D(functions, googleAI, "Calls")
+Rel_D(backendApi, googleAI, "Calls for Chat Orchestration")
+Rel_D(googleAI, aneelRegs, "Consults (simulated)", "...")
 
-package "Firebase Platform" {
-  Container(auth, "Firebase Authentication", "Google Sign-In", $sprite="gcp_firebase_authentication")
-  ContainerDb(firestore, "Firebase Firestore", "Analyses Metadata, Structured Report", $sprite="gcp_cloud_firestore")
-  ContainerDb(storage, "Firebase Storage", "Upload CSVs, MDX Reports", $sprite="gcp_cloud_storage")
-  ContainerDb(rtdb, "Firebase Realtime Database", "Chat History", $sprite="gcp_firebase_realtime_database")
-  Container(functions, "Firebase Functions", "Heavy Processing, Main AI Pipeline", $sprite="gcp_cloud_functions")
-}
-
-package "Artificial Intelligence (Genkit & Gemini)" {
-  Component(aiEngineFunctions, "AI Engine - Functions", "Pipeline: Data Analyst, Engineer, Reporter, Reviewer", $sprite="gcp_vertex_ai")
-  Component(aiEngineServerActions, "AI Engine - Server Actions", "Interactive Chat Orchestrator Agent", $sprite="gcp_vertex_ai")
-}
-
-%% User Flows
-Rel_D(ui, auth, "Login via Google")
-Rel_D(ui, serverActions, "Upload CSV (Title, Desc)")
-Rel_D(serverActions, firestore, "Creates Initial Record (status 'uploading')")
-Rel_D(serverActions, storage, "Uploads CSV to Analysis Path")
-Rel_D(serverActions, firestore, "Finalizes Record (CSV URL, status 'summarizing_data')")
-
-%% Background Processing Flow (Triggered by Firestore update)
-Rel_D(firestore, functions, "Triggers (onUpdate: status='summarizing_data')")
-Rel_D(functions, storage, "Reads CSV from Storage")
-Rel_D(functions, aiEngineFunctions, "Executes AI Agent Pipeline")
-Rel_D(aiEngineFunctions, functions, "Generates Structured Report (JSON)")
-Rel_D(functions, firestore, "Saves Structured Report (JSON)")
-Rel_D(functions, storage, "Converts Structured to MDX & Saves")
-Rel_D(functions, firestore, "Updates Status to 'completed'")
-
-%% Report Viewing & Chat Flow
-Rel_D(ui, serverActions, "View Report (requests MDX)")
-Rel_D(serverActions, firestore, "Reads MDX Path")
-Rel_D(serverActions, storage, "Reads MDX Content")
-Rel_D(storage, serverActions, "Returns MDX Content")
-Rel_D(serverActions, ui, "Sends MDX to UI")
-
-Rel_D(ui, serverActions, "Sends Chat Message (with report context)")
-Rel_D(serverActions, aiEngineServerActions, "Interacts with AI Orchestrator Agent")
-Rel_D(aiEngineServerActions, serverActions, "AI Response / Mod Report")
-Rel_D(serverActions, rtdb, "Saves Chat Message (user & AI)")
-Rel_D(serverActions, firestore, "(If Mod) Updates Structured Report")
-Rel_D(serverActions, storage, "(If Mod) Generates & Saves new MDX")
-Rel_D(rtdb, ui, "Syncs Chat in Real-Time")
-Rel_D(firestore, ui, "(Optional) Notifies UI of report changes")
+Lay_L(frontend, backendApi)
+Lay_L(backendApi, functions)
+Lay_L(functions, firebase)
+Lay_L(firebase, storage)
 
 @enduml

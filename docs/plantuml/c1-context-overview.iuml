@@ -1,23 +1,19 @@
-@startuml C4_Context_Overall_ECA
+@startuml
+!define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
+!include GCPPuml/GCPC4Integration.puml
+!include GCPPuml/IconPack.puml
+
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
-!include <GCP/GCPCommon>
-!include <GCP/AI/VertexAI>
-!include <GCP/Firebase/FirebasePlatform>
 
-title "System Context for the Energy Compliance Analyzer"
+title System Context diagram for Energy Compliance Analyzer
 
-Person(user, "User", "Engineers, analysts, or consultants needing to verify power quality data compliance.")
+Person(user, "Energy Sector Professional", "Uploads power quality data, views reports, and interacts with the system.")
+System(energyAnalyser, "Energy Compliance Analyzer", "Web application that analyzes power quality data against ANEEL regulations using AI and Firebase.")
+System_Ext(googleAI, "Google AI (Gemini)", "External Generative AI service used for analysis and chat.")
+System_Ext(aneelDB, "ANEEL Regulatory Database", "Conceptual external source of ANEEL norms and resolutions.")
 
-System_Boundary(analyzer_boundary, "Energy Compliance Analyzer") {
-  System(energyAnalyzer, "Energy Compliance Analyzer", "Web platform for uploading, analyzing electrical power quality data against ANEEL standards, and generating interactive reports.")
-}
+Rel(user, energyAnalyser, "Uses", "HTTPS")
+Rel(energyAnalyser, googleAI, "Makes API calls to", "HTTPS/gRPC")
+Rel(energyAnalyser, aneelDB, "References regulations from", "Conceptual")
 
-System_Ext(googleAI, "Google AI (Gemini)", "Generative AI service (LLM) for analysis, standards ID, report generation/review, chat.", $sprite="gcp_vertex_ai")
-System_Ext(firebase, "Firebase Platform", "Google's platform for auth, DBs (Firestore, RTDB), storage, and backend (Functions & App Hosting).", $sprite="gcp_firebase_platform")
-
-Rel(user, energyAnalyzer, "Uses", "HTTPS")
-Rel(energyAnalyzer, googleAI, "Utilizes for AI", "API")
-Rel(energyAnalyzer, firebase, "Hosted on & uses services", "SDK, API")
-
-SHOW_LEGEND()
 @enduml

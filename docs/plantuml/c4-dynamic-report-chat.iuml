@@ -1,50 +1,47 @@
-@startuml Dynamic_Report_Chat
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
-!include <GCP/GCPCommon>
-!include <GCP/Databases/FirebaseRealtimeDatabase>
-!include <GCP/Databases/CloudFirestore>
-!include <GCP/Storage/CloudStorage>
-!include <GCP/AI/VertexAI>
+@startuml
+!define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
+!include GCPPuml/GCPC4Integration.puml
+!include GCPPuml/IconPack.puml
 
-title "Report Chat Interaction Flow"
+title Dynamic Diagram: Report Chat Interaction
 
-actor User as user
-participant "Frontend Web App" as frontendApp <<Container>>
-participant "Backend API (SA)" as serverActions <<Container>>
-participant "`orchestrateReportInteractionFlow`" as orchestrationFlow <<Component>>
-participant "`callRevisorTool`" as revisorTool <<Component>>
-participant "`reviewComplianceReportFlow`" as reviewFlow <<Component>>
-database "Firebase RTDB" as rtdb <<ContainerDb, $sprite="gcp_firebase_realtime_database">>
-database "Firebase Firestore" as firestore <<ContainerDb, $sprite="gcp_cloud_firestore">>
-participant "Firebase Storage" as storage <<Container, $sprite="gcp_cloud_storage">>
-participant "Google AI (Gemini)" as googleAI <<System_Ext, $sprite="gcp_vertex_ai">>
+actor User
+participant "Frontend Web App\n(ReportPage)" as Frontend
+participant "Server Actions\n(askReportOrchestratorAction)" as ServerAction
+participant "Firebase RTDB" as RTDB
+participant "Genkit Flow\n(orchestrateReportInteractionFlow)" as OrchestratorFlow
+participant "Google AI (Gemini)" as Gemini
+participant "Genkit Tool\n(callRevisorTool)" as RevisorTool
+participant "Genkit Flow\n(reviewComplianceReportFlow)" as ReviewFlow
+participant "Firebase Firestore" as Firestore
+participant "Firebase Storage" as Storage
 
-autonumber "<b>[0]"
+User -> Frontend: 1. Sends chat message
+Frontend -> ServerAction: 2. Calls askReportOrchestratorAction (userMsg, mdx, structuredReport, etc.)
+ServerAction -> RTDB: 3. Saves user message & AI placeholder
+ServerAction -> OrchestratorFlow: 4. Invokes with input context
 
-user -> frontendApp: Sends chat message (text, report context)
-frontendApp -> serverActions: Calls `askReportOrchestratorAction` SA
-serverActions -> rtdb: Saves user message & AI placeholder to RTDB
-serverActions -> orchestrationFlow: Invokes flow with user message & report data
-
-orchestrationFlow -> googleAI: LLM processes user query
-alt Optional: Report Revision Requested
-  orchestrationFlow -> revisorTool: Calls `callRevisorTool` if revision needed
-  revisorTool -> reviewFlow: Invokes `reviewComplianceReportFlow`
-  reviewFlow -> googleAI: LLM reviews structured report
-  reviewFlow --> revisorTool: Returns revised structured report
-  revisorTool --> orchestrationFlow: Returns revised report to main flow
+OrchestratorFlow -> Gemini: 5. Processes query (may decide to use tool)
+alt User requests report modification
+    OrchestratorFlow -> RevisorTool: 6. Calls callRevisorTool (with structuredReport)
+    RevisorTool -> ReviewFlow: 7. Invokes reviewComplianceReportFlow
+    ReviewFlow -> Gemini: 8. Uses AI to refine structured report
+    Gemini --> ReviewFlow: Returns refined structured report
+    ReviewFlow --> RevisorTool: 9. Returns revised report
+    RevisorTool --> OrchestratorFlow: 10. Returns revised report to orchestrator
 end
-orchestrationFlow --> serverActions: Returns AI response (and optionally, revised report) to SA
+Gemini --> OrchestratorFlow: (If no tool, or after tool) Returns AI textual response
 
-serverActions -> rtdb: Updates/Streams final AI response in RTDB
-alt Optional: Report was Modified
-  serverActions -> firestore: Updates structured report in Firestore
-  serverActions -> storage: Saves new MDX to Storage
-end
-frontendApp <-- rtdb: Listens to RTDB for new/updated messages
-alt Optional: Report content updated
-  frontendApp <-- firestore: Listens for report document updates (MDX/Structured) to re-render report
+OrchestratorFlow --> ServerAction: 11. Returns AI response text & (optional) revisedStructuredReport
+
+ServerAction -> RTDB: 12. Streams/Updates AI's response text
+opt Report was modified
+    ServerAction -> Firestore: 13. Updates structuredReport in Analysis doc
+    ServerAction -> Storage: 14. Generates new MDX, saves to Storage
 end
 
+RTDB --> Frontend: 15. (via onValue) Updates chat UI with messages
+opt Report was modified (Firestore listener on ReportPage)
+    Firestore --> Frontend: 16. Updates report view with new MDX/structured data
+end
 @enduml

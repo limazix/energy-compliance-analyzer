@@ -1,53 +1,55 @@
-@startuml C4_Component_Frontend
+@startuml
+!define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
+!include GCPPuml/GCPC4Integration.puml
+!include GCPPuml/IconPack.puml
+
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
-!include <GCP/GCPCommon>
-!include <GCP/Compute/CloudRun>
-!include <GCP/Firebase/FirebaseAuthentication>
-!include <GCP/Databases/FirebaseRealtimeDatabase>
 
-title "Frontend Web App Components"
+title Frontend Web App Components (Energy Compliance Analyzer)
 
-Container_Boundary(frontendContainer, "Frontend Web App") {
-    Component(routing, "Routing", "Next.js App Router", "Manages navigation (Login, Home, Report).")
-    Component(authUI, "Authentication UI", "React Components, Firebase SDK", "Login/logout UI, profile display.")
-    Component(fileUploadUI, "Upload UI", "React Components, Hooks", "Form for CSV upload & metadata.")
-    Component(analysisListUI, "Analysis Listing UI", "React Components", "Displays past analyses, status, tags.")
-    Component(analysisViewUI, "Analysis View UI", "React Components", "Shows progress/results of an analysis.")
-    Component(reportViewUI, "Report View UI", "React Component, MDX", "Renders MDX report & chat.")
-    Component(reportChatUI, "Report Chat UI", "React Components, RTDB SDK", "User interaction with report agent.")
-
-    Component(stateMgmt, "State & UI Logic", "Contexts, Custom Hooks", "Manages app state (auth, analysis data, notifications).")
-
-    Component(firebaseClient, "Firebase Client Config", "Firebase SDK (`firebase.ts`)", "Initializes client-side Firebase SDK.")
-    Component(uiComponents, "Reusable UI Library", "ShadCN UI, TailwindCSS", "Buttons, Cards, Inputs, etc.")
+package "User Interface (React Components)" {
+    Component(authUI, "Authentication UI", "Login/Logout buttons, Profile display")
+    Component(fileUploadUI, "Upload UI", "Form for CSV upload, title, description")
+    Component(analysisListUI, "Analysis Listing UI", "Displays past analyses (accordion)")
+    Component(analysisViewUI, "Analysis View UI", "Shows details of one analysis (progress/results, tags, actions)")
+    Component(reportViewUI, "Report View UI", "Renders MDX report content")
+    Component(reportChatUI, "Report Chat UI", "Interface for user-AI chat about a report")
+    Component(uiComponents, "Reusable UI Library (ShadCN)", "Buttons, Cards, Inputs, etc.")
 }
 
-Container_Ext(serverActions, "Next.js Server Actions", "Backend API for data/AI.", $sprite="gcp_cloud_run")
-Container_Ext(firebaseAuthExt, "Firebase Authentication", "External auth service.", $sprite="gcp_firebase_authentication")
-Container_Ext(firebaseRtdbExt, "Firebase Realtime DB", "DB service for chat.", $sprite="gcp_firebase_realtime_database")
+package "State & Logic" {
+    Component(stateMgmt, "State & UI Logic", "React Contexts (Auth), Custom Hooks (useAnalysisManager, useFileUploadManager), Toast Notifications")
+    Component(routing, "Routing (Next.js App Router)", "Manages navigation and URL mapping")
+    Component(firebaseClient, "Firebase Client Config", "Initializes Firebase SDK (Auth, Firestore, Storage, RTDB), Emulator Connect")
+}
 
-Rel(routing, authUI, "Controls access based on auth state")
-Rel(routing, reportViewUI, "Navigates to report page")
+System_Ext(browser, "User's Web Browser")
+Container_Ext(serverActions, "Backend API (Next.js Server Actions)", "Handles API requests")
+ContainerDb_Ext(firebaseAuth, "Firebase Authentication")
+ContainerDb_Ext(firebaseRTDB, "Firebase RTDB", "Chat messages")
 
-Rel(authUI, firebaseAuthExt, "Authenticates user via")
-Rel(authUI, stateMgmt, "Updates/reflects auth state from")
+Rel(browser, authUI, "Interacts with")
+Rel(browser, fileUploadUI, "Interacts with")
+Rel(browser, analysisListUI, "Views")
+Rel(browser, analysisViewUI, "Views/Interacts with")
+Rel(browser, reportViewUI, "Views")
+Rel(browser, reportChatUI, "Interacts with")
 
-Rel(fileUploadUI, stateMgmt, "Uses/Updates upload state from")
-Rel(fileUploadUI, serverActions, "Calls actions for file record & finalization")
+Rel(authUI, stateMgmt, "Uses AuthContext")
+Rel(fileUploadUI, stateMgmt, "Uses useFileUploadManager")
+Rel(analysisListUI, stateMgmt, "Uses useAnalysisManager")
+Rel(analysisViewUI, stateMgmt, "Uses useAnalysisManager")
+Rel(reportViewUI, stateMgmt, "Uses state for MDX, structured report")
+Rel(reportChatUI, stateMgmt, "Uses state for messages")
 
-Rel(analysisListUI, stateMgmt, "Uses analyses state from")
-Rel(analysisListUI, serverActions, "Calls actions to fetch/manage analyses")
+Rel(authUI, firebaseClient, "Uses Firebase Auth SDK")
+Rel(reportChatUI, firebaseClient, "Uses Firebase RTDB SDK")
+Rel(stateMgmt, firebaseClient, "Uses Firebase SDKs (indirectly via hooks)")
 
-Rel(analysisViewUI, stateMgmt, "Uses current analysis state from")
+Rel(stateMgmt, serverActions, "Invokes actions for data operations")
+Rel(reportChatUI, serverActions, "Invokes chat orchestrator action")
 
-Rel(reportViewUI, serverActions, "Calls action to fetch MDX report")
-Rel(reportViewUI, reportChatUI, "Integrates Chat UI")
+Rel(firebaseClient, firebaseAuth, "Connects to")
+Rel(firebaseClient, firebaseRTDB, "Connects to")
 
-Rel(reportChatUI, serverActions, "Calls chat orchestrator Server Action")
-Rel(reportChatUI, firebaseRtdbExt, "Syncs chat messages with")
-
-Rel(stateMgmt, firebaseClient, "Utilizes configured Firebase instance from")
-%% uiComponents are used by many UI components; relationship is implicit to reduce clutter.
-
-SHOW_LEGEND()
 @enduml
