@@ -1,50 +1,32 @@
-
-@startuml C1 - System Context - Energy Compliance Analyzer (Detailed)
+@startuml C1 - System Context Detail - Energy Compliance Analyzer
 !define GCP_SPRITES_LOCATION https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
-
-' Include specific icon sets
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Identity/FirebaseAuthentication.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Identity_Security/FirebaseAuthentication.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_Machine_Learning/VertexAI.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/FirebasePlatform.puml
+' Add more specific includes as needed, e.g.:
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Databases/Firestore.puml
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Storage/CloudStorage.puml
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/CloudFunctions.puml
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Mobile/Firebase.puml ' For general Firebase/App Hosting
 
+!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons
+!include DEVICONS/react.puml
+!include DEVICONS/google.puml
 
-skinparam {
-    HyperlinkColor #3F51B5
-    FontName Inter, SansSerif
-    shadowing false
-    RoundCorner 20
-    BackgroundColor #F0F2F5
-    ArrowColor #555555
-    ArrowThickness 1.5
-    Person { BackgroundColor #E3F2FD; BorderColor #3F51B5; }
-    System { BackgroundColor #FFF3E0; BorderColor #FF9800; }
-    System_Ext { BackgroundColor #ECEFF1; BorderColor #78909C; }
-}
 LAYOUT_WITH_LEGEND()
 
-title System Context for Energy Compliance Analyzer (Detailed)
+Person(user, "Electrical Sector User", "Professional analyzing power quality data (Engineer, Technician, Consultant).")
+System_Ext(googleSignIn, "Google Sign-In", "Handles user authentication via Google accounts.", $sprite=$firebase_auth) ' Using Firebase Auth icon as it's the service
+System_Ext(aneel, "ANEEL Regulations", "Brazilian National Electrical Energy Agency's normative resolutions and standards. Source of compliance rules.")
+System_Ext(geminiAI, "Google AI (Gemini)", "Provides Large Language Models for data analysis, report generation, and chat.", $sprite=$vertex_ai)
 
-Person(User, "Energy Sector Professional", "User interacting with the system to analyze power quality data and ensure compliance.")
+System_Boundary(boundary, "Energy Compliance Analyzer") {
+    System(system, "Energy Compliance Analyzer", "Web application for analyzing electrical power quality data against ANEEL resolutions, generating reports, and interacting with results via AI chat.", $sprite=$react_100)
+}
 
-System_Ext(GoogleSignIn, "Google Sign-In", "External OAuth provider for user authentication.", $sprite=$firebase_auth)
-System_Ext(GeminiModels, "Google AI (Gemini Models)", "External Generative AI service providing LLM capabilities for analysis and chat.", $sprite=$vertex_ai)
-System_Ext(Aneel, "ANEEL", "Brazilian National Electrical Energy Agency. Source of normative resolutions and compliance standards.")
-
-System(EnergyComplianceAnalyzer, "Energy Compliance Analyzer", "Analyzes power quality data against ANEEL regulations, generates reports, and allows interactive chat.", $sprite=$firebase_platform)
-
-User -> EnergyComplianceAnalyzer : Uploads CSV Data
-User -> EnergyComplianceAnalyzer : Interacts with Reports
-User -> EnergyComplianceAnalyzer : Manages Analyses
-EnergyComplianceAnalyzer -> GoogleSignIn : Authenticates User
-EnergyComplianceAnalyzer -> GeminiModels : For AI Processing & Chat
-EnergyComplianceAnalyzer -> Aneel : References Regulations (Conceptually)
-
-Rel(User, EnergyComplianceAnalyzer, "Uses")
-Rel(EnergyComplianceAnalyzer, GoogleSignIn, "Delegates Authentication to")
-Rel(EnergyComplianceAnalyzer, GeminiModels, "Utilizes for AI analysis")
-Rel(EnergyComplianceAnalyzer, Aneel, "Validates data against standards from")
+Rel(user, system, "Uploads CSV data, manages analyses, views reports, interacts via chat")
+Rel(system, googleSignIn, "Authenticates user sessions", "Firebase Auth SDK")
+Rel(system, geminiAI, "Uses for AI processing (data summary, resolution ID, report gen, chat orchestration)", "Genkit SDK")
+Rel(system, aneel, "References and applies regulations for compliance analysis")
 
 @enduml
-
-    

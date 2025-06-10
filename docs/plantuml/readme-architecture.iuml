@@ -1,118 +1,125 @@
-
-@startuml High Level System Architecture - Energy Compliance Analyzer
+@startuml Energy Compliance Analyzer - High-Level Architecture
 !define GCP_SPRITES_LOCATION https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPCommon.puml
-
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Identity/FirebaseAuthentication.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Mobile/Firebase.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Identity_Security/FirebaseAuthentication.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Databases/Firestore.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Storage/CloudStorage.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Databases/FirebaseRealtimeDatabase.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Storage/CloudStorage.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/CloudFunctions.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_Machine_Learning/VertexAI.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/FirebasePlatform.puml
 
+!define PERSON_COLOR #08427B
+!define SYSTEM_COLOR #1168BD
+!define CONTAINER_COLOR #4285F4
+!define COMPONENT_COLOR #75A5F7
+!define EXTERNAL_SYSTEM_COLOR #6C757D
+!define INTERFACE_COLOR #9E768F
+!define DATABASE_COLOR #D35400 
+!define STORAGE_COLOR #F39C12
+!define API_GATEWAY_COLOR #1ABC9C
+!define FUNCTION_COLOR #9B59B6
 
 skinparam {
-    HyperlinkColor #3F51B5
-    FontName Inter, SansSerif
-    shadowing false
-    RoundCorner 20
-
-    BackgroundColor #F0F2F5
-
+    Shadowing false
     ArrowColor #555555
-    ArrowThickness 1.5
+    BorderColor #555555
+    ActorBorderColor #555555
+    FontName Inter, Arial, sans-serif
+    defaultTextAlignment center
 
-    package {
+    PackageStyle rectangle {
+        FontColor #FFFFFF
+        BackgroundColor #262262
+        BorderColor #262262
+        BorderStyle solid
+    }
+    Rectangle {
+        StereotypeFontColor #999999
         BackgroundColor #FFFFFF
         BorderColor #CCCCCC
-        BorderStyle solid
-        StereotypeFontSize 0 
+        RoundCorner 10
     }
-    
-    Person {
-        BackgroundColor #E3F2FD
-        BorderColor #3F51B5
-        FontColor #333333
-        StereotypeFontColor #333333
-    }
-
-    System {
-        BackgroundColor #FFF3E0 
-        BorderColor #FF9800 
-        FontColor #333333
-        StereotypeFontColor #333333
-    }
-    
-    System_Ext {
-        BackgroundColor #ECEFF1
-        BorderColor #78909C
-        FontColor #333333
-    }
-
-    Container {
-        BackgroundColor #E8EAF6
-        BorderColor #3F51B5
-        FontColor #1A237E
-        StereotypeFontColor #1A237E
-    }
-    
-    Component {
+    Database {
         BackgroundColor #FFFFFF
-        BorderColor #7986CB
-        FontColor #3F51B5
+        BorderColor DATABASE_COLOR
+        StereotypeFontColor #999999
+        RoundCorner 10
     }
-    
-    Boundary {
-        BorderColor #BDBDBD
-        BackgroundColor #FAFAFA
-        FontStyle plain
-        FontColor #424242
+    Queue {
+        BackgroundColor #FFFFFF
+        BorderColor FUNCTION_COLOR
+        StereotypeFontColor #999999
+        RoundCorner 10
+    }
+    Cloud {
+        BackgroundColor #FFFFFF
+        BorderColor #4285F4 
+        RoundCorner 10
+    }
+    Agent {
+        BackgroundColor #FFFFFF
+        BorderColor #FF9800 
+        StereotypeFontColor #999999
+        RoundCorner 10
     }
 }
-LAYOUT_TOP_DOWN
-LAYOUT_WITH_LEGEND()
 
-title Energy Compliance Analyzer - High Level Architecture
+actor "User" as User PERSON_COLOR
 
-actor User as User
-System_Ext(AneelRegs, "ANEEL Normative Resolutions", "Source of compliance standards and regulations")
-
-package "Google Cloud Platform (GCP)" {
-    Boundary(AppHostingBoundary, "Firebase App Hosting", "Hosting for Web App & Server Actions") {
-        Container(WebApp, "Frontend Web App", "Next.js, React, ShadCN", "User Interface for data upload, analysis viewing, and report interaction.", $sprite="gcp/Firebase/FirebasePlatform") #E8EAF6
-        Container(ServerActions, "Next.js Server Actions", "Node.js", "Handles API requests, orchestration of chat AI, and triggers background processing.", $sprite="gcp/Firebase/FirebasePlatform") #E8EAF6
-    }
-
-    Boundary(FirebaseServices, "Firebase Backend Services", "Managed BaaS") {
-        Container(Auth, "Firebase Authentication", "OAuth, User Mgmt", "Manages user authentication via Google Sign-In.", $sprite=$firebase_auth) #C5CAE9
-        ContainerDb(Firestore, "Firebase Firestore", "NoSQL Database", "Stores analysis metadata, status, tags, and structured reports.", $sprite=$firestore) #C5CAE9
-        ContainerDb(Storage, "Firebase Storage", "Object Storage", "Stores uploaded CSV files and generated MDX reports.", $sprite=$cloud_storage) #C5CAE9
-        ContainerDb(RTDB, "Firebase Realtime DB", "JSON Database", "Stores chat history for interactive reports.", $sprite=$firebase_realtime_database) #C5CAE9
-    }
-    
-    Container(FirebaseFunctions, "Firebase Functions", "Serverless Compute", "Executes AI pipeline for data processing, analysis, and report generation.", $sprite=$cloud_functions) #D1C4E9
-
-    System_Ext(Gemini, "Google AI (Gemini)", "Generative AI Models", "Provides AI capabilities for data analysis and report generation via Genkit.", $sprite=$vertex_ai) #FFE0B2
+package "Firebase App Hosting (Next.js App)" <<Cloud>> {
+    rectangle "Frontend Web App\n(Next.js, React, ShadCN)" as Frontend COMPONENT_COLOR
+    rectangle "Backend API\n(Next.js Server Actions, Genkit)" as ServerActions API_GATEWAY_COLOR
 }
 
-User --> WebApp : Interacts (uploads CSV, views reports, chats)
-WebApp -> ServerActions : API Calls (upload, chat, manage analysis)
+package "Firebase Services" <<Cloud>> {
+    database "Firestore\n(Analysis Data, Metadata)" as Firestore DATABASE_COLOR <<$firestore>>
+    database "Realtime Database\n(Chat History)" as RTDB DATABASE_COLOR <<$firebase_realtime_database>>
+    rectangle "Cloud Storage\n(CSVs, MDX Reports)" as Storage STORAGE_COLOR <<$cloud_storage>>
+    rectangle "Authentication" as Auth EXTERNAL_SYSTEM_COLOR <<$firebase_auth>>
+}
 
+package "Background Processing" <<Cloud>> {
+    rectangle "Firebase Functions\n(Genkit AI Pipeline)" as Functions FUNCTION_COLOR <<$cloud_functions>>
+}
+
+cloud "Google AI Platform" as GoogleAI {
+    agent "Gemini Models\n(via Genkit)" as GeminiAgent <<$vertex_ai>>
+}
+
+rectangle "ANEEL\n(Regulations Source)" as ANEEL EXTERNAL_SYSTEM_COLOR
+
+' Relationships - More vertical flow
+User --> Frontend : Interacts (Uploads CSV, Views Reports, Chats)
+Frontend --> ServerActions : (API Calls for Upload Mgmt, Chat, Report Fetch)
 ServerActions --> Auth : Verifies User
-ServerActions --> Firestore : Manages Analysis Records
-ServerActions --> RTDB : Manages Chat History
-ServerActions --> Gemini : (Report Chat Orchestrator)
-ServerActions --> FirebaseFunctions : Triggers Processing (via Firestore status update)
+ServerActions --> Firestore : (R/W Analysis Records, Tags)
+ServerActions --> RTDB : (R/W Chat Messages)
+ServerActions --> Storage : (Gets MDX URL for Frontend)
+ServerActions --> GeminiAgent : (Orchestrates Report Chat via Genkit)
 
-FirebaseFunctions -> Storage : Reads CSV, Writes MDX Report
-FirebaseFunctions -> Firestore : Updates Analysis Status & Results
-FirebaseFunctions -> Gemini : (Data Analysis & Report Generation Agents)
+Frontend -> Storage : (Direct CSV Upload via Client SDK)
 
-Firestore <.. AneelRegs : (Conceptual) Rules and logic derived from regulations
-Gemini <.. AneelRegs : (Conceptual) AI uses knowledge of regulations
+ServerActions --> Functions : (Triggers via Firestore status update)
+
+Functions -> Firestore : (Updates Analysis Status, Progress, Results)
+Functions -> Storage : (Reads CSV, Writes MDX)
+Functions -> GeminiAgent : (Executes AI Analysis Pipeline via Genkit)
+
+Functions --> ANEEL : (Implicitly uses for Compliance Logic - conceptual link)
+GeminiAgent --> ANEEL : (Implicitly uses for Compliance Logic - conceptual link)
+
+
+' Layout hints for vertical flow
+User -[hidden]D- Frontend
+Frontend -[hidden]D- ServerActions
+ServerActions -[hidden]D- Firestore
+Firestore -[hidden]D- Functions
+Functions -[hidden]D- GeminiAgent
+RTDB -[hidden]L- ServerActions
+Storage -[hidden]R- Frontend
+
+Auth -[hidden]U- ServerActions 
+ANEEL -[hidden]U- Functions 
 
 @enduml
-
-    

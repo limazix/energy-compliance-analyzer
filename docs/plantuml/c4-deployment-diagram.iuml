@@ -1,88 +1,55 @@
-
-@startuml C4 Deployment Diagram - Energy Compliance Analyzer
+@startuml C4 - Deployment Diagram - Energy Compliance Analyzer
 !define GCP_SPRITES_LOCATION https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
 
-' Include specific icon sets
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/FirebasePlatform.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Identity/FirebaseAuthentication.puml
+' Include specific GCP service icons needed for this diagram
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Mobile/Firebase.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Identity_Security/FirebaseAuthentication.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Databases/Firestore.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Databases/FirebaseRealtimeDatabase.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Storage/CloudStorage.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/CloudFunctions.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_Machine_Learning/VertexAI.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Networking/CloudDNS.puml ' Assuming DNS is used
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Networking/CloudLoadBalancing.puml ' App Hosting uses Load Balancing
 
-skinparam {
-    HyperlinkColor #3F51B5
-    FontName Inter, SansSerif
-    shadowing false
-    RoundCorner 20
-    BackgroundColor #F0F2F5
-    ArrowColor #555555
-    ArrowThickness 1.5
-    Node { BackgroundColor #E8EAF6; BorderColor #3F51B5; }
-    DeploymentNode { BackgroundColor #D1C4E9; BorderColor #5E35B1; }
-    Container { BackgroundColor #C5CAE9; BorderColor #303F9F; }
-}
+!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons
+!include DEVICONS/react.puml
+
+LAYOUT_TOP_DOWN()
 LAYOUT_WITH_LEGEND()
 
-title Deployment View for Energy Compliance Analyzer (Production on Firebase/GCP)
+Person(user, "User", "Accesses via Web Browser / Mobile Browser")
 
-Person_Ext(User, "User", "Accesses via Web Browser")
-
-DeploymentNode("Internet", "Public Internet", "Global Network") {
-    DeploymentNode("Google Cloud Platform (GCP)", "Firebase & GCP Services in a Region (e.g., us-central1)", "Cloud Infrastructure", $sprite="gcp/Products_and_Services/GoogleCloud") {
-        
-        DeploymentNode("Firebase App Hosting", "Managed Hosting Service", "Hosts Next.js App", $sprite="gcp/Firebase/FirebasePlatform") {
-            Container(WebAppInstance, "Next.js Application Instance", "Next.js, React, Server Actions", "Serves Frontend UI, Handles API Requests via Server Actions. Scales automatically.", $sprite="gcp/Firebase/FirebasePlatform")
-            DeploymentNode("Global Load Balancer", "Google Cloud Load Balancing", "Distributes traffic to App Hosting instances.", $sprite="gcp/Networking/CloudLoadBalancing")
+Deployment_Node_L(gcpRegion, "Google Cloud Platform (Region: e.g., us-central1)", "GCP Region") {
+    Deployment_Node(firebasePlatform, "Firebase Platform", "Managed Services", $sprite=$firebase) {
+        Deployment_Node(appHosting, "Firebase App Hosting", "Hosts Next.js application", $sprite=$firebase) {
+            Container(frontendApp, "Frontend Web App", "Next.js/React", "Serves UI, handles client-side logic", $sprite=$react_100)
+            Container(serverActions, "Backend API", "Next.js Server Actions", "Server-side logic for Next.js app", $sprite=$firebase)
         }
-
-        DeploymentNode("Firebase Functions", "Serverless Execution Environment", "Executes backend logic", $sprite=$cloud_functions) {
-            Container(ProcessAnalysisFn, "processAnalysisOnUpdate Function", "Node.js, Genkit, Gemini", "Processes data, performs AI analysis, generates reports. Triggered by Firestore.", $sprite=$cloud_functions)
-        }
-        
-        DeploymentNode("Firebase Authentication Service", "Managed Identity Platform", "Handles User Sign-In", $sprite=$firebase_auth) {
-            ' No specific container needed here, it's a managed service endpoint
-        }
-        
-        DeploymentNode("Firebase Firestore Service", "Scalable NoSQL Database", "Stores application data", $sprite=$firestore) {
-            ' No specific container needed here, it's a managed service endpoint
-        }
-        
-        DeploymentNode("Firebase Storage Service", "Scalable Object Storage", "Stores user files and reports", $sprite=$cloud_storage) {
-             ' No specific container needed here, it's a managed service endpoint
-        }
-
-        DeploymentNode("Firebase Realtime Database Service", "Real-time JSON Database", "Stores chat messages", $sprite=$firebase_realtime_database) {
-             ' No specific container needed here, it's a managed service endpoint
-        }
-        
-        DeploymentNode("Google AI Platform / Vertex AI", "AI/ML Services", "Provides Gemini Models", $sprite=$vertex_ai) {
-            ' External API endpoint consumed by Server Actions and Functions
-        }
-        
-        DeploymentNode("Cloud DNS", "Managed DNS Service", "Resolves application domain name (if custom domain is used)", $sprite="gcp/Networking/CloudDNS")
+        ContainerDb(firestoreDb, "Firebase Firestore", "NoSQL Document DB", "Stores analysis metadata, structured reports", $sprite=$firestore)
+        ContainerDb(rtdb, "Firebase Realtime DB", "NoSQL Realtime DB", "Stores chat messages", $sprite=$firebase_realtime_database)
+        Container(storage, "Firebase Storage", "Object Storage", "Stores CSVs, MDX reports", $sprite=$cloud_storage)
+        Container(functions, "Firebase Functions", "Serverless Compute", "Runs AI processing pipeline", $sprite=$cloud_functions)
+        Container(authService, "Firebase Authentication", "Identity Platform", "Manages user authentication", $sprite=$firebase_auth)
+    }
+    Deployment_Node(googleAIPlatform, "Google AI Platform", "AI/ML Services", $sprite=$vertex_ai) {
+         Container(geminiModels, "Gemini Models", "LLM Service", "Used by Genkit flows in Server Actions and Functions", $sprite=$vertex_ai)
     }
 }
 
-User --> GlobalLoadBalancer : HTTPS
-GlobalLoadBalancer --> WebAppInstance : Routes traffic
-WebAppInstance -> FirebaseAuthenticationService : Authenticates User (via Firebase SDK)
-WebAppInstance -> FirestoreService : Reads/Writes analysis data (via Server Actions)
-WebAppInstance -> StorageService : (Indirectly for uploads/downloads via Server Actions or client SDK)
-WebAppInstance -> RealtimeDatabaseService : Manages chat data (via Server Actions & client SDK)
-WebAppInstance -> GoogleAIPlatform : (Report Chat AI, via Server Actions)
-WebAppInstance -> ProcessAnalysisFn : (Triggers via Firestore update)
+Rel(user, frontendApp, "Accesses application", "HTTPS")
 
-ProcessAnalysisFn -> FirestoreService : Updates status, reads/writes data
-ProcessAnalysisFn -> StorageService : Reads CSVs, writes MDX
-ProcessAnalysisFn -> GoogleAIPlatform : (Data Analysis & Report Generation)
+Rel(frontendApp, serverActions, "Invokes server logic", "Internal to App Hosting")
+Rel(serverActions, firestoreDb, "Reads/Writes data", "Firebase SDK")
+Rel(serverActions, rtdb, "Reads/Writes chat data", "Firebase SDK")
+Rel(serverActions, storage, "Accesses file URLs", "Firebase SDK")
+Rel(serverActions, authService, "Validates tokens", "Firebase SDK")
+Rel(serverActions, geminiModels, "Calls for chat AI", "HTTPS/Genkit")
 
-CloudDNS -> GlobalLoadBalancer : (Resolves domain to LB IP)
+Rel(frontendApp, authService, "Initiates login, gets tokens", "Firebase SDK")
+Rel(frontendApp, storage, "Uploads files directly", "Firebase SDK")
+
+Rel(functions, firestoreDb, "Triggered by, Reads/Writes data", "Firebase SDK")
+Rel(functions, storage, "Reads/Writes files", "Firebase SDK")
+Rel(functions, geminiModels, "Calls for analysis pipeline", "HTTPS/Genkit")
 
 @enduml
-
-    
