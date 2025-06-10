@@ -1,21 +1,20 @@
-
-name: 4. Deploy to Firebase (Production)
+name: 4. Deploy to Firebase
 
 on:
   workflow_run:
-    workflows: ["3. Build for Deployment (Production)"] # Matches the name in build-for-deployment-production.yml
+    workflows: ['3. Build for Deployment'] # Updated to match new name
     types:
       - completed
 
 jobs:
   deploy_application:
     runs-on: ubuntu-latest
-    environment: production 
-    if: github.event.workflow_run.conclusion == 'success' 
+    environment: production
+    if: github.event.workflow_run.conclusion == 'success'
     permissions:
-      contents: read 
-      id-token: write 
-      actions: read 
+      contents: read
+      id-token: write
+      actions: read
 
     steps:
       - name: Set up Node.js
@@ -30,17 +29,17 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: nextjs-build-production
-          path: . 
+          path: .
           run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }} 
+          github-token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }}
 
       - name: Download Functions build artifact (Production)
         uses: actions/download-artifact@v4
         with:
           name: functions-build-production
-          path: functions 
+          path: functions
           run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }} 
+          github-token: ${{ secrets.ARTIFACT_ACCESS_TOKEN }}
 
       - name: Authenticate to Google Cloud (WIF for Functions/Rules)
         id: auth
@@ -54,9 +53,9 @@ jobs:
         with:
           projectId: ${{ secrets.NEXT_PUBLIC_PROJECT_ID }}
           backendId: ${{ secrets.FIREBASE_BACKEND_ID_PRODUCTION }} # Changed Secret Name
-          region: ${{ secrets.GCP_REGION }} 
+          region: ${{ secrets.GCP_REGION }}
         env:
-           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }} 
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
       - name: Deploy Firebase Functions (Production)
         run: |
@@ -67,7 +66,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_path }}
 
       - name: Checkout repository for rule files
-        uses: actions/checkout@v4 
+        uses: actions/checkout@v4
 
       - name: Deploy Firebase Rules (Firestore, Storage, RTDB) (Production)
         run: |

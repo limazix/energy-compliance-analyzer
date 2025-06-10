@@ -1,16 +1,15 @@
-
-name: 3. Build for Deployment (Production)
+name: 3. Build for Deployment
 
 on:
   workflow_run:
-    workflows: ["Run Integration Tests"] # Matches the name in tests.yml
+    workflows: ['Run Integration Tests'] # Matches the name in tests.yml
     types:
       - completed
 
 jobs:
   build_production_package:
     runs-on: ubuntu-latest
-    environment: production 
+    environment: production
     if: >
       github.event.workflow_run.workflow.name == 'Run Integration Tests' && # Ensure it's from the correct workflow
       github.event.workflow_run.conclusion == 'success' &&
@@ -39,7 +38,7 @@ jobs:
         env:
           NEXT_PUBLIC_FIREBASE_CONFIG: ${{ secrets.NEXT_PUBLIC_FIREBASE_CONFIG }} # Single JSON config for Firebase Web SDK
           NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
-          NODE_OPTIONS: "--max-old-space-size=4096"
+          NODE_OPTIONS: '--max-old-space-size=4096'
 
       - name: Prepare Next.js deployment artifact
         run: |
@@ -65,8 +64,8 @@ jobs:
       - name: Build Firebase Functions Shared Files
         run: npm run build:shared --prefix functions
         env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
-      
+          NODE_OPTIONS: '--max-old-space-size=4096'
+
       - name: Prepare Functions deployment artifact
         run: |
           set -e 
@@ -74,10 +73,10 @@ jobs:
           mkdir -p functions_artifact_staging_deploy/src
           mkdir -p functions_artifact_staging_deploy/lib/shared 
           mkdir -p functions_artifact_staging_deploy/node_modules 
-          
+
           echo "Copying functions/src..."
           cp -r functions/src/* functions_artifact_staging_deploy/src/
-          
+
           echo "Checking for functions/lib/shared..."
           if [ -d "functions/lib/shared" ]; then
             echo "Copying functions/lib/shared..."
@@ -86,18 +85,18 @@ jobs:
             echo "Error: functions/lib/shared not found after build:shared. Cannot prepare deploy artifact."
             exit 1
           fi
-          
+
           echo "Copying functions/package.json and package-lock.json..."
           cp functions/package.json functions_artifact_staging_deploy/
           cp functions/package-lock.json functions_artifact_staging_deploy/
-          
+
           echo "Copying functions/node_modules..."
           if [ -d "functions/node_modules" ]; then
             cp -r functions/node_modules/* functions_artifact_staging_deploy/node_modules/
           else
             echo "Warning: functions/node_modules not found. This might be an issue for deployment if dependencies are expected."
           fi
-          
+
           echo "Listing contents of Functions deployment staging directory:"
           ls -R functions_artifact_staging_deploy
         shell: bash
@@ -106,6 +105,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: functions-build-production
-          path: functions_artifact_staging_deploy/ 
+          path: functions_artifact_staging_deploy/
           retention-days: 1
           if-no-files-found: error
