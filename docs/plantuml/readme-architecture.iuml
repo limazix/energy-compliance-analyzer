@@ -1,31 +1,38 @@
-@startuml
+@startuml readme-architecture
 !define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include GCPPuml/GCPGeneral.puml
-
-' Example: You can add specific service icon includes here if needed
+!include GCPPuml/GCPCommon.puml
+' Optionally include specific services, e.g.:
 ' !include GCPPuml/Firebase/Firebase.puml
 ' !include GCPPuml/Compute/CloudFunctions.puml
+' !include GCPPuml/AIML/GenerativeAI.puml
+' !include GCPPuml/Network/CloudCDN.puml
 
-title Overall System Architecture
+title High-Level System Architecture
 
 actor User
-participant "Frontend (Next.js)" as Frontend
-participant "Backend API (Server Actions)" as ServerActions
-participant "Background Processing (Firebase Functions)" as Functions
-database "Firebase Firestore" as Firestore
-database "Firebase RTDB" as RTDB
-database "Firebase Storage" as Storage
-participant "Google AI (Gemini)" as Gemini
+package "Web Browser" {
+  component "Frontend (Next.js)" as Frontend
+}
 
-User -> Frontend : Interacts
-Frontend -> ServerActions : API Calls
-ServerActions -> Firestore : R/W Data
-ServerActions -> Storage : Access Files (Indirectly)
-ServerActions -> RTDB : Chat History
-ServerActions -> Gemini : Orchestrates Chat AI
-Firestore -> Functions : Triggers
-Functions -> Storage : R/W Files
-Functions -> Firestore : Updates Status/Results
-Functions -> Gemini : AI Processing Pipeline
+package "Firebase & GCP" {
+  component "App Hosting" as AppHosting
+  database "Firestore" as Firestore
+  database "RealtimeDB" as RTDB
+  storage "Cloud Storage" as Storage
+  component "Cloud Functions" as Functions
+  component "Google AI (Gemini)" as Gemini <<gcp/AIML/GenerativeAI>>
+}
+
+User --> Frontend : Interacts
+Frontend -> AppHosting : Hosted On
+AppHosting --> Frontend : Serves App
+Frontend --> Firestore : (via Server Actions) Reads/Writes Analysis Data
+Frontend --> RTDB : (via Server Actions/Client SDK) Chat Messages
+Frontend --> Storage : (via Server Actions/Client SDK) Uploads CSV, Reads MDX
+Firestore --> Functions : Triggers Analysis
+Functions --> Storage : Reads CSV, Writes MDX
+Functions --> Firestore : Updates Analysis Status & Results
+Functions --> Gemini : AI Processing
+Gemini --> Functions : Analysis Results
 
 @enduml

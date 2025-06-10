@@ -1,45 +1,49 @@
-@startuml
+@startuml c4-dynamic-report-chat
 !define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include GCPPuml/GCPGeneral.puml
-' For specific service icons, include their .puml files, e.g.:
+!include GCPPuml/GCPCommon.puml
+' Optionally include specific services for sprites, e.g.:
 ' !include GCPPuml/Firebase/Firebase.puml
-' !include GCPPuml/Database/CloudFirestore.puml
-' !include GCPPuml/Storage/CloudStorage.puml
+' !include GCPPuml/AIML/GenerativeAI.puml
 
 title Dynamic Diagram: Report Chat Interaction
 
 actor User
-participant "Frontend Web App (ReportPage)" as Frontend
-participant "Server Actions API (reportChatActions)" as ServerActions
-database "Firebase RTDB (Chat History)" as RTDB
-participant "Genkit Orchestrator Flow (Gemini)" as OrchestratorFlow
-participant "Genkit Revisor Tool (Gemini)" as RevisorTool
-database "Firebase Firestore (Analysis Doc)" as Firestore
-database "Firebase Storage (MDX Reports)" as Storage
+participant "Frontend Web App" as Frontend
+participant "Server Actions" as ServerActions
+participant "Firebase RTDB" as RTDB <<gcp/Firebase/RealtimeDatabase>>
+participant "Orchestrator Flow (Genkit)" as OrchestratorFlow
+participant "Google AI (Gemini)" as Gemini <<gcp/AIML/GenerativeAI>>
+participant "Revisor Tool (Genkit)" as RevisorTool
+participant "Review Flow (Genkit)" as ReviewFlow
+participant "Firebase Firestore" as Firestore <<gcp/Firebase/Firestore>>
+participant "Firebase Storage" as Storage <<gcp/Firebase/CloudStorageForFirebase>>
 
-User -> Frontend : 1. Types and sends chat message
-Frontend -> ServerActions : 2. Calls askReportOrchestratorAction
-ServerActions -> RTDB : 3. Saves user message, creates AI placeholder
-ServerActions -> OrchestratorFlow : 4. Invokes with context (MDX, JSON report, user query)
-OrchestratorFlow -> OrchestratorFlow : 5. Processes query, decides if revision is needed
+autonumber
+
+User -> Frontend: Sends chat message
+Frontend -> ServerActions: askReportOrchestratorAction()
+ServerActions -> RTDB: Save user message, AI placeholder
+ServerActions -> OrchestratorFlow: Invoke with user message & report context
+OrchestratorFlow -> Gemini: Process query
 alt User requests report modification
-    OrchestratorFlow -> RevisorTool : 6. Invokes callRevisorTool with structured report
-    RevisorTool -> RevisorTool : 7. Uses Gemini to refine structured report
-    RevisorTool --> OrchestratorFlow : 8. Returns revised structured report
-    OrchestratorFlow -> ServerActions : 9. Returns AI text response AND revised structured report
-    ServerActions -> Firestore : 10. Updates structuredReport in analysis document
-    ServerActions -> Storage : 11. Generates new MDX, saves to Storage
-    ServerActions -> RTDB : 12. Streams/Updates AI textual response
-else User asks for clarification
-    OrchestratorFlow -> ServerActions : 9. Returns AI textual response
-    ServerActions -> RTDB : 10. Streams/Updates AI textual response
+  OrchestratorFlow -> RevisorTool: callRevisorTool(structuredReport)
+  RevisorTool -> ReviewFlow: Invoke reviewComplianceReportFlow()
+  ReviewFlow -> Gemini: Refine structured report
+  Gemini --> ReviewFlow: Revised structured report
+  ReviewFlow --> RevisorTool: Return revised report
+  RevisorTool --> OrchestratorFlow: Return revised report
+end
+Gemini --> OrchestratorFlow: AI textual response
+OrchestratorFlow --> ServerActions: Return AI response (and revised report if any)
+ServerActions -> RTDB: Stream/Update AI response
+opt Report was modified
+  ServerActions -> Firestore: Update structured report
+  ServerActions -> Storage: Save new MDX report
+end
+RTDB --> Frontend: (onValue) Receives chat updates
+opt Report was modified in Firestore
+  Firestore --> Frontend: (onSnapshot) Receives report document updates
+  Frontend -> Frontend: Re-render MDX
 end
 
-Frontend -> RTDB : (Listening) 13. Receives user & AI messages in real-time
-User <- Frontend : 14. Sees updated chat conversation
-alt Report was modified
-    Frontend -> Firestore : (Listening) 15. Detects change in Firestore (structuredReport/mdxPath)
-    Frontend -> Storage : 16. Re-fetches new MDX report content (via Server Action)
-    User <- Frontend : 17. Sees updated report content
-end
 @enduml
