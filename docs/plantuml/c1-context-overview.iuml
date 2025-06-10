@@ -1,24 +1,24 @@
-@startuml C1 - System Context Overview - Energy Compliance Analyzer
-' Remote includes with full URLs
+@startuml c1_context_overview
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
-' Include specific service icon sets as needed, e.g.:
+' Specific icon sets can be included if more detail is desired, for an overview, default icons are often sufficient.
+' For example, to use specific Firebase or AI icons:
 ' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/Firebase.puml
-' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_and_Machine_Learning/VertexAI.puml ' (for Gemini/Genkit representation)
-
-!include <C4/C4_Context>
+' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_and_Machine_Learning/VertexAI.puml
 
 title System Context Diagram for Energy Compliance Analyzer
 
-Person(user, "Energy Sector User", "Professional interacting with power quality data and compliance reports.")
-System(eca, "Energy Compliance Analyzer", "Analyzes power quality data CSVs, identifies ANEEL resolutions, generates compliance reports, and provides an interactive chat interface.")
+Person(user, "User", "Electrical engineer or compliance officer.")
+System_Ext(google_ai, "Google AI (Gemini)", "Provides Generative AI models for analysis and chat.", $sprite="gcp/AI_and_Machine_Learning/Vertex_AI_Model_Garden")
+System_Ext(firebase, "Firebase Platform", "Provides BaaS including Auth, Storage, Databases, Functions, and Hosting.", $sprite="gcp/Firebase/Firebase")
+System_Ext(aneel, "ANEEL", "Brazilian National Electrical Energy Agency providing power quality regulations.")
 
-System_Ext(googleSignIn, "Google Sign-In", "External authentication service for user login.")
-System_Ext(googleAI, "Google AI (Gemini)", "External Generative AI models used for analysis, report generation, and chat functionalities via Genkit.")
-System_Ext(aneelPortal, "ANEEL Normative Data (Conceptual)", "Conceptual external source of ANEEL regulations and standards (not directly integrated via API, but knowledge is used by AI).")
+System(energy_compliance_analyzer, "Energy Compliance Analyzer", "Analyzes electrical power quality data against ANEEL resolutions, generates reports, and allows interactive refinement.")
 
-Rel(user, eca, "Uploads CSV data, views reports, interacts via chat")
-Rel(eca, googleSignIn, "Authenticates users via", "Firebase Auth")
-Rel(eca, googleAI, "Uses for AI processing (Genkit)", "API")
-Rel(eca, aneelPortal, "References for compliance knowledge (AI)", "Knowledge Base")
+Rel(user, energy_compliance_analyzer, "Uploads CSV data, views reports, interacts via chat")
+Rel(energy_compliance_analyzer, google_ai, "Uses for AI processing pipeline and report chat orchestration")
+Rel(energy_compliance_analyzer, firebase, "Leverages for backend services, data persistence, and application hosting")
+Rel(energy_compliance_analyzer, aneel, "Bases compliance analysis on its normative resolutions")
 
+SHOW_LEGEND()
 @enduml
