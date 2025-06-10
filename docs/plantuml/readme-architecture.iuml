@@ -1,96 +1,124 @@
-@startuml High-Level Architecture - Energy Compliance Analyzer
+@startuml readme-architecture
+!define GCPPuml https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
 !define GCP_SPRITES_LOCATION https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
-' Include specific GCP service icon sets as needed for this diagram
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/User_Management/Firebase.puml ' For general Firebase icon
+
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPCommon.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/User_Management/FirebaseAuthentication.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Databases/Firestore.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Databases/FirebaseRealtimeDatabase.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Storage/CloudStorage.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/CloudFunctions.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_Machine_Learning/VertexAI.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/User_Management/Firebase.puml ' For Firebase App Hosting
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_Machine_Learning/VertexAI.puml ' For Google AI (Gemini)
 
-!include <C4/C4_Container.puml>
+!include <C4/C4_Container.puml> ' Using Container for better grouping
 
-skinparam defaultFontName Inter
-skinparam defaultMonospacedFontName Menlo
-skinparam shadowing false
-skinparam RoundCorner 10
+' Styling
+skinparam {
+    shadowing false
+    ArrowColor #555555
+    BorderColor #777777
+    ActorBorderColor #3F51B5
+    ActorBackgroundColor #E8EAF6  ' Lighter blue for actor
 
-skinparam rectangle {
-  BorderColor #3F51B5
-  BackgroundColor #FFFFFF
-  FontColor #333333
-}
-skinparam person {
-  BorderColor #3F51B5
-  BackgroundColor #D1E0FF
-  FontColor #003366
-  StereotypeFontColor #003366
-}
-skinparam system {
-  BorderColor #3F51B5
-  BackgroundColor #E8EAF6  /* Lighter blue based on primary */
-  FontColor #1A237E    /* Darker blue for text */
-  StereotypeFontColor #1A237E
-}
-skinparam database {
-  BorderColor #FF9800  /* Accent orange */
-  BackgroundColor #FFF3E0 /* Light orange */
-  FontColor #BF360C /* Dark orange */
-  StereotypeFontColor #BF360C
-}
-skinparam boundary {
-  BorderColor #B0BEC5  /* Neutral gray for boundaries */
-  BackgroundColor #ECEFF1
-  FontColor #37474F
-}
-skinparam arrow {
-  Color #3F51B5
-  FontColor #3F51B5
-}
-skinparam note {
-  BorderColor #78909C
-  BackgroundColor #CFD8DC
-  FontColor #263238
-}
-skinparam card {
-  BackgroundColor #F0F2F5 /* Light gray background for the overall diagram */
-}
-skinparam cloud {
-  BackgroundColor #F0F2F5
-}
+    ContainerBorderColor #3F51B5
+    ContainerBackgroundColor #FFFFFF
+    ContainerFontName Inter
+    ContainerStereotypeFontColor #555555
 
+    System_ExtBorderColor #888888
+    System_ExtBackgroundColor #E0E0E0
+    System_ExtFontName Inter
 
-LAYOUT_WITH_LEGEND()
+    BoundaryBorderColor #3F51B5
+    BoundaryBorderThickness 2
+    BoundaryFontColor #3F51B5
+    BoundaryBackgroundColor #F0F2F5 ' Light gray for boundary background
 
-title High-Level Architecture - Energy Compliance Analyzer
+    note {
+        BackgroundColor #FFF9C4 ' Light yellow for notes
+        BorderColor #FFB300   ' Orange border for notes
+        FontColor #333333
+    }
+    legend {
+      BorderColor #3F51B5
+      BackgroundColor #FFFFFF
+    }
+    DefaultFontName Inter
+    DefaultFontSize 12
+    RoundCorner 10
+    BackgroundColor #F0F2F5 ' Overall diagram background
+}
+hide stereotype
 
-Person_Ext(user, "User", "Engineer/Analyst")
-System_Boundary(app_boundary, "Energy Compliance Analyzer") {
-    Container(frontend, "Frontend (Next.js)", "Web Application, UI/UX, Upload, Report Viewing, Chat", $sprite=$firebase_icon)
-    Container(backend_api, "Backend API (Next.js Server Actions)", "Handles frontend requests, triggers background tasks, orchestrates chat AI", $sprite=$firebase_icon)
-    Container(background_processing, "Background Processing (Firebase Functions)", "Data analysis, AI agent pipeline, report generation", $sprite=$cloud_functions)
-    ContainerDb(database, "Firebase Firestore", "Stores analysis metadata, structured reports, user data", $techn="NoSQL Database")
-    ContainerDb(storage, "Firebase Storage", "Stores CSV uploads and MDX reports", $techn="Object Storage")
-    ContainerDb(rtdb, "Firebase Realtime DB", "Stores chat history", $techn="NoSQL Database")
+LAYOUT_TOP_DOWN
+' LAYOUT_WITH_LEGEND
+
+title Energy Compliance Analyzer - High-Level Architecture
+
+Actor "Usuário" as User
+
+Boundary(app_hosting_boundary, "Firebase App Hosting", $tags="Frontend & Server Actions") {
+  Container(Frontend, "Frontend Web App", "Next.js, React, ShadCN UI", "Interface do usuário para upload, visualização e chat interativo", $sprite=$firebase_icon)
+  Container(ServerActions, "Next.js Server Actions", "Node.js, Genkit (Chat Agent)", "API para interações do frontend, gatilho de processos e orquestração do chat com IA")
 }
 
-System_Ext(google_ai, "Google AI (Gemini)", "Provides LLM for analysis and chat", $sprite=$vertex_ai)
-System_Ext(firebase_auth_service, "Firebase Authentication", "Manages user identity", $techn="Identity Provider")
-System_Ext(aneel, "ANEEL", "Source of Normative Resolutions")
+Boundary(firebase_backend_boundary, "Firebase Backend Services", $tags="Data, Processing & Auth") {
+  Container(Auth, "Firebase Authentication", "Identity Service", "Autenticação de usuários (Google Sign-In)", $sprite=$firebase_auth)
+  ContainerDb(Firestore, "Firebase Firestore", "NoSQL Database", "Armazena metadados, estados, relatórios JSON e tags", $sprite=$firestore)
+  ContainerDb(Storage, "Firebase Storage", "Object Storage", "Armazena CSVs enviados e relatórios MDX gerados", $sprite=$cloud_storage)
+  ContainerDb(RTDB, "Firebase Realtime DB", "JSON Database", "Armazena histórico de chat do relatório", $sprite=$firebase_realtime_database)
+  Container(Functions, "Firebase Functions", "Node.js, Genkit (AI Pipeline)", "Processamento de dados em background, análise AI (agentes especializados) e geração de relatórios", $sprite=$cloud_functions)
+}
+
+System_Ext(GoogleAI, "Google AI (Gemini)", "Serviço de IA Generativa para análise e chat", $sprite=$vertex_ai)
+System_Ext(ANEEL, "ANEEL", "Fonte de Resoluções Normativas (consultadas pela IA)")
+
+' Relationships
+User -> Frontend : "Usa o aplicativo (upload, visualização, chat)"
+Frontend <--> ServerActions : "Comunicação API (requisições, respostas)"
+User -> Auth : "Login com Google"
+Auth -> Frontend : "Confirma identidade"
+
+ServerActions -> Firestore : "CRUD de registros de análise, tags"
+ServerActions -> RTDB : "Salva/Lê histórico de chat"
+ServerActions -> GoogleAI : "Orquestra agente de chat (Gemini)"
+ServerActions -[hidden]down-> Functions ' Logical trigger
+note on link of ServerActions to Functions: Sinaliza início de processamento (via Firestore trigger)
+
+Frontend -> Storage : "Faz upload de arquivo CSV"
+
+Firestore -[dashed]-> Functions : "Dispara Functions em atualizações de 'status'"
+Functions -> Storage : "Lê CSVs, Salva relatórios MDX"
+Functions -> Firestore : "Atualiza status, progresso, Salva relatório JSON"
+Functions -> GoogleAI : "Executa pipeline de análise (agentes especializados)"
+
+Functions -> ANEEL : "Baseia análise nas regulações (via IA)"
+ServerActions -> ANEEL : "Baseia chat nas regulações (via IA)"
 
 
-Rel(user, frontend, "Interacts with")
-Rel(frontend, backend_api, "Sends requests via Server Actions")
-Rel(backend_api, database, "Reads/Writes analysis metadata")
-Rel(backend_api, storage, "Manages file info")
-Rel(backend_api, rtdb, "Manages chat messages")
-Rel(backend_api, background_processing, "Triggers via Firestore")
-Rel(backend_api, google_ai, "For report chat orchestration")
+' Vertical positioning hints (less strict, more about flow)
+User -[hidden]down-> app_hosting_boundary
+app_hosting_boundary -[hidden]down-> firebase_backend_boundary
+firebase_backend_boundary -[hidden]down-> GoogleAI
+GoogleAI -[hidden]down- ANEEL
 
-Rel(background_processing, database, "Updates status, saves structured report")
-Rel(background_processing, storage, "Reads CSV, Saves MDX report")
-Rel(background_processing, google_ai, "For AI analysis pipeline")
+' Grouping notes for clarity
+note as UserInteractions
+  **Interações do Usuário:**
+  - Upload de CSV de dados de energia
+  - Visualização de análises e relatórios
+  - Chat interativo sobre o relatório
+  - Autenticação
+end note
+UserInteractions .. User
 
-Rel(frontend, firebase_auth_service, "Authenticates via")
-Rel(analyzer, aneel, "Uses regulations from")
-
+note as BackendProcessing
+  **Processamento Principal (Backend):**
+  - Firebase Functions orquestram pipeline de IA
+  - Genkit/Gemini para análise de dados e geração de relatório
+  - Armazenamento de dados em Firestore e Storage
+end note
+BackendProcessing .. Functions
 
 @enduml
