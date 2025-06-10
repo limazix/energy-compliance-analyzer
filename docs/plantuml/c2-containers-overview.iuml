@@ -1,92 +1,59 @@
-
-@startuml
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
-
+@startuml C2 - Container Overview - Energy Compliance Analyzer
 !define GCP_SPRITES_LOCATION https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Firebase/Firebase.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/CloudFunctions.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Database/CloudFirestore.puml
+' Include specific icon sets as needed for this diagram
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/User_Management/FirebaseAuthentication.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Databases/Firestore.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Databases/FirebaseRealtimeDatabase.puml
 !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Storage/CloudStorage.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Database/CloudRealtimeDatabase.puml
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/VertexAI/VertexAI.puml
-' For App Hosting, consider using a generic compute or CDN icon if a specific App Hosting icon isn't available
-' !include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/AppEngine.puml (as a proxy)
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/Compute/CloudFunctions.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/AI_Machine_Learning/VertexAI.puml
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/User_Management/Firebase.puml ' For general Firebase icon for App Hosting
 
-' Styling
-skinparam defaultFontName Inter
-skinparam dpi 150
-skinparam roundCorner 10
-skinparam shadowing false
+!include <C4/C4_Container.puml>
 
-skinparam rectangle {
-    StereotypeFontSize 0
-}
-skinparam person {
-    BackgroundColor #08427B
-    FontColor #FFFFFF
-    BorderColor #073B6F
-}
-skinparam system_ext {
-    BackgroundColor #757575
-    FontColor #FFFFFF
-    BorderColor #616161
-}
-skinparam container {
-    BackgroundColor #E3F2FD 
-    FontColor #1E88E5
-    BorderColor #90CAF9
-}
-skinparam database {
-    BackgroundColor #FFCCBC ' Light orange for Firestore, RTDB, Storage (Firebase orange family)
-    FontColor #BF360C 
-    BorderColor #FF8A65
-}
+LAYOUT_WITH_LEGEND()
 
-title Container Overview: Energy Compliance Analyzer
+title Container Diagram for Energy Compliance Analyzer
 
-Person(user, "Usuário Final", "Profissional do setor elétrico.")
+Person_Ext(user, "User", "Electrical Engineer or Data Analyst")
 
-System_Ext(google_auth_service, "Google Sign-In", "Serviço de autenticação do Google.", $sprite=$firebase_auth)
-System_Ext(gemini_api, "Google AI (Gemini API)", "API de IA Generativa do Google.", $sprite=$vertex_ai)
-System_Ext(aneel, "ANEEL", "Fonte das resoluções normativas.")
-
-System_Boundary(eca_system, "Energy Compliance Analyzer") {
-    Container(frontend_app, "Frontend Web App", "Next.js, React, ShadCN UI", "Interface com o usuário para uploads, visualização e chat. Hospedado no Firebase App Hosting.")
-    Container(server_actions_api, "Backend API", "Next.js Server Actions", "Lida com requisições da UI, orquestra interações com Firebase e Genkit para chat.")
-    Container(functions_backend, "Background Processing", "Firebase Functions", "Processa arquivos CSV, executa pipeline de IA (Genkit + Gemini) para análise e geração de relatórios.", $sprite=$firebase_cloud_functions)
+System_Boundary(analyzer_system, "Energy Compliance Analyzer") {
+    Container(frontend_app, "Frontend Web App", "Next.js, React, ShadCN UI, Tailwind", "User interface for uploads, report viewing, and chat. Hosted on Firebase App Hosting.")
+    Container(server_actions, "Backend API (Next.js Server Actions)", "Next.js, Genkit", "Handles client requests, Firestore/Storage interactions, orchestrates chat AI. Runs on Firebase App Hosting.")
+    Container(functions_backend, "Background Processing", "Firebase Functions (Node.js, Genkit)", "Executes AI analysis pipeline, CSV processing, report generation.", $sprite=$cloud_functions)
     
-    ContainerDb(firestore_db, "Main Database", "Firebase Firestore", "Armazena metadados das análises, status, tags, e relatórios estruturados (JSON).", $sprite=$firebase_cloud_firestore)
-    ContainerDb(rtdb_chat, "Chat Database", "Firebase Realtime DB", "Armazena o histórico de conversas do chat interativo do relatório.", $sprite=$firebase_realtime_database)
-    ContainerDb(storage_files, "File Storage", "Firebase Storage", "Armazena os arquivos CSV enviados pelos usuários e os relatórios MDX gerados.", $sprite=$firebase_cloud_storage)
+    ContainerDb(firestore_db, "Main Database", "Firebase Firestore", "Stores analysis metadata, user data, structured reports, tags.", $sprite=$firestore)
+    ContainerDb(storage_bucket, "File Storage", "Firebase Storage", "Stores uploaded CSV files and generated MDX reports.", $sprite=$cloud_storage)
+    ContainerDb(rtdb, "Chat Database", "Firebase Realtime Database", "Stores real-time chat history for reports.", $sprite=$firebase_realtime_database)
 }
 
-' Relationships User -> System
-Rel(user, frontend_app, "Acessa e usa", "HTTPS")
-Rel(user, google_auth_service, "Autentica via")
+System_Ext(firebase_auth, "Authentication Service", "Firebase Authentication", "Manages user sign-in (Google).", $sprite=$firebase_auth)
+System_Ext(google_ai, "Google AI (Gemini)", "Google Cloud Vertex AI", "Provides LLM for data analysis, report generation, and chat.", $sprite=$vertex_ai)
+System_Ext(aneel, "ANEEL", "Brazilian National Electrical Energy Agency", "Source of normative resolutions for compliance.")
 
-' Relationships Frontend App -> Other Containers / External Systems
-Rel(frontend_app, server_actions_api, "Envia requisições para", "HTTPS (Server Actions)")
-Rel(frontend_app, google_auth_service, "Usa para login/logout", "Firebase SDK")
-Rel(frontend_app, rtdb_chat, "Lê/Escreve mensagens de chat", "Firebase SDK")
-Rel(frontend_app, storage_files, "Faz upload de CSV para", "Firebase SDK") ' Direct upload to Storage
+' Relationships
+Rel(user, frontend_app, "Uses", "HTTPS/Browser")
 
-' Relationships Server Actions API -> Other Containers / External Systems
-Rel(server_actions_api, firestore_db, "Gerencia registros de análise e relatórios em", "Firebase Admin SDK")
-Rel(server_actions_api, storage_files, "Obtém metadados/URLs de arquivos de", "Firebase Admin SDK") ' e.g. to serve MDX
-Rel(server_actions_api, rtdb_chat, "Grava mensagens (usuário/IA) no", "Firebase Admin SDK")
-Rel(server_actions_api, gemini_api, "Chama para processamento de chat (via Genkit)", "HTTPS")
-' Server Actions don't directly call Functions, but update Firestore which triggers them.
-Rel(server_actions_api, firestore_db, "Atualiza status para disparar Functions", "Firebase Admin SDK")
+Rel(frontend_app, server_actions, "Makes API calls to", "Next.js Server Actions")
+Rel(frontend_app, firebase_auth, "Authenticates via", "Firebase SDK")
+Rel(frontend_app, rtdb, "Reads/Writes chat messages", "Firebase SDK")
+Rel(frontend_app, storage_bucket, "Uploads CSV files to", "Firebase SDK (direct or via presigned URL from Server Actions)")
 
-' Relationships Functions Backend -> Other Containers / External Systems
-Rel(functions_backend, storage_files, "Lê CSVs e grava relatórios MDX em", "Firebase Admin SDK")
-Rel(functions_backend, firestore_db, "Lê/Escreve metadados, status, progresso, resultados em", "Firebase Admin SDK")
-Rel(functions_backend, gemini_api, "Usa para pipeline de análise e geração de relatório (via Genkit)", "HTTPS")
-Rel_Back(functions_backend, firestore_db, "É disparado por atualizações em") ' Firestore trigger
+Rel(server_actions, firestore_db, "Reads/Writes data to/from", "Firebase Admin SDK")
+Rel(server_actions, storage_bucket, "Manages file metadata, reads MDX reports from", "Firebase Admin SDK")
+Rel(server_actions, rtdb, "Writes AI chat responses to", "Firebase Admin SDK")
+Rel(server_actions, google_ai, "Calls for report chat orchestration", "Genkit SDK")
+Rel(server_actions, functions_backend, "Triggers processing via Firestore updates") ' Indirect trigger
 
-' Implied relationship to ANEEL for all processing components
-Rel(server_actions_api, aneel, "Considera (implícito) normas de")
-Rel(functions_backend, aneel, "Baseia análise de conformidade em")
+Rel(functions_backend, firestore_db, "Reads metadata, Writes status & reports to", "Firebase Admin SDK")
+Rel(functions_backend, storage_bucket, "Reads CSV, Writes MDX report to", "Firebase Admin SDK")
+Rel(functions_backend, google_ai, "Calls for AI analysis pipeline", "Genkit SDK")
+
+Rel(analyzer_system, aneel, "References regulations from")
+
+' Note on Firebase App Hosting: It hosts both frontend_app and server_actions.
+' Could be represented as a Deployment_Node if doing a C4 Deployment Diagram.
+' For a C2, showing them as separate containers within the system boundary is typical.
 
 @enduml
