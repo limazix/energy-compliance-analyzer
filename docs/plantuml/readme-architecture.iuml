@@ -1,159 +1,122 @@
-
 @startuml readme-architecture
-!define GCP_SPRITES_LOCATION https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist
-!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
 
-!define LIGHT_BLUE #E6F0FA
-!define DARK_BLUE #3F51B5
-!define ACCENT_ORANGE #FF9800
-!define LIGHT_GRAY #F0F2F5
-!define TEXT_COLOR #333333
-!define TEXT_LIGHT_COLOR #FFFFFF
-
-skinparam defaultFontName Inter
+' Styling - Professional Look
+skinparam defaultFontName "Inter"
 skinparam defaultMonospacedFontName "Menlo"
-skinparam dpi 150
-skinparam shadowing false
-
-skinparam roundCorner 20
-skinparam ArrowColor DARK_BLUE
+skinparam defaultTextAlignment center
+skinparam RoundCorner 10
 skinparam ArrowThickness 1.5
+skinparam Shadowing false
+skinparam handwritten false
 
-skinparam actorBorderColor DARK_BLUE
-skinparam actorBackgroundColor LIGHT_BLUE
-skinparam actorFontColor TEXT_COLOR
-
-skinparam usecaseBorderColor DARK_BLUE
-skinparam usecaseBackgroundColor LIGHT_BLUE
-
-skinparam boundaryBorderColor DARK_BLUE
-skinparam boundaryBackgroundColor #FFFFFF
-
-' C4 Element Styling
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #3F51B5 
+  BorderThickness 2
+  FontColor #333333
+}
 skinparam person {
-  BackgroundColor LIGHT_BLUE
-  BorderColor DARK_BLUE
-  FontColor TEXT_COLOR
-  Shadowing false
+  BackgroundColor #D1E0FF  
+  BorderColor #3F51B5
+  FontColor #3F51B5
+  StereotypeFontColor #3F51B5
 }
 skinparam system {
-  BackgroundColor LIGHT_BLUE
-  BorderColor DARK_BLUE
-  FontColor TEXT_COLOR
-  Shadowing false
+  BackgroundColor #E8EAF6 
+  BorderColor #3F51B5
+  FontColor #222222
 }
 skinparam system_ext {
-  BackgroundColor LIGHT_GRAY
-  BorderColor #AAAAAA
-  FontColor TEXT_COLOR
-  Shadowing false
+  BackgroundColor #BDBDBD 
+  BorderColor #616161
+  FontColor #212121
 }
 skinparam container {
-  StereotypeFontColor TEXT_COLOR
-  StereotypeFontSize 12
-  FontColor TEXT_COLOR
-  BorderColor DARK_BLUE
-  BackgroundColor #FFFFFF
-  Shadowing false
+  BackgroundColor #C5CAE9 
+  BorderColor #303F9F 
+  FontColor #1A237E 
+}
+skinparam containerDb {
+  BackgroundColor #C5CAE9 
+  BorderColor #303F9F 
+  FontColor #1A237E 
+  shape Cylinder ' Using Cylinder shape for databases
 }
 skinparam component {
-  StereotypeFontColor TEXT_COLOR
-  StereotypeFontSize 11
-  FontColor TEXT_COLOR
-  BorderColor DARK_BLUE
-  BackgroundColor #F7F9FC
-  Shadowing false
+  BackgroundColor #E1F5FE 
+  BorderColor #0288D1
+  FontColor #01579B
 }
-skinparam database {
-  StereotypeFontColor TEXT_COLOR
-  StereotypeFontSize 11
-  FontColor TEXT_COLOR
-  BorderColor DARK_BLUE
-  BackgroundColor LIGHT_BLUE
-  Shadowing false
+skinparam boundary {
+  BorderColor #757575
+  BorderThickness 1
+  BackgroundColor #F0F2F5 
+  fontColor #424242
+  stereotypeFontColor #616161
 }
-
-' Specific styling for key elements
-skinparam card {
-  backgroundColor #FFFFFF
-  borderColor DARK_BLUE
-  roundCorner 20
-  shadowing false
+skinparam note {
+  BackgroundColor #FFF9C4
+  BorderColor #FBC02D
+  FontColor #795548
 }
-skinparam cloud {
-    backgroundColor LIGHT_GRAY
-    borderColor #CCCCCC
+skinparam arrow {
+  Color #424242
+  FontColor #424242
+  FontSize 12
 }
 
-' Title
-title
-  <b>Energy Compliance Analyzer - High-Level Architecture</b>
-  <font size=10>Verticalized System Overview</font>
-end title
+' Diagram Background
+skinparam backgroundcolor #F0F2F5
 
-' Legend
-legend right
-  | Symbol | Description |
-  |---|---|
-  | <$person> | User |
-  | <$system_ext> | External System |
-  | <$system> | Software System (This App) |
-  | <$container> | Container (App Hosting / Services) |
-  | <$component> | Component |
-  | <$database> | Database / Storage |
-  | <color:DARK_BLUE><&arrow-right></color> | Data Flow / Interaction |
-end legend
+LAYOUT_TOP_DOWN
+LAYOUT_WITH_LEGEND()
 
-' Actors and External Systems
-Person(user, "User", "End-user interacting with the application", $sprite="person")
+title High-Level Architecture: Energy Compliance Analyzer
+
+Person(user, "User", "Interacts with the system to upload data, view reports, and get compliance insights.")
 System_Ext(aneel, "ANEEL", "Brazilian National Electrical Energy Agency (Source of Regulations)")
 
-' Main System Boundary
-System_Boundary(app_boundary, "Energy Compliance Analyzer System") {
-
-  Boundary(app_hosting_boundary, "Firebase App Hosting", $tags="GCP") {
-    Container(frontend, "Frontend Web App", "Next.js, React, ShadCN, Tailwind", "User interface for data upload, visualization, and interaction", $sprite="Mobile/Firebase.png")
-    Container(server_actions, "Next.js Server Actions", "Node.js (Next.js)", "Handles API requests, triggers background tasks, orchestrates chat AI", $sprite="Mobile/Firebase.png")
-  }
-
-  Boundary(firebase_services_boundary, "Firebase Backend Services", $tags="GCP") {
-    ContainerDbGCP(auth, "Firebase Authentication", "Authentication Service", "Manages user sign-in (Google) and identity", $sprite="Identity_Security/FirebaseAuthentication.png")
-    ContainerDbGCP(firestore, "Firebase Firestore", "NoSQL Database", "Stores analysis metadata, status, user sessions, structured reports", $sprite="Databases/Firestore.png")
-    ContainerDbGCP(storage, "Firebase Storage", "Object Storage", "Stores uploaded CSV files and generated MDX reports", $sprite="Storage/CloudStorage.png")
-    ContainerDbGCP(rtdb, "Firebase Realtime DB", "NoSQL Database", "Stores chat history for real-time interaction", $sprite="Databases/FirebaseRealtimeDatabase.png")
-    ContainerGCP(functions, "Firebase Functions", "Serverless Compute", "Executes AI processing pipeline for data analysis and report generation", $sprite="Compute/CloudFunctions.png")
-  }
-
-  SystemGCP_Ext(gemini, "Google AI (Gemini)", "Generative AI Model", "Powers AI agents for analysis, report generation, and chat", $sprite="AI_Machine_Learning/VertexAI.png")
+Boundary(b_app_hosting, "Firebase App Hosting", "Hosting for Next.js Application") {
+  Container(frontend, "Frontend Web App", "Next.js, React, ShadCN, Tailwind", "User interface for data upload, visualization, and interaction with reports.")
+  Container(server_actions, "Next.js Server Actions", "Node.js", "Backend API for frontend, triggers background processes, orchestrates report chat.")
 }
 
-' Relationships - Arranged for vertical flow where possible
+System_Boundary(b_firebase_services, "Firebase Services (GCP)") {
+  Container(auth_service, "Firebase Authentication", "Handles user sign-in and identity management.")
+  ContainerDb(firestore_db, "Firebase Firestore", "Stores analysis metadata, status, structured reports, user data.", "NoSQL Document DB")
+  ContainerDb(storage_service, "Firebase Storage", "Stores uploaded CSV files and generated MDX reports.", "Object Storage")
+  ContainerDb(rtdb_service, "Firebase Realtime DB", "Manages real-time chat history for reports.", "NoSQL JSON DB")
+  Container(functions_service, "Firebase Functions", "Node.js, TypeScript", "Executes background processing for data analysis and AI pipeline (Genkit + Gemini).", "Serverless Compute")
+}
 
-user --> frontend : Interacts (Upload, View Reports, Chat)
-
-frontend -> server_actions : API Calls (Start Upload, Fetch Data, Send Chat)
-server_actions -> auth : Verifies User Identity
-server_actions -> firestore : Manages Analysis Records, User Sessions
-server_actions -> storage : (Indirectly) Manages File URLs
-server_actions -> rtdb : Saves/Retrieves Chat Messages
-server_actions -> gemini : Orchestrates Report Chat AI
-
-server_actions -> functions : (Via Firestore Trigger) Initiates Background Analysis
-
-functions -> storage : Reads CSV, Writes MDX Report
-functions -> firestore : Updates Analysis Status, Saves Structured Report
-functions -> gemini : Executes AI Analysis Pipeline (Summarizer, Engineer, Reviewer Agents)
-
-app_boundary <.right. aneel : Consumes Regulations
-app_boundary .up.> gemini : Uses AI Services
-
-' Layout hints for vertical flow (may not be strictly enforced by PlantUML but can guide)
-frontend -[hidden]D-> server_actions
-server_actions -[hidden]D-> firebase_services_boundary
-firebase_services_boundary -[hidden]D-> gemini
+System_Ext(google_ai, "Google AI (Gemini)", "Provides generative AI models for analysis, report generation, and chat responses via Genkit.")
 
 
-footer Generated on %date("dd.MM.yyyy HH:mm")
+' Relationships
+user -> frontend : "Uploads CSV, Views Reports, Interacts via Chat"
+frontend -> server_actions : "API Calls (Upload init, Fetch reports, Chat messages)"
+
+server_actions -> auth_service : "Verifies User Identity"
+server_actions -> firestore_db : "CRUD Analysis Metadata, Structured Reports, Tags"
+server_actions -> storage_service : "Manages MDX Report Storage"
+server_actions -> rtdb_service : "Saves/Retrieves Chat History"
+server_actions -> functions_service : "Triggers Analysis (indirectly via Firestore)"
+server_actions -> google_ai : "Orchestrates Report Chat (Genkit)"
+
+functions_service -> storage_service : "Reads CSVs, Writes MDX Reports"
+functions_service -> firestore_db : "Updates Analysis Status, Saves Results"
+functions_service -> google_ai : "Executes AI Pipeline (Genkit)"
+
+frontend <- rtdb_service : "Real-time Chat Updates"
+frontend <- firestore_db : "Real-time Analysis Status (onSnapshot)"
+frontend -> auth_service : "Handles User Login/Logout"
+
+aneel -> functions_service : "Influences Compliance Logic (Regulations)"
+aneel -> server_actions : "Influences Report Content (Regulations)"
+
+SHOW_LEGEND()
 @enduml
-
-    
