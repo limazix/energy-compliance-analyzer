@@ -1,9 +1,13 @@
 
 @startuml readme_architecture
+' Diagram Type: High-Level System Architecture (C4-Inspired)
 
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons
+!define FONTAWESOME https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/font-awesome-5
 
 !define PRIMARY_COLOR #3F51B5
 !define ACCENT_COLOR #FF9800
@@ -14,6 +18,8 @@
 !define MUTED_BLUE_GRAY_BORDER #B0BEC5
 !define DARK_BLUE_TEXT #1A237E
 !define WHITE_BG #FFFFFF
+
+skinparam linetype ortho
 
 skinparam {
     DefaultFontName Inter
@@ -32,6 +38,7 @@ skinparam person {
     FontColor DARK_TEXT_COLOR
     StereotypeFontColor DARK_BLUE_TEXT
     LineThickness 1.5
+    sprite $fa_user
 }
 
 skinparam system_ext {
@@ -64,8 +71,10 @@ skinparam database {
     FontColor DARK_TEXT_COLOR
     StereotypeFontColor PRIMARY_COLOR
     LineThickness 1.5
+    sprite $fa_database
 }
 
+' Custom stereotype for AI related components
 skinparam rectangle<<AI_Related>> {
     BorderColor ACCENT_COLOR
     BackgroundColor LIGHT_ACCENT_BG
@@ -79,51 +88,63 @@ skinparam agent<<AI_Related>> {
     StereotypeFontColor #BF360C
 }
 
+
 LAYOUT_WITH_LEGEND()
 top to bottom direction
 
-Person(user, "End User", "Uploads data, views reports, interacts via chat.")
+' Layer 1: User
+Person(user, "End User", "Uploads data, views reports, interacts via chat.", $sprite="$fa_user")
 
-System_Ext(aneel, "ANEEL", "Brazilian National Electrical Energy Agency. Provides Normative Resolutions (conceptual input).")
-System_Ext(gemini, "Google AI (Gemini)", "Generative AI Model. Powers AI agents for data analysis, regulation identification, report generation, and chat responses.") <<AI_Related>>
+' Layer 2: Client-Side & API Gateway
+System_Boundary(app_boundary, "EMA - Electric Magnitudes Analyser", "Google Cloud Hosted Application Environment") {
+    Boundary(b_app_hosting, "Client Application & API Layer (Firebase App Hosting)") {
+        Container(frontend, "Frontend Web App", "Next.js, React, ShadCN", "UI for data upload, analysis visualization, report chat.", $sprite="$dev_react")
+        Container(server_actions, "Next.js Server Actions", "Node.js, Genkit", "API for frontend. Triggers background processing. Orchestrates report chat AI.", $sprite="$dev_nodejs") <<AI_Related>>
+    }
+    b_app_hosting -[hidden]down-> b_firebase_backend
 
-Boundary(b_app_hosting, "Firebase App Hosting", "Hosts the Next.js application (Frontend & API)") {
-    Container(frontend, "Frontend Web App", "Next.js, React, ShadCN, Tailwind", "UI for data upload, analysis visualization, and real-time report chat.")
-    Container(server_actions, "Next.js Server Actions", "Node.js, Genkit", "Backend API for frontend. Triggers background processing. Orchestrates report chat AI.") <<AI_Related>>
+    ' Layer 3: Backend Services
+    Boundary(b_firebase_backend, "Backend Processing & Services (Firebase)") {
+        Container(auth, "Firebase Authentication", "OAuth (Google Sign-In)", "Manages user authentication.", $sprite="$dev_firebase")
+        Container(fb_functions, "Firebase Functions", "Node.js, Genkit", "Handles CSV analysis, AI agent pipeline, report generation.", $sprite="$dev_nodejs") <<AI_Related>>
+    }
+    b_firebase_backend -[hidden]down-> b_firebase_storages
+
+    ' Layer 4: Data Storage
+    Boundary(b_firebase_storages, "Data Storage Layer (Firebase)") {
+        ContainerDb(firestore, "Firebase Firestore", "NoSQL Document DB", "Stores analysis metadata, user sessions, tags, structured reports.", $sprite="$dev_firebase")
+        ContainerDb(storage, "Firebase Storage", "Object Storage", "Stores uploaded CSVs, generated MDX/PDF reports.", $sprite="$dev_firebase")
+        ContainerDb(rtdb, "Firebase Realtime DB", "NoSQL JSON DB", "Manages real-time chat history for interactive reports.", $sprite="$dev_firebase")
+    }
 }
+app_boundary -[hidden]down-> gemini_system
+app_boundary -[hidden]down-> aneel_system
 
-Boundary(b_firebase_services, "Firebase Backend Services", "Cloud-hosted backend services") {
-    Container(auth, "Firebase Authentication", "OAuth (Google Sign-In)", "Manages user authentication and session persistence.")
-    ContainerDb(firestore, "Firebase Firestore", "NoSQL Document DB", "Stores analysis metadata, user session data, tags, and structured (JSON) compliance reports.")
-    ContainerDb(storage, "Firebase Storage", "Object Storage", "Stores uploaded CSV files and generated compliance reports (MDX/PDF).")
-    ContainerDb(rtdb, "Firebase Realtime DB", "NoSQL JSON DB", "Manages real-time chat history for interactive reports.")
-    Container(fb_functions, "Firebase Functions", "Node.js, Genkit", "Handles background processing: CSV data analysis, AI agent pipeline execution, and report generation (MDX/PDF).") <<AI_Related>>
-}
 
-user --> frontend: "Interacts with (Uploads CSV, Views Reports, Chats)"
+' Layer 5: External Systems
+System_Ext(gemini, "Google AI (Gemini)", "Generative AI Model. Powers AI agents.", $sprite="$fa_brain") <<AI_Related>>
+System_Ext(aneel, "ANEEL Regulations", "Brazilian National Electrical Energy Agency. Provides Normative Resolutions (conceptual data source).")
 
-frontend --> server_actions: "Invokes API calls (HTTP/S)"
+' Relationships
+user --> frontend: "Interacts with"
 
-server_actions --> auth: "Verifies user session"
-server_actions --> firestore: "Writes analysis data & status (triggers Functions)"
-server_actions --> storage: "Manages file URLs (CSV, Reports)"
-server_actions --> rtdb: "Manages chat messages (read/write)"
-server_actions --> gemini: "For report chat AI (via Genkit)"
+frontend -right-> server_actions: "Invokes API calls (HTTPS)"
 
-firestore -[hidden]down-> auth
-auth -[hidden]down-> storage
-storage -[hidden]down-> rtdb
-rtdb -[hidden]down-> fb_functions
+server_actions --> auth: "Authenticates User / Verifies Session"
+Rel_Down(server_actions, firestore, "Writes analysis metadata & status (to trigger Functions)")
+Rel_Down(server_actions, rtdb, "Manages chat messages")
+Rel_Down(server_actions, gemini, "For report chat AI (via Genkit)")
 
-firestore -right-> fb_functions: "Events trigger"
+firestore -[hidden]right-> fb_functions ' Layout hint
+Rel(firestore, fb_functions, "Events trigger", "Firestore Triggers")
 
-fb_functions --> storage: "Reads CSV data, Writes generated reports (MDX/PDF)"
-fb_functions --> firestore: "Reads analysis task, Writes results & status"
-fb_functions --> gemini: "For analysis pipeline (via Genkit)"
-fb_functions .up.> aneel: "Uses ANEEL regulations (conceptual)"
+Rel_Right(fb_functions, auth, "Verifies user (if needed for other services)", "OAuth Token")
+Rel_Right(fb_functions, firestore, "Reads analysis task, Writes results & status")
+Rel_Right(fb_functions, storage, "Reads CSVs, Writes MDX/PDF reports")
+Rel_Right(fb_functions, gemini, "For analysis pipeline (via Genkit)")
 
-b_app_hosting -[hidden]down-> b_firebase_services
-b_firebase_services -[hidden]down-> gemini
-gemini -[hidden]down-> aneel
-
+fb_functions ..> aneel: "Uses regulations (conceptual)"
+gemini ..> aneel: "Leverages knowledge (conceptual)"
 @enduml
+
+    
