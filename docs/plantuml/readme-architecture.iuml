@@ -35,7 +35,7 @@ skinparam person {
     LineThickness 1.5
 }
 
-skinparam system_ext { ' Styling for System_Ext
+skinparam system_ext { 
     BackgroundColor LIGHT_GRAY_BG
     BorderColor MUTED_BLUE_GRAY_BORDER
     FontColor DARK_TEXT_COLOR
@@ -45,7 +45,7 @@ skinparam system_ext { ' Styling for System_Ext
 
 skinparam boundary {
     BorderColor PRIMARY_COLOR
-    BackgroundColor #E8EAF6 // Lighter primary blue for boundary background
+    BackgroundColor #E8EAF6
     FontColor DARK_BLUE_TEXT
     StereotypeFontColor DARK_BLUE_TEXT
     LineThickness 2
@@ -59,8 +59,12 @@ skinparam container {
     StereotypeFontColor PRIMARY_COLOR
     LineThickness 1.5
 }
-skinparam database extends container {
+skinparam database {
+    BorderColor PRIMARY_COLOR
+    BackgroundColor WHITE_BG
+    FontColor DARK_TEXT_COLOR
     StereotypeFontColor PRIMARY_COLOR
+    LineThickness 1.5
 }
 
 ' Custom stereotype for AI related components
@@ -70,7 +74,7 @@ skinparam rectangle<<AI_Related>> {
     FontColor #BF360C 
     StereotypeFontColor #BF360C
 }
-skinparam agent<<AI_Related>> { ' For System_Ext that are AI
+skinparam agent<<AI_Related>> {
     BorderColor ACCENT_COLOR
     BackgroundColor LIGHT_ACCENT_BG
     FontColor #BF360C 
