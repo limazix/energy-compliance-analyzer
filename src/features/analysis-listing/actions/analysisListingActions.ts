@@ -70,8 +70,9 @@ export async function getPastAnalysesAction(userId: string): Promise<Analysis[]>
       `[SA_getPastAnalyses] Error calling 'httpsCallableGetPastAnalyses' for user ${userId}: Code: ${code}, Message: ${message}`,
       error
     );
+    const clientErrorMessage = `Código: ${code} - ${message}`;
     throw new Error(
-      `Falha ao buscar análises (SA): ${message.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH)}`
+      `Falha ao buscar análises (SA): ${clientErrorMessage.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH)}`
     );
   }
 }
