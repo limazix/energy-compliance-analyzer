@@ -70,6 +70,94 @@ jest.mock('firebase/auth', () => {
 });
 // --- End Firebase Auth Mock ---
 
+// --- Firebase Storage Mock ---
+jest.mock('firebase/storage', () => {
+  const actualStorage = jest.requireActual('firebase/storage');
+
+  // Define a mock UploadTask
+  const mockUploadTask = {
+    on: jest.fn((event, progressCb, errorCb, completeCb) => {
+      // Simulate some progress updates
+      if (event === 'state_changed' && progressCb) {
+        act(() =>
+          progressCb({
+            bytesTransferred: 0,
+            totalBytes: 100,
+            state: 'running',
+            ref: mockUploadTask.snapshot.ref,
+          })
+        );
+        act(() =>
+          progressCb({
+            bytesTransferred: 50,
+            totalBytes: 100,
+            state: 'running',
+            ref: mockUploadTask.snapshot.ref,
+          })
+        );
+        act(() =>
+          progressCb({
+            bytesTransferred: 100,
+            totalBytes: 100,
+            state: 'running',
+            ref: mockUploadTask.snapshot.ref,
+          })
+        );
+      }
+      // Simulate successful completion almost immediately for tests
+      if (event === 'state_changed' && completeCb) {
+        Promise.resolve().then(() => act(() => completeCb(mockUploadTask.snapshot)));
+      }
+      return jest.fn(); // Return an unsubscribe function
+    }),
+    snapshot: {
+      ref: { toString: () => 'gs://fake-bucket/mock/path/to/file.csv', name: 'file.csv' },
+      bytesTransferred: 100,
+      totalBytes: 100,
+      state: 'success',
+      metadata: { fullPath: 'mock/path/to/file.csv' },
+      task: null, // Filled by actual UploadTask
+    },
+    pause: jest.fn(),
+    resume: jest.fn(),
+    cancel: jest.fn(),
+    then: jest.fn((onFulfilled, _onRejected) =>
+      Promise.resolve(onFulfilled(mockUploadTask.snapshot))
+    ),
+    catch: jest.fn((_onRejected) => Promise.resolve()),
+  };
+
+  const refMock = jest.fn((_storageInstance, path) => ({
+    toString: () => `gs://fake-bucket/${path || 'undefined_path'}`,
+    bucket: 'fake-bucket',
+    fullPath: path || 'undefined_path',
+    name: path ? path.substring(path.lastIndexOf('/') + 1) : 'undefined_filename',
+    parent: null,
+    root: null,
+  }));
+
+  const getDownloadURLMock = jest.fn((ref) =>
+    Promise.resolve(`https://fake.storage.googleapis.com/${ref.bucket}/${ref.fullPath}`)
+  );
+  const uploadBytesResumableMock = jest.fn(() => mockUploadTask);
+
+  const mockModule = {
+    ...actualStorage,
+    ref: refMock,
+    uploadBytesResumable: uploadBytesResumableMock,
+    getDownloadURL: getDownloadURLMock,
+    // Expose mock instances for test manipulation if needed
+    __mockRef: refMock,
+    __mockUploadBytesResumable: uploadBytesResumableMock,
+    __mockGetDownloadURL: getDownloadURLMock,
+    __mockUploadTask_on: mockUploadTask.on,
+    __mockUploadTask_snapshot: mockUploadTask.snapshot,
+  };
+
+  return mockModule;
+});
+// --- End Firebase Storage Mock ---
+
 // Mock Next.js router
 const mockRouterPush = jest.fn();
 const mockRouterReplace = jest.fn();
@@ -488,6 +576,19 @@ beforeEach(() => {
       authStateListenerCallback(null);
     });
   }
+
+  // Clear Firebase Storage mocks
+  const storageMock = jest.requireMock('firebase/storage');
+  if (storageMock.__mockRef) storageMock.__mockRef.mockClear();
+  if (storageMock.__mockUploadBytesResumable)
+    storageMock.__mockUploadBytesResumable
+      .mockClear()
+      .mockReturnValue(storageMock.__mockUploadTask_on); // Ensure it returns the task mock
+  if (storageMock.__mockGetDownloadURL)
+    storageMock.__mockGetDownloadURL
+      .mockClear()
+      .mockResolvedValue('https://fake.storage.googleapis.com/mock/path/to/default.csv');
+  if (storageMock.__mockUploadTask_on) storageMock.__mockUploadTask_on.mockClear();
 
   // Clear the global console.error mock (if it was set up)
   if (typeof window !== 'undefined' && window.console.error?.mockClear) {
