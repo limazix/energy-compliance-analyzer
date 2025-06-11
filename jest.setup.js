@@ -1,12 +1,19 @@
 // Optional: configure or set up a testing framework before each test.
 // If you delete this file, remove `setupFilesAfterEnv` from `jest.config.js`
 
-// Used for __tests__/testing-library.js
-// Learn more: https://github.com/testing-library/jest-dom
+/**
+ * @fileoverview Jest setup file.
+ * This file is executed before each test suite. It's used to configure
+ * or set up the testing environment, including mocking global objects,
+ * Firebase SDKs, and other utilities to ensure tests run in a consistent
+ * and isolated manner.
+ */
+
 import '@testing-library/jest-dom';
+
+import { act } from '@testing-library/react';
 import { Timestamp } from 'firebase/firestore';
 import React from 'react'; // Import React for createElement
-import { act } from '@testing-library/react';
 
 // --- Firebase Env Vars are NOT mocked here. ---
 // They should be provided by your local .env.test (or similar mechanism)
@@ -336,13 +343,41 @@ jest.mock('@/features/report-viewing/actions/reportViewingActions', () => ({
       fileName: 'mock-report.csv',
       analysisId: 'mock-analysis-id',
       error: null,
+      // Add structuredReport to the mock if your ReportPage tests rely on it
+      structuredReport: {
+        reportMetadata: { title: 'Mock Report Title', author: 'Test', generatedDate: '2023-01-01' },
+        tableOfContents: ['Intro'],
+        introduction: {
+          objective: 'Test objective',
+          overallResultsSummary: 'Summary',
+          usedNormsOverview: 'Norms',
+        },
+        analysisSections: [],
+        finalConsiderations: 'Considerations',
+        bibliography: [],
+      },
     })
   ),
 }));
-jest.mock('@/features/tag-management/actions/tagActions', () => ({
-  addTagToAction: jest.fn(() => Promise.resolve()),
-  removeTagAction: jest.fn(() => Promise.resolve()),
-}));
+
+jest.mock('@/features/tag-management/actions/tagActions', () => {
+  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
+  // Default mock for 'httpsCallableAddTag'
+  if (!callableMockFnStore.httpsCallableAddTag) {
+    callableMockFnStore.httpsCallableAddTag = jest.fn();
+  }
+  callableMockFnStore.httpsCallableAddTag.mockResolvedValue({
+    data: { success: true, message: 'Tag added (mock)' },
+  });
+  // Default mock for 'httpsCallableRemoveTag'
+  if (!callableMockFnStore.httpsCallableRemoveTag) {
+    callableMockFnStore.httpsCallableRemoveTag = jest.fn();
+  }
+  callableMockFnStore.httpsCallableRemoveTag.mockResolvedValue({
+    data: { success: true, message: 'Tag removed (mock)' },
+  });
+  return jest.requireActual('@/features/tag-management/actions/tagActions');
+});
 
 // Mock useAnalysisManager
 /**
@@ -611,6 +646,19 @@ beforeEach(() => {
       fileName: 'mock-report-default.csv',
       analysisId: 'default-mock-analysis-id',
       error: null,
+      structuredReport: {
+        // Add this to ensure ReportPage tests have it
+        reportMetadata: {
+          title: 'Mock Default Title',
+          author: 'Test',
+          generatedDate: '2023-01-01',
+        },
+        tableOfContents: [],
+        introduction: { objective: '', overallResultsSummary: '', usedNormsOverview: '' },
+        analysisSections: [],
+        finalConsiderations: '',
+        bibliography: [],
+      },
     });
 
   // Clear and reset mocks for httpsCallable functions
@@ -641,6 +689,17 @@ beforeEach(() => {
         aiMessageRtdbKey: 'mock-ai-key-default-callable-cleared',
         reportModified: false,
       },
+    });
+  }
+  // Add clear and default mocks for new tag management callables
+  if (callableMockClearStore.httpsCallableAddTag) {
+    callableMockClearStore.httpsCallableAddTag.mockClear().mockResolvedValue({
+      data: { success: true, message: 'Tag added (mock)' },
+    });
+  }
+  if (callableMockClearStore.httpsCallableRemoveTag) {
+    callableMockClearStore.httpsCallableRemoveTag.mockClear().mockResolvedValue({
+      data: { success: true, message: 'Tag removed (mock)' },
     });
   }
 

@@ -1,63 +1,134 @@
-
+// src/features/tag-management/actions/tagActions.ts
 'use server';
+/**
+ * @fileOverview Server Actions for managing tags on analysis documents.
+ * These actions invoke HTTPS Callable Firebase Functions to handle Firestore interactions.
+ */
 
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
-export async function addTagToAction(userIdInput: string, analysisIdInput: string, tag: string): Promise<void> {
-  const userId = userIdInput?.trim() ?? '';
-  const analysisId = analysisIdInput?.trim() ?? '';
-  const trimmedTag = tag?.trim() ?? '';
-  console.debug(`[addTagToAction] Effective userId: '${userId}', analysisId: '${analysisId}', tag: '${trimmedTag}' (Inputs: '${userIdInput}', '${analysisIdInput}', '${tag}')`);
+import { functionsInstance } from '@/lib/firebase';
 
+const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
 
-  if (!userId || !analysisId || !trimmedTag) {
-    const errorMsg = `[addTagToAction] CRITICAL: Invalid params. userId: '${userIdInput}', analysisId: '${analysisIdInput}', tag: '${tag}'.`;
-    console.error(errorMsg);
-    throw new Error(errorMsg);
+interface TagOperationData {
+  // userId is not sent here, as the Function uses context.auth.uid
+  analysisId: string;
+  tag: string;
+}
+
+interface TagOperationResponse {
+  success: boolean;
+  message?: string;
+  error?: string; // Added for consistency with other action responses
+}
+
+/**
+ * Server Action to add a tag to an analysis by calling an HTTPS Firebase Function.
+ * @param {string} _userId - User ID from the client (for logging/validation on client, not directly passed to callable data if context.auth is primary).
+ * @param {string} analysisIdInput - The ID of the analysis document.
+ * @param {string} tag - The tag string to add.
+ * @returns {Promise<TagOperationResponse>} An object indicating success or failure, with an optional message or error.
+ */
+export async function addTagToAction(
+  _userId: string, // Kept for consistency with hook, auth handled by Function context
+  analysisIdInput: string,
+  tag: string
+): Promise<TagOperationResponse> {
+  const analysisId = analysisIdInput?.trim();
+  const trimmedTag = tag?.trim();
+
+  console.debug(
+    `[SA_addTag] User: ${_userId}, AnalysisID: ${analysisId}, Tag: ${trimmedTag} (Raw inputs: analysisId='${analysisIdInput}', tag='${tag}')`
+  );
+
+  if (!analysisId || !trimmedTag) {
+    const errorMsg = '[SA_addTag] ID da análise e tag são obrigatórios.';
+    console.error(`${errorMsg} AnalysisID: ${analysisId}, Tag: ${trimmedTag}`);
+    return { success: false, error: errorMsg };
   }
-  const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
-  console.info(`[addTagToAction] Adding tag '${trimmedTag}' to ${analysisDocPath}. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
-  const analysisRef = doc(db, analysisDocPath);
+
+  const requestData: TagOperationData = { analysisId, tag: trimmedTag };
+
   try {
-    const analysisSnap = await getDoc(analysisRef);
-    if (!analysisSnap.exists()) throw new Error("Análise não encontrada.");
-    const currentTags = analysisSnap.data().tags || [];
-    if (!currentTags.includes(trimmedTag)) {
-      await updateDoc(analysisRef, { tags: [...currentTags, trimmedTag] });
-    }
-  } catch (error) {
-    const originalErrorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[addTagToAction] Error for ${analysisDocPath}:`, originalErrorMessage);
-    throw new Error(originalErrorMessage);
+    console.info(
+      `[SA_addTag] Calling HTTPS function 'httpsCallableAddTag' for analysis ${analysisId}, tag '${trimmedTag}'.`
+    );
+    const callableFunction = httpsCallable<TagOperationData, TagOperationResponse>(
+      functionsInstance,
+      'httpsCallableAddTag'
+    );
+    const result: HttpsCallableResult<TagOperationResponse> = await callableFunction(requestData);
+    console.info(
+      `[SA_addTag] HTTPS function 'httpsCallableAddTag' returned for analysis ${analysisId}. Success: ${result.data.success}`
+    );
+    return { success: result.data.success, message: result.data.message };
+  } catch (error: unknown) {
+    const firebaseError = error as { code?: string; message?: string; details?: unknown };
+    const code = firebaseError.code || 'unknown';
+    const message = firebaseError.message || 'Erro desconhecido ao adicionar tag.';
+    console.error(
+      `[SA_addTag] Error calling 'httpsCallableAddTag' for analysis ${analysisId}: Code: ${code}, Message: ${message}`,
+      error
+    );
+    return {
+      success: false,
+      error: `Erro ao adicionar tag: ${message.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH)}`,
+    };
   }
 }
 
-export async function removeTagAction(userIdInput: string, analysisIdInput: string, tagToRemove: string): Promise<void> {
-  const userId = userIdInput?.trim() ?? '';
-  const analysisId = analysisIdInput?.trim() ?? '';
-  const trimmedTagToRemove = tagToRemove?.trim() ?? '';
-  console.debug(`[removeTagAction] Effective userId: '${userId}', analysisId: '${analysisId}', tagToRemove: '${trimmedTagToRemove}' (Inputs: '${userIdInput}', '${analysisIdInput}', '${tagToRemove}')`);
+/**
+ * Server Action to remove a tag from an analysis by calling an HTTPS Firebase Function.
+ * @param {string} _userId - User ID from the client.
+ * @param {string} analysisIdInput - The ID of the analysis document.
+ * @param {string} tagToRemove - The tag string to remove.
+ * @returns {Promise<TagOperationResponse>} An object indicating success or failure, with an optional message or error.
+ */
+export async function removeTagAction(
+  _userId: string,
+  analysisIdInput: string,
+  tagToRemove: string
+): Promise<TagOperationResponse> {
+  const analysisId = analysisIdInput?.trim();
+  const trimmedTagToRemove = tagToRemove?.trim();
 
-  if (!userId || !analysisId || !trimmedTagToRemove) {
-    const errorMsg = `[removeTagAction] CRITICAL: Invalid params. userId: '${userIdInput}', analysisId: '${analysisIdInput}', tag: '${tagToRemove}'.`;
-    console.error(errorMsg);
-    throw new Error(errorMsg);
+  console.debug(
+    `[SA_removeTag] User: ${_userId}, AnalysisID: ${analysisId}, TagToRemove: ${trimmedTagToRemove} (Raw inputs: analysisId='${analysisIdInput}', tagToRemove='${tagToRemove}')`
+  );
+
+  if (!analysisId || !trimmedTagToRemove) {
+    const errorMsg = '[SA_removeTag] ID da análise e tag para remover são obrigatórios.';
+    console.error(`${errorMsg} AnalysisID: ${analysisId}, TagToRemove: ${trimmedTagToRemove}`);
+    return { success: false, error: errorMsg };
   }
-  const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
-  console.info(`[removeTagAction] Removing tag '${trimmedTagToRemove}' from ${analysisDocPath}. Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
-  const analysisRef = doc(db, analysisDocPath);
+
+  const requestData: TagOperationData = { analysisId, tag: trimmedTagToRemove };
+
   try {
-    const analysisSnap = await getDoc(analysisRef);
-    if (!analysisSnap.exists()) throw new Error("Análise não encontrada.");
-    const currentTags = analysisSnap.data().tags || [];
-    await updateDoc(analysisRef, { tags: currentTags.filter((t: string) => t !== trimmedTagToRemove) });
-  } catch (error) {
-    const originalErrorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[removeTagAction] Error for ${analysisDocPath}:`, originalErrorMessage);
-    throw new Error(originalErrorMessage);
+    console.info(
+      `[SA_removeTag] Calling HTTPS function 'httpsCallableRemoveTag' for analysis ${analysisId}, tag '${trimmedTagToRemove}'.`
+    );
+    const callableFunction = httpsCallable<TagOperationData, TagOperationResponse>(
+      functionsInstance,
+      'httpsCallableRemoveTag'
+    );
+    const result: HttpsCallableResult<TagOperationResponse> = await callableFunction(requestData);
+    console.info(
+      `[SA_removeTag] HTTPS function 'httpsCallableRemoveTag' returned for analysis ${analysisId}. Success: ${result.data.success}`
+    );
+    return { success: result.data.success, message: result.data.message };
+  } catch (error: unknown) {
+    const firebaseError = error as { code?: string; message?: string; details?: unknown };
+    const code = firebaseError.code || 'unknown';
+    const message = firebaseError.message || 'Erro desconhecido ao remover tag.';
+    console.error(
+      `[SA_removeTag] Error calling 'httpsCallableRemoveTag' for analysis ${analysisId}: Code: ${code}, Message: ${message}`,
+      error
+    );
+    return {
+      success: false,
+      error: `Erro ao remover tag: ${message.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH)}`,
+    };
   }
 }
-
-
-    

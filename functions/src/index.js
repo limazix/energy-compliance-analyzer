@@ -19,7 +19,8 @@ if (admin.apps.length === 0) {
 const { processAnalysisOnUpdate } = require('./processAnalysis');
 // Import HTTPS callable functions
 const fileUploadHttpsFunctions = require('./fileUploadHttps');
-const reportChatHttpsFunctions = require('./reportChatHttps'); // Added new import
+const reportChatHttpsFunctions = require('./reportChatHttps');
+const tagManagementHttpsFunctions = require('./tagManagementHttps'); // Added new import
 
 /**
  * Cloud Function triggered by Firestore document updates to process energy analysis data.
@@ -60,3 +61,16 @@ exports.httpsMarkUploadAsFailed = fileUploadHttpsFunctions.httpsMarkUploadAsFail
  * @see ./reportChatHttps.js#httpsCallableAskOrchestrator
  */
 exports.httpsCallableAskOrchestrator = reportChatHttpsFunctions.httpsCallableAskOrchestrator;
+
+// Export HTTPS callable functions for tag management
+/**
+ * HTTPS Callable: Adds a tag to an analysis document.
+ * @see ./tagManagementHttps.js#httpsCallableAddTag
+ */
+exports.httpsCallableAddTag = tagManagementHttpsFunctions.httpsCallableAddTag;
+
+/**
+ * HTTPS Callable: Removes a tag from an analysis document.
+ * @see ./tagManagementHttps.js#httpsCallableRemoveTag
+ */
+exports.httpsCallableRemoveTag = tagManagementHttpsFunctions.httpsCallableRemoveTag;
