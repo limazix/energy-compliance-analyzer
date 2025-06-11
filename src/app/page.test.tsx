@@ -429,11 +429,20 @@ describe('HomePage', () => {
      */
     describe('when past analyses exist', () => {
       beforeEach(async () => {
-        mockFetchPastAnalysesGlobal.mockImplementation(async () => {
+        // Configure the mock for fetchPastAnalyses BEFORE rendering
+        (
+          global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock
+        ).mockImplementation(async () => {
+          // Simulate setting loading state
           await act(async () => {
-            // Wrap all async state updates in one act
             global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = true;
-            await new Promise((r) => setTimeout(r, 10)); // Simulate network delay
+          });
+
+          // Simulate async data fetching
+          await new Promise((resolve) => setTimeout(resolve, 20));
+
+          // Simulate data fetched and loading state false
+          await act(async () => {
             global.mockUseAnalysisManagerReturnValue.pastAnalyses = [
               mockAnalysisItemCompleted,
               mockAnalysisItemInProgress,
@@ -443,7 +452,10 @@ describe('HomePage', () => {
         });
 
         render(<HomePage />);
-        // The findByText in the test will wait for the component to settle after these updates.
+
+        // Wait for an element that *only* appears when pastAnalyses is populated.
+        await screen.findByText(mockAnalysisItemCompleted.title!);
+        await screen.findByText(mockAnalysisItemInProgress.title!);
       });
 
       /**
@@ -653,32 +665,27 @@ describe('HomePage', () => {
      */
     describe('when managing an existing analysis via AnalysisView', () => {
       beforeEach(async () => {
-        let firstFetchCompletedPromiseResolve: () => void;
-        const firstFetchCompletedPromise = new Promise<void>((resolve) => {
-          firstFetchCompletedPromiseResolve = resolve;
-        });
-
-        mockFetchPastAnalysesGlobal.mockImplementationOnce(async () => {
+        // Configure the mock for fetchPastAnalyses BEFORE rendering
+        (
+          global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock
+        ).mockImplementation(async () => {
           await act(async () => {
-            // Wrap in act
             global.mockUseAnalysisManagerReturnValue.pastAnalyses = [mockAnalysisItemCompleted];
             global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
           });
-          if (firstFetchCompletedPromiseResolve) firstFetchCompletedPromiseResolve();
-          return Promise.resolve(undefined);
         });
 
-        mockHandleDeleteAnalysisGlobal.mockImplementation(async (id, cb) => {
-          cb?.();
+        (
+          global.mockUseAnalysisManagerReturnValue.handleDeleteAnalysis as jest.Mock
+        ).mockImplementation(async (id, cb) => {
+          cb?.(); // Simulate callback execution
           return Promise.resolve();
         });
 
-        await act(async () => {
-          render(<HomePage />);
-        });
-        await act(async () => {
-          await firstFetchCompletedPromise;
-        });
+        render(<HomePage />);
+
+        // Wait for the initial list of analyses to be rendered
+        await screen.findByText(mockAnalysisItemCompleted.title!);
 
         const accordionTrigger = await screen.findByText(mockAnalysisItemCompleted.title!);
         await act(async () => {
@@ -718,32 +725,32 @@ describe('HomePage', () => {
        * @it It should update the list of past analyses after deletion.
        */
       it('should update the list of past analyses after deletion', async () => {
-        let secondFetchCompletedPromiseResolve: () => void;
-        const secondFetchCompletedPromise = new Promise<void>((resolve) => {
-          secondFetchCompletedPromiseResolve = resolve;
-        });
-        mockFetchPastAnalysesGlobal.mockImplementationOnce(async () => {
-          // For the fetch after deletion
+        // Mock fetchPastAnalyses to return an empty list after deletion
+        (
+          global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock
+        ).mockImplementation(async () => {
           await act(async () => {
-            // Wrap in act
             global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
-            global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
+            global.mockUseAnalysisManagerReturnValue.currentAnalysis = null; // Important: clear currentAnalysis after delete
             global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
           });
-          if (secondFetchCompletedPromiseResolve) secondFetchCompletedPromiseResolve();
-          return Promise.resolve(undefined);
         });
 
         await userEvent.click(screen.getByRole('button', { name: /Excluir Análise/i }));
         const confirmButton = screen.getByRole('button', { name: 'Confirmar Exclusão' });
+
         await act(async () => {
           await userEvent.click(confirmButton);
         });
 
-        await act(async () => {
-          // Ensure React processes state changes from the delete & subsequent fetch
-          await secondFetchCompletedPromise;
+        // After deletion, fetchPastAnalyses should be called again by the afterDeleteAnalysis callback in HomePage
+        await waitFor(() => {
+          expect(
+            global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock
+          ).toHaveBeenCalledTimes(1); // Or 2, depending on initial call + after delete call
         });
+
+        // Now wait for the DOM to update to "No past analyses found"
         expect(
           await screen.findByText(/Nenhuma análise anterior encontrada./i)
         ).toBeInTheDocument();
