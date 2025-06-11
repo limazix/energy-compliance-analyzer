@@ -15,7 +15,7 @@ import { getStorage } from 'firebase/storage';
 import { connectEmulators } from './emulators';
 
 import type { FirebaseApp } from 'firebase/app';
-import type { Functions as FirebaseFunctionsService } from 'firebase/functions'; // Renamed import
+import type { Functions as FirebaseFunctionsService } from 'firebase/functions';
 
 interface FirebaseConfig {
   apiKey: string;
@@ -24,8 +24,8 @@ interface FirebaseConfig {
   storageBucket: string;
   messagingSenderId: string;
   appId: string;
-  measurementId?: string; // Optional
-  databaseURL?: string; // Optional, but good to have for RTDB
+  measurementId?: string;
+  databaseURL?: string;
 }
 
 const firebaseConfigString = process.env.NEXT_PUBLIC_FIREBASE_CONFIG;
@@ -81,7 +81,10 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const rtdb = getDatabase(app);
-const functionsInstance: FirebaseFunctionsService = getFunctions(app);
+// Specify the region for the Functions client instance
+const functionsRegion = process.env.GCLOUD_REGION || 'us-central1';
+console.info(`Firebase Init: Initializing Functions client for region: ${functionsRegion}`);
+const functionsInstance: FirebaseFunctionsService = getFunctions(app, functionsRegion);
 const googleProvider = new GoogleAuthProvider();
 
 connectEmulators(auth, db, storage, rtdb, functionsInstance);
