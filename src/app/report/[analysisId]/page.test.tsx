@@ -10,7 +10,8 @@ import userEvent from '@testing-library/user-event';
 import { useParams as originalUseParams } from 'next/navigation';
 
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
-// Server actions will be loaded via jest.requireMock
+import { askReportOrchestratorAction } from '@/features/report-chat/actions/reportChatActions';
+import { getAnalysisReportAction } from '@/features/report-viewing/actions/reportViewingActions';
 
 import ReportPage from './page';
 
@@ -218,22 +219,10 @@ describe('ReportPage', () => {
   const getDatabaseMocks = () =>
     jest.requireMock('firebase/database') as FirebaseDatabaseMockAccess;
 
-  // Declare variables for mocked server actions
-  let getAnalysisReportActionMock: jest.Mock;
-  let askReportOrchestratorActionMock: jest.Mock;
-
   beforeEach(() => {
-    // Assign server actions using jest.requireMock to ensure we get the mocked versions
-    getAnalysisReportActionMock = jest.requireMock(
-      '@/features/report-viewing/actions/reportViewingActions'
-    ).getAnalysisReportAction;
-    askReportOrchestratorActionMock = jest.requireMock(
-      '@/features/report-chat/actions/reportChatActions'
-    ).askReportOrchestratorAction;
-
     // Clear any previous mock states or implementations
-    getAnalysisReportActionMock.mockClear();
-    askReportOrchestratorActionMock.mockClear();
+    (getAnalysisReportAction as jest.Mock).mockClear();
+    (askReportOrchestratorAction as jest.Mock).mockClear();
 
     const {
       __mockGetDatabase,
@@ -259,7 +248,7 @@ describe('ReportPage', () => {
     useParams.mockReturnValue({ analysisId: mockAnalysisId });
 
     // Default mock implementation for getAnalysisReportAction
-    getAnalysisReportActionMock.mockResolvedValue({
+    (getAnalysisReportAction as jest.Mock).mockResolvedValue({
       mdxContent: mockMdxContent,
       fileName: mockFileName,
       analysisId: mockAnalysisId,
@@ -268,7 +257,7 @@ describe('ReportPage', () => {
     });
 
     // Default mock implementation for askReportOrchestratorAction
-    askReportOrchestratorActionMock.mockResolvedValue({
+    (askReportOrchestratorAction as jest.Mock).mockResolvedValue({
       success: true,
       aiMessageRtdbKey: 'ai-response-key-default',
       reportModified: false,
@@ -356,7 +345,7 @@ describe('ReportPage', () => {
       useAuth.mockReturnValue({ user: null, loading: false });
       // This specific test needs getAnalysisReportAction to be a promise that never resolves
       // to simulate loading state before redirect.
-      getAnalysisReportActionMock.mockImplementationOnce(() => new Promise(() => {}));
+      (getAnalysisReportAction as jest.Mock).mockImplementationOnce(() => new Promise(() => {}));
 
       render(<ReportPage />);
 
@@ -375,7 +364,7 @@ describe('ReportPage', () => {
     beforeEach(async () => {
       // Use the default mock implementation for getAnalysisReportActionMock set in the outer beforeEach
       // Or override if specific data is needed for this block:
-      // getAnalysisReportActionMock.mockResolvedValue({ ... });
+      // (getAnalysisReportAction as jest.Mock).mockResolvedValue({ ... });
       render(<ReportPage />);
       await waitFor(
         () => expect(screen.getByText(`Relatório: ${mockFileName}`)).toBeInTheDocument(),
@@ -397,7 +386,7 @@ describe('ReportPage', () => {
      * @it It should initially display a loading state then the report and chat.
      */
     it('should initially display a loading state then the report and chat', async () => {
-      expect(getAnalysisReportActionMock).toHaveBeenCalledWith(mockUser.uid, mockAnalysisId);
+      expect(getAnalysisReportAction).toHaveBeenCalledWith(mockUser.uid, mockAnalysisId);
       expect(screen.getByText(`Relatório: ${mockFileName}`)).toBeInTheDocument();
       expect(screen.getByText(/Seção de Tensão/i)).toBeInTheDocument();
       expect(screen.getByText(/Interagir com o Relatório/i)).toBeInTheDocument();
@@ -415,7 +404,7 @@ describe('ReportPage', () => {
       const aiRtdbKey = 'ai-key-test-stream';
 
       beforeEach(async () => {
-        askReportOrchestratorActionMock.mockResolvedValueOnce({
+        (askReportOrchestratorAction as jest.Mock).mockResolvedValueOnce({
           success: true,
           aiMessageRtdbKey: aiRtdbKey,
           reportModified: false,
@@ -429,7 +418,7 @@ describe('ReportPage', () => {
         await userEvent.type(chatInput, userMessage);
         await userEvent.click(sendButton);
 
-        await waitFor(() => expect(askReportOrchestratorActionMock).toHaveBeenCalled());
+        await waitFor(() => expect(askReportOrchestratorAction).toHaveBeenCalled());
         act(() => {
           mockRtdbMessagesStore[aiRtdbKey] = {
             id: aiRtdbKey,
@@ -463,7 +452,7 @@ describe('ReportPage', () => {
       it('should call the AI orchestrator action', async () => {
         await waitFor(
           () => {
-            expect(askReportOrchestratorActionMock).toHaveBeenCalledWith(
+            expect(askReportOrchestratorAction).toHaveBeenCalledWith(
               mockUser.uid,
               mockAnalysisId,
               userMessage,
@@ -521,7 +510,7 @@ describe('ReportPage', () => {
       };
 
       beforeEach(async () => {
-        askReportOrchestratorActionMock.mockResolvedValueOnce({
+        (askReportOrchestratorAction as jest.Mock).mockResolvedValueOnce({
           success: true,
           reportModified: true,
           revisedStructuredReport: revisedStructuredReport,
@@ -575,7 +564,7 @@ describe('ReportPage', () => {
   describe('given an invalid report ID or fetch error', () => {
     const errorMessage = 'Failed to load report MDX data due to network error.';
     beforeEach(async () => {
-      getAnalysisReportActionMock.mockResolvedValueOnce({
+      (getAnalysisReportAction as jest.Mock).mockResolvedValueOnce({
         mdxContent: null,
         fileName: mockFileName,
         analysisId: mockAnalysisId,
