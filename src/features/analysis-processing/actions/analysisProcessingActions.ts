@@ -1,106 +1,102 @@
-
+// src/features/analysis-processing/actions/analysisProcessingActions.ts
 'use server';
+/**
+ * @fileOverview Server Action for initiating the background processing of an analysis.
+ * This action calls an HTTPS Callable Firebase Function to set the analysis status,
+ * which in turn triggers an event-driven Firebase Function for the actual processing.
+ */
 
-import { doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import type { Analysis } from '@/types/analysis';
+import { httpsCallable } from 'firebase/functions';
 
-const CLIENT_ERROR_MESSAGE_MAX_LENGTH = 250;
-const UPLOAD_COMPLETED_OVERALL_PROGRESS = 10; // Represents 10% overall progress once upload finishes
+import { functionsInstance } from '@/lib/firebase';
 
-export async function processAnalysisFile(
-  analysisIdInput: string,
-  userIdInput: string
-): Promise<{ success: boolean; analysisId: string; error?: string }> {
-  const userId = userIdInput?.trim() ?? '';
-  const analysisId = analysisIdInput?.trim() ?? '';
+import type { HttpsCallableResult } from 'firebase/functions';
 
-  console.info(`[Action_processAnalysisFile] Triggered for analysisId: ${analysisId} (input: ${analysisIdInput}), userId: ${userId} (input: ${userIdInput})`);
+const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
 
-  if (!userId) {
-    const criticalMsg = `[Action_processAnalysisFile] CRITICAL: userId is invalid ('${userIdInput}' -> '${userId}') for analysisId: ${analysisId || 'N/A'}. Aborting.`;
-    console.error(criticalMsg);
-    return { success: false, analysisId: analysisId || 'unknown_id', error: criticalMsg.substring(0, CLIENT_ERROR_MESSAGE_MAX_LENGTH) };
-  }
-  if (!analysisId) {
-    const criticalMsg = `[Action_processAnalysisFile] CRITICAL: analysisId is invalid ('${analysisIdInput}' -> '${analysisId}') for userId: ${userId}. Aborting.`;
-    console.error(criticalMsg);
-    return { success: false, analysisId: analysisIdInput || 'unknown_id', error: criticalMsg.substring(0, CLIENT_ERROR_MESSAGE_MAX_LENGTH) };
-  }
-
-  const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
-  const analysisRef = doc(db, analysisDocPath);
-
-  try {
-    const analysisSnap = await getDoc(analysisRef);
-    if (!analysisSnap.exists()) {
-      const notFoundMsg = `Analysis document ${analysisId} not found at path ${analysisDocPath}. Aborting.`;
-      console.error(`[Action_processAnalysisFile] ${notFoundMsg}`);
-      return { success: false, analysisId, error: notFoundMsg.substring(0, CLIENT_ERROR_MESSAGE_MAX_LENGTH) };
-    }
-
-    const analysisData = analysisSnap.data() as Analysis;
-
-    if (!analysisData.powerQualityDataUrl) {
-      const noFilePathMsg = `File path (powerQualityDataUrl) not found for analysisId: ${analysisId}. Cannot queue for processing.`;
-      console.error(`[Action_processAnalysisFile] ${noFilePathMsg}`);
-      await updateDoc(analysisRef, { 
-        status: 'error', 
-        errorMessage: 'URL do arquivo de dados não encontrada. Reenvie o arquivo.', 
-        progress: 0 
-      });
-      return { success: false, analysisId, error: noFilePathMsg.substring(0, CLIENT_ERROR_MESSAGE_MAX_LENGTH) };
-    }
-
-    // If the analysis was in an error state, or uploading, reset to 'summarizing_data' to allow the Firebase Function to pick it up.
-    // If it's already completed, or being cancelled, don't re-trigger.
-    if (analysisData.status === 'completed' || analysisData.status === 'cancelling' || analysisData.status === 'cancelled' || analysisData.status === 'deleted') {
-      console.info(`[Action_processAnalysisFile] Analysis ${analysisId} is in status '${analysisData.status}'. No re-processing triggered by this action.`);
-      return { success: true, analysisId }; // Indicate success as no action needed from client perspective
-    }
-
-    // This action's main job is now to ensure the analysis is in the correct state
-    // for the Firebase Function to pick up.
-    // The Firebase Function will be triggered by the 'summarizing_data' status or if it was 'uploading'.
-    // If it was 'error', changing to 'summarizing_data' will re-trigger.
-    // If it's already 'summarizing_data' or other in-progress states, the function might already be running or will pick up.
-    
-    console.info(`[Action_processAnalysisFile] Setting analysis ${analysisId} to 'summarizing_data' (or ensuring it is) to be picked up by Firebase Function.`);
-    await updateDoc(analysisRef, {
-      status: 'summarizing_data', // This status will trigger the Firebase Function
-      progress: analysisData.progress < UPLOAD_COMPLETED_OVERALL_PROGRESS ? UPLOAD_COMPLETED_OVERALL_PROGRESS : analysisData.progress, // Ensure at least 10%
-      errorMessage: null, // Clear previous errors if retrying
-      // Do not reset completedAt if it existed from a previous 'error' state that is being retried.
-      // completedAt will be set by the function upon successful completion.
-      // Fields like structuredReport, summary, etc., will be populated by the Function.
-    });
-
-    console.info(`[Action_processAnalysisFile] Analysis ${analysisId} queued/confirmed for background processing.`);
-    return { success: true, analysisId };
-
-  } catch (error) {
-    const originalErrorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[Action_processAnalysisFile] Error preparing analysis ${analysisId} for background processing:`, originalErrorMessage, error);
-    
-    // Attempt to update Firestore with an error state, but be mindful not to overwrite a cancellation.
-    try {
-        const currentSnap = await getDoc(analysisRef);
-        if (currentSnap.exists()) {
-            const currentData = currentSnap.data();
-            if (currentData?.status !== 'cancelling' && currentData?.status !== 'cancelled') {
-                 await updateDoc(analysisRef, { 
-                    status: 'error', 
-                    errorMessage: `Erro ao enfileirar para processamento: ${originalErrorMessage.substring(0, 200)}`
-                });
-            }
-        }
-    } catch (fsError) {
-        console.error(`[Action_processAnalysisFile] CRITICAL: Failed to update Firestore error state for ${analysisId} after queueing error:`, fsError);
-    }
-
-    return { success: false, analysisId, error: `Erro ao enfileirar para processamento: ${originalErrorMessage.substring(0, CLIENT_ERROR_MESSAGE_MAX_LENGTH)}` };
-  }
+interface TriggerProcessingRequestData {
+  analysisId: string;
+}
+interface TriggerProcessingResponseData {
+  success: boolean;
+  analysisId: string;
+  message?: string; // Optional message from the function
+  error?: string; // Optional error from the function
 }
 
+/**
+ * Server Action to signal that an analysis file is ready for background processing.
+ * It calls the `httpsCallableTriggerProcessing` Firebase Function.
+ * @param {string} analysisIdInput - The ID of the analysis to process.
+ * @param {string} userIdInput - The ID of the user (for logging/validation on client/SA side).
+ * @returns {Promise<{ success: boolean; analysisId: string; error?: string }>} Result object.
+ */
+export async function processAnalysisFile(
+  analysisIdInput: string,
+  userIdInput: string // Kept for logging and consistency from hook
+): Promise<{ success: boolean; analysisId: string; error?: string }> {
+  const analysisId = analysisIdInput?.trim();
+  const userId = userIdInput?.trim(); // Used for logging
 
-    
+  console.info(
+    `[SA_processAnalysisFile] Triggered for analysisId: ${analysisId} (input: ${analysisIdInput}), User: ${userId}. Calling 'httpsCallableTriggerProcessing'.`
+  );
+
+  if (!analysisId) {
+    const criticalMsg = `[SA_processAnalysisFile] CRITICAL: analysisId is invalid ('${analysisIdInput}' -> '${analysisId}'). Aborting.`;
+    console.error(criticalMsg);
+    return {
+      success: false,
+      analysisId: analysisIdInput || 'unknown_id',
+      error: criticalMsg.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH),
+    };
+  }
+  // userId is not strictly needed in requestData if context.auth.uid is used in Function, but good for traceability
+  // However, the Firebase function `httpsCallableTriggerProcessing` expects only analysisId in data.
+
+  const requestData: TriggerProcessingRequestData = { analysisId };
+
+  try {
+    const callableFunction = httpsCallable<
+      TriggerProcessingRequestData,
+      TriggerProcessingResponseData
+    >(functionsInstance, 'httpsCallableTriggerProcessing');
+
+    const result: HttpsCallableResult<TriggerProcessingResponseData> =
+      await callableFunction(requestData);
+
+    console.info(
+      `[SA_processAnalysisFile] 'httpsCallableTriggerProcessing' for ${analysisId} returned: Success: ${result.data.success}, Msg: ${result.data.message}, Err: ${result.data.error}`
+    );
+
+    if (!result.data.success) {
+      // If the function itself reported an error (e.g., precondition failed)
+      const errorMsg =
+        result.data.error ||
+        result.data.message ||
+        'Falha ao enfileirar análise para processamento (Função HTTPS).';
+      console.error(
+        `[SA_processAnalysisFile] 'httpsCallableTriggerProcessing' reported failure for ${analysisId}: ${errorMsg}`
+      );
+      return { success: false, analysisId, error: errorMsg };
+    }
+
+    return { success: true, analysisId };
+  } catch (error: unknown) {
+    const firebaseError = error as { code?: string; message?: string };
+    const message =
+      (error instanceof Error ? error.message : String(error)) ||
+      'Erro desconhecido ao enfileirar análise via HTTPS Function.';
+    console.error(
+      `[SA_processAnalysisFile] Error calling 'httpsCallableTriggerProcessing' for ${analysisId}: Code: ${
+        firebaseError.code || 'N/A'
+      }, Message: ${message}`,
+      error
+    );
+    return {
+      success: false,
+      analysisId,
+      error: `Erro ao enfileirar (SA): ${message.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH)}`,
+    };
+  }
+}

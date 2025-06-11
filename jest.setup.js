@@ -267,62 +267,77 @@ jest.mock('next-mdx-remote/rsc', () => {
 jest.mock('remark-gfm', () => jest.fn());
 jest.mock('remark-mermaidjs', () => jest.fn());
 
-// Server Actions Mocks
+// --- Server Actions Mocks ---
 // These will now use the __mockHttpsCallableGlobal or specific function mocks.
+// They call jest.requireActual to get the real Server Action, which will then
+// use the mocked `httpsCallable` from `firebase/functions`.
 
-jest.mock('@/features/analysis-listing/actions/analysisListingActions', () => ({
-  getPastAnalysesAction: jest.fn(() => Promise.resolve([])),
-}));
-jest.mock('@/features/analysis-management/actions/analysisManagementActions', () => ({
-  deleteAnalysisAction: jest.fn((userId, analysisId) => Promise.resolve()),
-  cancelAnalysisAction: jest.fn((userId, analysisId) => Promise.resolve({ success: true })),
-}));
-jest.mock('@/features/analysis-processing/actions/analysisProcessingActions', () => ({
-  processAnalysisFile: jest.fn(() =>
-    Promise.resolve({ success: true, analysisId: 'mock-analysis-id' })
-  ),
-}));
-
-// For fileUploadActions, their mocks will now reflect calling the httpsCallable mocks
-jest.mock('@/features/file-upload/actions/fileUploadActions', () => {
-  // Ensure the mock is set up before fileUploadActions is imported by tests
+jest.mock('@/features/analysis-listing/actions/analysisListingActions', () => {
   const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
+  if (!callableMockFnStore.httpsCallableGetPastAnalyses) {
+    callableMockFnStore.httpsCallableGetPastAnalyses = jest.fn();
+  }
+  callableMockFnStore.httpsCallableGetPastAnalyses.mockResolvedValue({
+    data: { analyses: [] },
+  });
+  return jest.requireActual('@/features/analysis-listing/actions/analysisListingActions');
+});
 
-  // Default mock for 'httpsCreateInitialAnalysisRecord'
+jest.mock('@/features/analysis-management/actions/analysisManagementActions', () => {
+  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
+  if (!callableMockFnStore.httpsCallableDeleteAnalysis) {
+    callableMockFnStore.httpsCallableDeleteAnalysis = jest.fn();
+  }
+  callableMockFnStore.httpsCallableDeleteAnalysis.mockResolvedValue({
+    data: { success: true, message: 'Deleted (mock callable)' },
+  });
+  if (!callableMockFnStore.httpsCallableCancelAnalysis) {
+    callableMockFnStore.httpsCallableCancelAnalysis = jest.fn();
+  }
+  callableMockFnStore.httpsCallableCancelAnalysis.mockResolvedValue({
+    data: { success: true, message: 'Cancelled (mock callable)' },
+  });
+  return jest.requireActual('@/features/analysis-management/actions/analysisManagementActions');
+});
+
+jest.mock('@/features/analysis-processing/actions/analysisProcessingActions', () => {
+  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
+  if (!callableMockFnStore.httpsCallableTriggerProcessing) {
+    callableMockFnStore.httpsCallableTriggerProcessing = jest.fn();
+  }
+  callableMockFnStore.httpsCallableTriggerProcessing.mockResolvedValue({
+    data: { success: true, analysisId: 'mock-analysis-id-processed' },
+  });
+  return jest.requireActual('@/features/analysis-processing/actions/analysisProcessingActions');
+});
+
+jest.mock('@/features/file-upload/actions/fileUploadActions', () => {
+  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
   if (!callableMockFnStore.httpsCreateInitialAnalysisRecord) {
     callableMockFnStore.httpsCreateInitialAnalysisRecord = jest.fn();
   }
   callableMockFnStore.httpsCreateInitialAnalysisRecord.mockImplementation((data) =>
     Promise.resolve({ data: { analysisId: `mock-analysis-id-for-${data.fileName}` } })
   );
-
-  // Default mock for 'httpsUpdateAnalysisUploadProgress'
   if (!callableMockFnStore.httpsUpdateAnalysisUploadProgress) {
     callableMockFnStore.httpsUpdateAnalysisUploadProgress = jest.fn();
   }
   callableMockFnStore.httpsUpdateAnalysisUploadProgress.mockResolvedValue({
     data: { success: true },
   });
-
-  // Default mock for 'httpsFinalizeFileUploadRecord'
   if (!callableMockFnStore.httpsFinalizeFileUploadRecord) {
     callableMockFnStore.httpsFinalizeFileUploadRecord = jest.fn();
   }
   callableMockFnStore.httpsFinalizeFileUploadRecord.mockResolvedValue({ data: { success: true } });
-
-  // Default mock for 'httpsMarkUploadAsFailed'
   if (!callableMockFnStore.httpsMarkUploadAsFailed) {
     callableMockFnStore.httpsMarkUploadAsFailed = jest.fn();
   }
   callableMockFnStore.httpsMarkUploadAsFailed.mockResolvedValue({ data: { success: true } });
-
-  // Now, return the actual module, which will use the mocked httpsCallable
   return jest.requireActual('@/features/file-upload/actions/fileUploadActions');
 });
 
 jest.mock('@/features/report-chat/actions/reportChatActions', () => {
   const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
-  // Default mock for 'httpsCallableAskOrchestrator'
   if (!callableMockFnStore.httpsCallableAskOrchestrator) {
     callableMockFnStore.httpsCallableAskOrchestrator = jest.fn();
   }
@@ -336,16 +351,23 @@ jest.mock('@/features/report-chat/actions/reportChatActions', () => {
   return jest.requireActual('@/features/report-chat/actions/reportChatActions');
 });
 
-jest.mock('@/features/report-viewing/actions/reportViewingActions', () => ({
-  getAnalysisReportAction: jest.fn(() =>
-    Promise.resolve({
-      mdxContent: '# Mock Report',
-      fileName: 'mock-report.csv',
-      analysisId: 'mock-analysis-id',
+jest.mock('@/features/report-viewing/actions/reportViewingActions', () => {
+  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
+  if (!callableMockFnStore.httpsCallableGetAnalysisReport) {
+    callableMockFnStore.httpsCallableGetAnalysisReport = jest.fn();
+  }
+  callableMockFnStore.httpsCallableGetAnalysisReport.mockResolvedValue({
+    data: {
+      mdxContent: '# Mock Report from Callable',
+      fileName: 'mock-report-callable.csv',
+      analysisId: 'mock-analysis-id-callable',
       error: null,
-      // Add structuredReport to the mock if your ReportPage tests rely on it
       structuredReport: {
-        reportMetadata: { title: 'Mock Report Title', author: 'Test', generatedDate: '2023-01-01' },
+        reportMetadata: {
+          title: 'Mock Report Title Callable',
+          author: 'Test',
+          generatedDate: '2023-01-01',
+        },
         tableOfContents: ['Intro'],
         introduction: {
           objective: 'Test objective',
@@ -356,28 +378,28 @@ jest.mock('@/features/report-viewing/actions/reportViewingActions', () => ({
         finalConsiderations: 'Considerations',
         bibliography: [],
       },
-    })
-  ),
-}));
+    },
+  });
+  return jest.requireActual('@/features/report-viewing/actions/reportViewingActions');
+});
 
 jest.mock('@/features/tag-management/actions/tagActions', () => {
   const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
-  // Default mock for 'httpsCallableAddTag'
   if (!callableMockFnStore.httpsCallableAddTag) {
     callableMockFnStore.httpsCallableAddTag = jest.fn();
   }
   callableMockFnStore.httpsCallableAddTag.mockResolvedValue({
-    data: { success: true, message: 'Tag added (mock)' },
+    data: { success: true, message: 'Tag added (mock callable)' },
   });
-  // Default mock for 'httpsCallableRemoveTag'
   if (!callableMockFnStore.httpsCallableRemoveTag) {
     callableMockFnStore.httpsCallableRemoveTag = jest.fn();
   }
   callableMockFnStore.httpsCallableRemoveTag.mockResolvedValue({
-    data: { success: true, message: 'Tag removed (mock)' },
+    data: { success: true, message: 'Tag removed (mock callable)' },
   });
   return jest.requireActual('@/features/tag-management/actions/tagActions');
 });
+// --- End Server Actions Mocks ---
 
 // Mock useAnalysisManager
 /**
@@ -634,36 +656,11 @@ beforeEach(() => {
       error: null,
     });
 
-  jest
-    .requireMock('@/features/analysis-listing/actions/analysisListingActions')
-    .getPastAnalysesAction.mockClear()
-    .mockResolvedValue([]);
-  jest
-    .requireMock('@/features/report-viewing/actions/reportViewingActions')
-    .getAnalysisReportAction.mockClear()
-    .mockResolvedValue({
-      mdxContent: '# Mock Report Default',
-      fileName: 'mock-report-default.csv',
-      analysisId: 'default-mock-analysis-id',
-      error: null,
-      structuredReport: {
-        // Add this to ensure ReportPage tests have it
-        reportMetadata: {
-          title: 'Mock Default Title',
-          author: 'Test',
-          generatedDate: '2023-01-01',
-        },
-        tableOfContents: [],
-        introduction: { objective: '', overallResultsSummary: '', usedNormsOverview: '' },
-        analysisSections: [],
-        finalConsiderations: '',
-        bibliography: [],
-      },
-    });
-
   // Clear and reset mocks for httpsCallable functions
   const { __mockHttpsCallableGlobal: callableMockClearStore } =
     jest.requireMock('firebase/functions');
+
+  // File Upload Functions
   if (callableMockClearStore.httpsCreateInitialAnalysisRecord)
     callableMockClearStore.httpsCreateInitialAnalysisRecord
       .mockClear()
@@ -682,6 +679,8 @@ beforeEach(() => {
     callableMockClearStore.httpsMarkUploadAsFailed
       .mockClear()
       .mockResolvedValue({ data: { success: true } });
+
+  // Report Chat Function
   if (callableMockClearStore.httpsCallableAskOrchestrator) {
     callableMockClearStore.httpsCallableAskOrchestrator.mockClear().mockResolvedValue({
       data: {
@@ -691,15 +690,58 @@ beforeEach(() => {
       },
     });
   }
-  // Add clear and default mocks for new tag management callables
+  // Tag Management Functions
   if (callableMockClearStore.httpsCallableAddTag) {
     callableMockClearStore.httpsCallableAddTag.mockClear().mockResolvedValue({
-      data: { success: true, message: 'Tag added (mock)' },
+      data: { success: true, message: 'Tag added (mock callable)' },
     });
   }
   if (callableMockClearStore.httpsCallableRemoveTag) {
     callableMockClearStore.httpsCallableRemoveTag.mockClear().mockResolvedValue({
-      data: { success: true, message: 'Tag removed (mock)' },
+      data: { success: true, message: 'Tag removed (mock callable)' },
+    });
+  }
+  // Analysis HTTPS Functions
+  if (callableMockClearStore.httpsCallableGetPastAnalyses) {
+    callableMockClearStore.httpsCallableGetPastAnalyses.mockClear().mockResolvedValue({
+      data: { analyses: [] },
+    });
+  }
+  if (callableMockClearStore.httpsCallableDeleteAnalysis) {
+    callableMockClearStore.httpsCallableDeleteAnalysis.mockClear().mockResolvedValue({
+      data: { success: true, message: 'Deleted (mock callable)' },
+    });
+  }
+  if (callableMockClearStore.httpsCallableCancelAnalysis) {
+    callableMockClearStore.httpsCallableCancelAnalysis.mockClear().mockResolvedValue({
+      data: { success: true, message: 'Cancelled (mock callable)' },
+    });
+  }
+  if (callableMockClearStore.httpsCallableTriggerProcessing) {
+    callableMockClearStore.httpsCallableTriggerProcessing.mockClear().mockResolvedValue({
+      data: { success: true, analysisId: 'mock-analysis-id-triggered' },
+    });
+  }
+  if (callableMockClearStore.httpsCallableGetAnalysisReport) {
+    callableMockClearStore.httpsCallableGetAnalysisReport.mockClear().mockResolvedValue({
+      data: {
+        mdxContent: '# Mock Report Callable Default',
+        fileName: 'mock-report-callable-default.csv',
+        analysisId: 'default-mock-analysis-id-callable',
+        error: null,
+        structuredReport: {
+          reportMetadata: {
+            title: 'Mock Default Title Callable',
+            author: 'Test',
+            generatedDate: '2023-01-01',
+          },
+          tableOfContents: [],
+          introduction: { objective: '', overallResultsSummary: '', usedNormsOverview: '' },
+          analysisSections: [],
+          finalConsiderations: '',
+          bibliography: [],
+        },
+      },
     });
   }
 

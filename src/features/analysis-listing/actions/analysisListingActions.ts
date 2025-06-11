@@ -1,87 +1,77 @@
-
+// src/features/analysis-listing/actions/analysisListingActions.ts
 'use server';
+/**
+ * @fileOverview Server Action for fetching a user's past analyses.
+ * This action now calls an HTTPS Callable Firebase Function to retrieve the data.
+ */
 
-import { Timestamp, getDocs, orderBy, query, FirestoreError, collection } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { httpsCallable } from 'firebase/functions';
+
+import { functionsInstance } from '@/lib/firebase';
 import type { Analysis } from '@/types/analysis';
-import type { AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report';
 
-function statusIsValid(status: any): status is Analysis['status'] {
-    const validStatuses: Analysis['status'][] = ['uploading', 'summarizing_data', 'identifying_regulations', 'assessing_compliance', 'completed', 'error', 'deleted', 'cancelling', 'cancelled', 'reviewing_report'];
-    return typeof status === 'string' && validStatuses.includes(status as Analysis['status']);
+import type { HttpsCallableResult } from 'firebase/functions';
+
+const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
+
+interface HttpsCallableGetPastAnalysesResponse {
+  analyses: Analysis[];
 }
 
-export async function getPastAnalysesAction(userIdInput: string): Promise<Analysis[]> {
-  const userId = userIdInput?.trim() ?? '';
-  console.debug(`[getPastAnalysesAction] Effective userId: '${userId}' (Input: '${userIdInput}')`);
+/**
+ * Server Action to fetch past analyses for the authenticated user.
+ * It calls the `httpsCallableGetPastAnalyses` Firebase Function.
+ * @param {string} userId - The ID of the user whose analyses are to be fetched.
+ *                         This is used for logging/validation on the client/Server Action side;
+ *                         the Firebase Function will use `context.auth.uid` for security.
+ * @returns {Promise<Analysis[]>} A promise that resolves with an array of analysis objects.
+ * @throws {Error} If the function call fails or returns an error.
+ */
+export async function getPastAnalysesAction(userId: string): Promise<Analysis[]> {
+  console.debug(
+    `[SA_getPastAnalyses] User: ${userId}. Calling 'httpsCallableGetPastAnalyses'. Project: ${
+      process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'
+    }`
+  );
 
-  if (!userId) {
-    const errorMsg = `[getPastAnalysesAction] CRITICAL: userId is invalid (input: '${userIdInput}').`;
+  if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+    const errorMsg = `[SA_getPastAnalyses] CRITICAL: userId is invalid (input: '${userId}'). Aborting.`;
     console.error(errorMsg);
     throw new Error(errorMsg);
   }
-  const analysesCollectionPath = `users/${userId}/analyses`;
-  console.info(`[getPastAnalysesAction] Fetching for userId: ${userId}, path: '${analysesCollectionPath}', Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}`);
-  const analysesCol = collection(db, analysesCollectionPath);
-  const q = query(analysesCol, orderBy('createdAt', 'desc'));
 
   try {
-    const snapshot = await getDocs(q);
-    console.info(`[getPastAnalysesAction] Found ${snapshot.docs.length} analyses for userId: ${userId}`);
+    const callableFunction = httpsCallable<
+      // eslint-disable-next-line @typescript-eslint/ban-types
+      {}, // No specific data needs to be sent; userId comes from auth context in Function
+      HttpsCallableGetPastAnalysesResponse
+    >(functionsInstance, 'httpsCallableGetPastAnalyses');
 
-    const mapTimestampToISO = (timestampFieldValue: any): string | undefined => {
-      if (timestampFieldValue && typeof timestampFieldValue.toDate === 'function') {
-        return (timestampFieldValue as Timestamp).toDate().toISOString();
-      }
-      if (typeof timestampFieldValue === 'string' && /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/.test(timestampFieldValue)) {
-        return timestampFieldValue;
-      }
-      return undefined;
-    };
+    const result: HttpsCallableResult<HttpsCallableGetPastAnalysesResponse> =
+      await callableFunction({}); // Call with empty data object
 
-    return snapshot.docs.map(docSnap => {
-      const data = docSnap.data();
-      const analysisResult: Partial<Analysis> = {
-        id: docSnap.id,
-        userId: data.userId as string,
-        fileName: data.fileName as string,
-        title: data.title as string | undefined,
-        description: data.description as string | undefined,
-        languageCode: data.languageCode as string | undefined,
-        status: data.status as Analysis['status'],
-        progress: data.progress as number,
-        uploadProgress: data.uploadProgress as number | undefined,
-        powerQualityDataUrl: data.powerQualityDataUrl as string | undefined,
-        powerQualityDataSummary: data.powerQualityDataSummary as string | undefined,
-        isDataChunked: data.isDataChunked as boolean | undefined,
-        identifiedRegulations: data.identifiedRegulations as string[] | undefined,
-        summary: data.summary as string | undefined, 
-        structuredReport: data.structuredReport as AnalyzeComplianceReportOutput | undefined,
-        mdxReportStoragePath: data.mdxReportStoragePath as string | undefined,
-        errorMessage: data.errorMessage as string | undefined,
-        tags: (data.tags || []) as string[],
-      };
-
-      analysisResult.createdAt = mapTimestampToISO(data.createdAt) || new Date(0).toISOString();
-      analysisResult.completedAt = mapTimestampToISO(data.completedAt);
-      
-      if (!statusIsValid(analysisResult.status)) {
-        console.warn(`[getPastAnalysesAction] Analysis ${docSnap.id} has invalid status: ${analysisResult.status}. Defaulting to 'error'.`);
-        analysisResult.status = 'error';
-        analysisResult.errorMessage = analysisResult.errorMessage || `Status inválido (${data.status}) recebido do Firestore.`;
-      }
-
-      return analysisResult as Analysis;
-    });
-  } catch (error) {
-    const originalErrorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[getPastAnalysesAction] Error fetching for userId ${userId} from ${analysesCollectionPath}:`, originalErrorMessage, error);
-    if (error instanceof FirestoreError && (error.code === 'permission-denied' || error.code === 7)) {
-        console.error(`[getPastAnalysesAction] PERMISSION_DENIED query path '${analysesCollectionPath}' for userId '${userId}'. Project '${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'ENV_VAR_NOT_SET'}'. Firestore error: ${error.code}, ${error.message}`);
+    if (result.data && Array.isArray(result.data.analyses)) {
+      console.info(
+        `[SA_getPastAnalyses] Successfully fetched ${result.data.analyses.length} analyses for user ${userId} via HTTPS Function.`
+      );
+      return result.data.analyses;
+    } else {
+      const errorMsg =
+        '[SA_getPastAnalyses] HTTPS Function returned invalid data structure or no analyses array.';
+      console.error(errorMsg, result.data);
+      throw new Error(errorMsg);
     }
-    throw new Error(`Falha ao buscar análises: ${originalErrorMessage}`);
+  } catch (error: unknown) {
+    const firebaseError = error as { code?: string; message?: string; details?: unknown };
+    const code = firebaseError.code || 'unknown';
+    const message =
+      firebaseError.message || 'Erro desconhecido ao buscar análises via HTTPS Function.';
+    console.error(
+      `[SA_getPastAnalyses] Error calling 'httpsCallableGetPastAnalyses' for user ${userId}: Code: ${code}, Message: ${message}`,
+      error
+    );
+    throw new Error(
+      `Falha ao buscar análises (SA): ${message.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH)}`
+    );
   }
 }
-
-
-    

@@ -1,4 +1,4 @@
-import type { AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report'; // Importar o novo tipo
+import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config'; // Importar o novo tipo
 
 import type { Timestamp } from 'firebase/firestore';
 
@@ -36,22 +36,24 @@ export interface Analysis {
 
   // Campos antigos - podem ser mantidos para compatibilidade ou removidos gradualmente
   summary?: string;
-  complianceReport?: string;
+  complianceReport?: string; // Legacy, if used by older data.
 
   // Novo campo para o relatório estruturado
-  structuredReport?: AnalyzeComplianceReportOutput;
+  structuredReport?: AnalyzeComplianceReportOutput | null; // Can be null if not generated
   mdxReportStoragePath?: string; // Path para o arquivo MDX no Firebase Storage
 
   errorMessage?: string;
   tags: string[];
-  createdAt: string | Timestamp;
-  completedAt?: string | Timestamp;
+  createdAt: string | Timestamp; // ISO string on client, Timestamp from Firestore
+  completedAt?: string | Timestamp; // ISO string on client, Timestamp from Firestore
+  reportLastModifiedAt?: string | Timestamp; // For chat revisions
 }
 
-// Define the return type for the getAnalysisReportAction
+// Define the return type for the getAnalysisReportAction (and its HTTPS Function counterpart)
 export interface AnalysisReportData {
   mdxContent: string | null;
   fileName: string | null;
   analysisId: string | null;
   error?: string | null;
+  structuredReport?: AnalyzeComplianceReportOutput | null; // Added to provide context for chat
 }

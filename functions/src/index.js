@@ -5,7 +5,8 @@
  * @fileOverview Firebase Functions entry point.
  * Initializes Firebase Admin SDK and exports all cloud functions for deployment,
  * including event-triggered functions for analysis processing and HTTPS callable
- * functions for client-invoked operations like file upload management and report chat.
+ * functions for client-invoked operations like file upload management, report chat,
+ * tag management, and other analysis operations.
  */
 
 const admin = require('firebase-admin');
@@ -17,10 +18,12 @@ if (admin.apps.length === 0) {
 
 // Import event-triggered functions
 const { processAnalysisOnUpdate } = require('./processAnalysis');
+
 // Import HTTPS callable functions
 const fileUploadHttpsFunctions = require('./fileUploadHttps');
 const reportChatHttpsFunctions = require('./reportChatHttps');
-const tagManagementHttpsFunctions = require('./tagManagementHttps'); // Added new import
+const tagManagementHttpsFunctions = require('./tagManagementHttps');
+const analysisHttpsFunctions = require('./analysisHttps'); // New import for analysis operations
 
 /**
  * Cloud Function triggered by Firestore document updates to process energy analysis data.
@@ -28,7 +31,7 @@ const tagManagementHttpsFunctions = require('./tagManagementHttps'); // Added ne
  */
 exports.processAnalysisOnUpdate = processAnalysisOnUpdate;
 
-// Export HTTPS callable functions for file upload management
+// --- Export HTTPS callable functions for file upload management ---
 /**
  * HTTPS Callable: Creates an initial record for an analysis in Firestore.
  * @see ./fileUploadHttps.js#httpsCreateInitialAnalysisRecord
@@ -55,14 +58,14 @@ exports.httpsFinalizeFileUploadRecord = fileUploadHttpsFunctions.httpsFinalizeFi
  */
 exports.httpsMarkUploadAsFailed = fileUploadHttpsFunctions.httpsMarkUploadAsFailed;
 
-// Export HTTPS callable function for report chat
+// --- Export HTTPS callable function for report chat ---
 /**
  * HTTPS Callable: Orchestrates user interaction with a compliance report via chat.
  * @see ./reportChatHttps.js#httpsCallableAskOrchestrator
  */
 exports.httpsCallableAskOrchestrator = reportChatHttpsFunctions.httpsCallableAskOrchestrator;
 
-// Export HTTPS callable functions for tag management
+// --- Export HTTPS callable functions for tag management ---
 /**
  * HTTPS Callable: Adds a tag to an analysis document.
  * @see ./tagManagementHttps.js#httpsCallableAddTag
@@ -74,3 +77,34 @@ exports.httpsCallableAddTag = tagManagementHttpsFunctions.httpsCallableAddTag;
  * @see ./tagManagementHttps.js#httpsCallableRemoveTag
  */
 exports.httpsCallableRemoveTag = tagManagementHttpsFunctions.httpsCallableRemoveTag;
+
+// --- Export HTTPS callable functions for general analysis operations ---
+/**
+ * HTTPS Callable: Fetches past analyses for a user.
+ * @see ./analysisHttps.js#httpsCallableGetPastAnalyses
+ */
+exports.httpsCallableGetPastAnalyses = analysisHttpsFunctions.httpsCallableGetPastAnalyses;
+
+/**
+ * HTTPS Callable: Deletes an analysis document and its associated files.
+ * @see ./analysisHttps.js#httpsCallableDeleteAnalysis
+ */
+exports.httpsCallableDeleteAnalysis = analysisHttpsFunctions.httpsCallableDeleteAnalysis;
+
+/**
+ * HTTPS Callable: Requests cancellation of an analysis.
+ * @see ./analysisHttps.js#httpsCallableCancelAnalysis
+ */
+exports.httpsCallableCancelAnalysis = analysisHttpsFunctions.httpsCallableCancelAnalysis;
+
+/**
+ * HTTPS Callable: Triggers the processing of an analysis file by setting its status.
+ * @see ./analysisHttps.js#httpsCallableTriggerProcessing
+ */
+exports.httpsCallableTriggerProcessing = analysisHttpsFunctions.httpsCallableTriggerProcessing;
+
+/**
+ * HTTPS Callable: Fetches analysis report data (MDX content and metadata).
+ * @see ./analysisHttps.js#httpsCallableGetAnalysisReport
+ */
+exports.httpsCallableGetAnalysisReport = analysisHttpsFunctions.httpsCallableGetAnalysisReport;
