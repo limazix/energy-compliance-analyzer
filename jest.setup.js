@@ -170,7 +170,7 @@ jest.mock('firebase/storage', () => {
 /**
  * @fileoverview Mock for the 'firebase/functions' module.
  * This mock simulates `getFunctions` and `httpsCallable` to allow testing
- * of Server Actions that invoke HTTPS Callable Firebase Functions.
+ * of Server Actions that invoke HTTPS Callable Firebase Functions IF THOSE ACTIONS ARE NOT MOCKED THEMSELVES.
  * Individual callable functions can be mocked by name.
  */
 const mockHttpsCallableStore = {}; // This will store mocks keyed by function name
@@ -268,138 +268,10 @@ jest.mock('remark-gfm', () => jest.fn());
 jest.mock('remark-mermaidjs', () => jest.fn());
 
 // --- Server Actions Mocks ---
-// These will now use the __mockHttpsCallableGlobal or specific function mocks.
-// They call jest.requireActual to get the real Server Action, which will then
-// use the mocked `httpsCallable` from `firebase/functions`.
-
-jest.mock('@/features/analysis-listing/actions/analysisListingActions', () => {
-  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
-  if (!callableMockFnStore.httpsCallableGetPastAnalyses) {
-    callableMockFnStore.httpsCallableGetPastAnalyses = jest.fn();
-  }
-  callableMockFnStore.httpsCallableGetPastAnalyses.mockResolvedValue({
-    data: { analyses: [] },
-  });
-  return jest.requireActual('@/features/analysis-listing/actions/analysisListingActions');
-});
-
-jest.mock('@/features/analysis-management/actions/analysisManagementActions', () => {
-  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
-  if (!callableMockFnStore.httpsCallableDeleteAnalysis) {
-    callableMockFnStore.httpsCallableDeleteAnalysis = jest.fn();
-  }
-  callableMockFnStore.httpsCallableDeleteAnalysis.mockResolvedValue({
-    data: { success: true, message: 'Deleted (mock callable)' },
-  });
-  if (!callableMockFnStore.httpsCallableCancelAnalysis) {
-    callableMockFnStore.httpsCallableCancelAnalysis = jest.fn();
-  }
-  callableMockFnStore.httpsCallableCancelAnalysis.mockResolvedValue({
-    data: { success: true, message: 'Cancelled (mock callable)' },
-  });
-  return jest.requireActual('@/features/analysis-management/actions/analysisManagementActions');
-});
-
-jest.mock('@/features/analysis-processing/actions/analysisProcessingActions', () => {
-  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
-  if (!callableMockFnStore.httpsCallableTriggerProcessing) {
-    callableMockFnStore.httpsCallableTriggerProcessing = jest.fn();
-  }
-  callableMockFnStore.httpsCallableTriggerProcessing.mockResolvedValue({
-    data: { success: true, analysisId: 'mock-analysis-id-processed' },
-  });
-  return jest.requireActual('@/features/analysis-processing/actions/analysisProcessingActions');
-});
-
-jest.mock('@/features/file-upload/actions/fileUploadActions', () => {
-  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
-  if (!callableMockFnStore.httpsCreateInitialAnalysisRecord) {
-    callableMockFnStore.httpsCreateInitialAnalysisRecord = jest.fn();
-  }
-  callableMockFnStore.httpsCreateInitialAnalysisRecord.mockImplementation((data) =>
-    Promise.resolve({ data: { analysisId: `mock-analysis-id-for-${data.fileName}` } })
-  );
-  if (!callableMockFnStore.httpsUpdateAnalysisUploadProgress) {
-    callableMockFnStore.httpsUpdateAnalysisUploadProgress = jest.fn();
-  }
-  callableMockFnStore.httpsUpdateAnalysisUploadProgress.mockResolvedValue({
-    data: { success: true },
-  });
-  if (!callableMockFnStore.httpsFinalizeFileUploadRecord) {
-    callableMockFnStore.httpsFinalizeFileUploadRecord = jest.fn();
-  }
-  callableMockFnStore.httpsFinalizeFileUploadRecord.mockResolvedValue({ data: { success: true } });
-  if (!callableMockFnStore.httpsMarkUploadAsFailed) {
-    callableMockFnStore.httpsMarkUploadAsFailed = jest.fn();
-  }
-  callableMockFnStore.httpsMarkUploadAsFailed.mockResolvedValue({ data: { success: true } });
-  return jest.requireActual('@/features/file-upload/actions/fileUploadActions');
-});
-
-jest.mock('@/features/report-chat/actions/reportChatActions', () => {
-  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
-  if (!callableMockFnStore.httpsCallableAskOrchestrator) {
-    callableMockFnStore.httpsCallableAskOrchestrator = jest.fn();
-  }
-  callableMockFnStore.httpsCallableAskOrchestrator.mockResolvedValue({
-    data: {
-      success: true,
-      aiMessageRtdbKey: 'mock-ai-key-default-callable',
-      reportModified: false,
-    },
-  });
-  return jest.requireActual('@/features/report-chat/actions/reportChatActions');
-});
-
-jest.mock('@/features/report-viewing/actions/reportViewingActions', () => {
-  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
-  if (!callableMockFnStore.httpsCallableGetAnalysisReport) {
-    callableMockFnStore.httpsCallableGetAnalysisReport = jest.fn();
-  }
-  callableMockFnStore.httpsCallableGetAnalysisReport.mockResolvedValue({
-    data: {
-      mdxContent: '# Mock Report from Callable',
-      fileName: 'mock-report-callable.csv',
-      analysisId: 'mock-analysis-id-callable',
-      error: null,
-      structuredReport: {
-        reportMetadata: {
-          title: 'Mock Report Title Callable',
-          author: 'Test',
-          generatedDate: '2023-01-01',
-        },
-        tableOfContents: ['Intro'],
-        introduction: {
-          objective: 'Test objective',
-          overallResultsSummary: 'Summary',
-          usedNormsOverview: 'Norms',
-        },
-        analysisSections: [],
-        finalConsiderations: 'Considerations',
-        bibliography: [],
-      },
-    },
-  });
-  return jest.requireActual('@/features/report-viewing/actions/reportViewingActions');
-});
-
-jest.mock('@/features/tag-management/actions/tagActions', () => {
-  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
-  if (!callableMockFnStore.httpsCallableAddTag) {
-    callableMockFnStore.httpsCallableAddTag = jest.fn();
-  }
-  callableMockFnStore.httpsCallableAddTag.mockResolvedValue({
-    data: { success: true, message: 'Tag added (mock callable)' },
-  });
-  if (!callableMockFnStore.httpsCallableRemoveTag) {
-    callableMockFnStore.httpsCallableRemoveTag = jest.fn();
-  }
-  callableMockFnStore.httpsCallableRemoveTag.mockResolvedValue({
-    data: { success: true, message: 'Tag removed (mock callable)' },
-  });
-  return jest.requireActual('@/features/tag-management/actions/tagActions');
-});
-// --- End Server Actions Mocks ---
+// REMOVED jest.mock blocks for specific server actions that returned jest.requireActual().
+// Test files are now responsible for mocking these server actions if needed.
+// The mock for 'firebase/functions' (httpsCallable) above will be used if
+// a server action is *not* mocked in a test and its actual implementation is run.
 
 // Mock useAnalysisManager
 /**
