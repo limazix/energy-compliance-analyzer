@@ -1,19 +1,20 @@
+
 @startuml readme_architecture
-' Diagram Type: High-Level System Architecture (C4-Inspired)
+' Diagram Type: High-Level System Architecture (C4-Inspired - Container Level Focus)
 
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
-' Styling
+' Styling (from user's fixed script)
 !define PRIMARY_COLOR #3F51B5
 !define ACCENT_COLOR #FF9800
-!define LIGHT_ACCENT_BG #FFF3E0 
+!define LIGHT_ACCENT_BG #FFF3E0
 !define LIGHT_GRAY_BG #F0F2F5
 !define DARK_TEXT_COLOR #333333
-!define LIGHT_BLUE_BG #EBF4FF 
+!define LIGHT_BLUE_BG #EBF4FF
 !define MUTED_BLUE_GRAY_BORDER #B0BEC5
-!define DARK_BLUE_TEXT #1A237E 
+!define DARK_BLUE_TEXT #1A237E
 !define WHITE_BG #FFFFFF
 
 skinparam {
@@ -35,7 +36,7 @@ skinparam person {
     LineThickness 1.5
 }
 
-skinparam system_ext { 
+skinparam system_ext {
     BackgroundColor LIGHT_GRAY_BG
     BorderColor MUTED_BLUE_GRAY_BORDER
     FontColor DARK_TEXT_COLOR
@@ -71,57 +72,80 @@ skinparam database {
 skinparam rectangle<<AI_Related>> {
     BorderColor ACCENT_COLOR
     BackgroundColor LIGHT_ACCENT_BG
-    FontColor #BF360C 
+    FontColor #BF360C
     StereotypeFontColor #BF360C
 }
 skinparam agent<<AI_Related>> {
     BorderColor ACCENT_COLOR
     BackgroundColor LIGHT_ACCENT_BG
-    FontColor #BF360C 
+    FontColor #BF360C
     StereotypeFontColor #BF360C
 }
-
 
 LAYOUT_WITH_LEGEND()
 top to bottom direction
 
-' Elements
+' === Layer 1: User ===
 Person(user, "End User", "Uploads data, views reports, interacts via chat.")
+
+' === Layer 2: Application Hosting (User-Facing System) ===
+Boundary(b_app_hosting, "Firebase App Hosting", "Hosts the Next.js application (Frontend & API Layer)") {
+    Container(frontend, "Frontend Web App", "Next.js, React, ShadCN, Tailwind", "UI for data upload, analysis visualization, and real-time report chat.")
+    Container(server_actions, "Next.js Server Actions", "Node.js, Genkit", "Backend API for frontend. Orchestrates report chat AI. Triggers background processing via Firestore.") <<AI_Related>>
+}
+
+' === Layer 3: Core Backend Services & Data Stores ===
+Boundary(b_firebase_services, "Firebase Backend Services", "Cloud-hosted backend components & data stores") {
+    Container(auth, "Firebase Authentication", "OAuth (Google Sign-In)", "Manages user authentication and session persistence.")
+    ContainerDb(firestore, "Firebase Firestore", "NoSQL Document DB", "Stores analysis metadata, user data, tags, structured reports. Firestore events trigger Functions.")
+    ContainerDb(storage, "Firebase Storage", "Object Storage", "Stores uploaded CSV files and generated MDX/PDF reports.")
+    ContainerDb(rtdb, "Firebase Realtime DB", "NoSQL JSON DB", "Manages real-time chat history for interactive reports.")
+    ' Explicit alias for Firebase Functions container
+    Container(fb_functions, "Firebase Functions", "Node.js, Genkit", "Handles background data analysis, AI pipeline execution, report generation (MDX/PDF).") <<AI_Related>>
+}
+
+' === Layer 4: External Dependencies (AI & Regulatory Info) ===
+System_Ext(gemini, "Google AI (Gemini)", "Generative AI Model. Powers analysis, report generation, and chat.") <<AI_Related>>
 System_Ext(aneel, "ANEEL", "Brazilian National Electrical Energy Agency. Provides Normative Resolutions (conceptual input).")
 
-Boundary(b_app_hosting, "Firebase App Hosting", "Hosts the Next.js application (Frontend & API)") {
-    Container(frontend, "Frontend Web App", "Next.js, React, ShadCN, Tailwind", "UI for data upload, analysis visualization, and real-time report chat.")
-    Container(server_actions, "Next.js Server Actions", "Node.js, Genkit", "Backend API for frontend. Triggers background processing. Orchestrates report chat AI.") <<AI_Related>>
-}
 
-Boundary(b_firebase_services, "Firebase Backend Services", "Cloud-hosted backend services") {
-    Container(auth, "Firebase Authentication", "OAuth (Google Sign-In)", "Manages user authentication and session persistence.")
-    ContainerDb(firestore, "Firebase Firestore", "NoSQL Document DB", "Stores analysis metadata, user session data, tags, and structured (JSON) compliance reports.")
-    ContainerDb(storage, "Firebase Storage", "Object Storage", "Stores uploaded CSV files and generated compliance reports (MDX/PDF).")
-    ContainerDb(rtdb, "Firebase Realtime DB", "NoSQL JSON DB", "Manages real-time chat history for interactive reports.")
-    Container(functions, "Firebase Functions", "Node.js, Genkit", "Handles background processing: CSV data analysis, AI agent pipeline execution, and report generation (MDX/PDF).") <<AI_Related>>
-}
+' Relationships (Organized for improved top-down flow and clarity)
 
-System_Ext(gemini, "Google AI (Gemini)", "Generative AI Model. Powers AI agents for data analysis, regulation identification, report generation, and chat responses.") <<AI_Related>>
+' User Interaction Flow
+user -down-> frontend: "Interacts (Uploads CSV, Views Reports, Chats)"
+frontend -down-> server_actions: "Invokes API calls (HTTP/S)"
+
+' Server Actions Interactions with Firebase Services & Gemini
+server_actions -down-> auth: "Verifies user session"
+server_actions -down-> firestore: "Writes analysis data & status (triggers Functions)"
+server_actions --> storage: "Manages file URLs"
+server_actions --> rtdb: "Manages chat messages"
+server_actions -down-> gemini: "For report chat AI (via Genkit)"
 
 
-' Relationships
-user --> frontend: "Interacts with (Uploads CSV, Views Reports, Chats)"
+' Firebase Functions Interactions (Triggered by Firestore events from Server Actions)
+' Link from Firestore to Functions to show trigger
+firestore -right-> fb_functions: "Events trigger"
 
-frontend --> server_actions: "Invokes API calls (HTTP/S)"
+fb_functions -up-> firestore: "Reads analysis task, Writes results & status" ' Up, as it reads the trigger data and writes back
+fb_functions --> storage: "Reads CSV data, Writes generated reports"
+fb_functions -down-> gemini: "For analysis pipeline (via Genkit)"
 
-server_actions --> auth: "Verifies user session"
-server_actions --> firestore: "Reads/Writes analysis records, user data"
-server_actions --> storage: "Manages file URLs (CSV, Reports)"
-server_actions --> rtdb: "Manages chat messages (read/write)"
-server_actions --> gemini: "For report chat AI (via Genkit)"
-server_actions --> functions: "Triggers processing (via Firestore status update)"
 
-functions --> storage: "Reads CSV data, Writes generated reports (MDX/PDF)"
-functions --> firestore: "Reads analysis task, Writes results & status"
-functions --> gemini: "For analysis pipeline (via Genkit)"
-functions .> aneel: "Uses ANEEL regulations (conceptual)"
+' Conceptual / Informational Relationships (Dotted lines, less prominent flow)
+fb_functions .up[hidden].> aneel: "Uses ANEEL regulations (conceptual)" ' Using hidden to help layout if needed
+gemini .up[hidden].> aneel: "Leverages knowledge of ANEEL regulations (conceptual)"
 
-gemini .> aneel: "Leverages knowledge of ANEEL regulations (conceptual)"
+' Layout hints to encourage layering
+Rel_D(b_app_hosting, b_firebase_services)
+Rel_D(b_firebase_services, gemini)
+Rel_D(gemini, aneel) ' Placing ANEEL at the bottom
+
+' Place components within Firebase services boundary more predictably
+auth -[hidden]down-> firestore
+firestore -[hidden]down-> storage
+storage -[hidden]down-> rtdb
+rtdb -[hidden]down-> fb_functions
+
 
 @enduml
