@@ -1,10 +1,9 @@
-
 {
   "compilerOptions": {
     "module": "commonjs",
     "noImplicitReturns": false,
     "noUnusedLocals": false,
-    "outDir": "lib", 
+    "outDir": "lib",
     "sourceMap": true,
     "strict": false,
     "target": "es2021",
@@ -12,17 +11,12 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "allowJs": true,
-    "checkJs": true, 
-    "baseUrl": ".", 
+    "checkJs": false,
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["../src/*"] 
+      "@/*": ["../src/*"]
     }
   },
-  "include": [
-    "src/**/*.js" 
-  ],
-  "exclude": [
-    "node_modules",
-    "lib" 
-  ]
+  "include": ["./src/**/*.js"],
+  "exclude": ["node_modules", "lib"]
 }

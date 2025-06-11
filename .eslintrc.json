@@ -58,7 +58,7 @@
     },
     "import/resolver": {
       "typescript": {
-        "alwaysTryTypes": true, // Ensure this is true
+        "alwaysTryTypes": true,
         "project": "./tsconfig.json"
       },
       "node": true
@@ -78,6 +78,7 @@
     "coverage/",
     "public/",
     "functions/lib/",
+    "functions/src/**/*.js",
     "*.config.js",
     "*.config.ts",
     "jest.config.js",

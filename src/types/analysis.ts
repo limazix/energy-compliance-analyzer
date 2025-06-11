@@ -1,6 +1,6 @@
+import type { AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report'; // Importar o novo tipo
 
 import type { Timestamp } from 'firebase/firestore';
-import type { AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report'; // Importar o novo tipo
 
 export interface AnalysisStep {
   name: string;
@@ -16,7 +16,17 @@ export interface Analysis {
   title?: string; // User-defined title for the analysis
   description?: string; // User-defined description for the analysis
   languageCode?: string; // BCP-47 language code
-  status: 'uploading' | 'summarizing_data' | 'identifying_regulations' | 'assessing_compliance' | 'reviewing_report' | 'completed' | 'error' | 'deleted' | 'cancelling' | 'cancelled'; // Added reviewing_report & new statuses
+  status:
+    | 'uploading'
+    | 'summarizing_data'
+    | 'identifying_regulations'
+    | 'assessing_compliance'
+    | 'reviewing_report'
+    | 'completed'
+    | 'error'
+    | 'deleted'
+    | 'cancelling'
+    | 'cancelled'; // Added reviewing_report & new statuses
   progress: number; // Progresso geral da análise (0-100)
   uploadProgress?: number; // Progresso específico do upload do arquivo (0-100)
   powerQualityDataUrl?: string;
@@ -45,4 +55,3 @@ export interface AnalysisReportData {
   analysisId: string | null;
   error?: string | null;
 }
-

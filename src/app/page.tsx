@@ -1,65 +1,82 @@
-
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { doc, getDoc } from 'firebase/firestore';
+import { AlertTriangle, Inbox, Loader2 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link'; // Import Link
-import { Loader2, Inbox, AlertTriangle } from 'lucide-react';
 
 import { AppHeader } from '@/components/app-header';
-import { useAuth } from '@/contexts/auth-context';
-import { useFileUploadManager, type FileUploadManagerResult } from '@/features/file-upload/hooks/useFileUploadManager';
-import { useAnalysisManager } from '@/hooks/useAnalysisManager';
-
-import { NewAnalysisForm } from '@/components/features/analysis/NewAnalysisForm';
 import { AnalysisView } from '@/components/features/analysis/AnalysisView';
-import type { Analysis } from '@/types/analysis';
-import { getDoc, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { NewAnalysisForm } from '@/components/features/analysis/NewAnalysisForm';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+} from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
-
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/contexts/auth-context';
+import {
+  useFileUploadManager,
+  type FileUploadManagerResult,
+} from '@/features/file-upload/hooks/useFileUploadManager';
+import { useAnalysisManager } from '@/hooks/useAnalysisManager';
+import { db } from '@/lib/firebase';
+import type { Analysis } from '@/types/analysis';
 
 const getStatusBadgeVariant = (status: Analysis['status']) => {
   switch (status) {
-    case 'completed': return 'default'; 
-    case 'error': return 'destructive';
-    case 'cancelled': return 'outline';
-    case 'cancelling': return 'outline';
-    case 'reviewing_report': return 'secondary';
-    default: return 'secondary';
+    case 'completed':
+      return 'default';
+    case 'error':
+      return 'destructive';
+    case 'cancelled':
+      return 'outline';
+    case 'cancelling':
+      return 'outline';
+    case 'reviewing_report':
+      return 'secondary';
+    default:
+      return 'secondary';
   }
 };
 
 const getStatusLabel = (status: Analysis['status']) => {
   switch (status) {
-    case 'uploading': return 'Enviando';
-    case 'summarizing_data': return 'Sumarizando Dados';
-    case 'identifying_regulations': return 'Identificando Resoluções';
-    case 'assessing_compliance': return 'Analisando Conformidade';
-    case 'reviewing_report': return 'Revisando Relatório';
-    case 'completed': return 'Concluída';
-    case 'error': return 'Erro';
-    case 'deleted': return 'Excluída';
-    case 'cancelling': return 'Cancelando...';
-    case 'cancelled': return 'Cancelada';
-    default: return status;
+    case 'uploading':
+      return 'Enviando';
+    case 'summarizing_data':
+      return 'Sumarizando Dados';
+    case 'identifying_regulations':
+      return 'Identificando Resoluções';
+    case 'assessing_compliance':
+      return 'Analisando Conformidade';
+    case 'reviewing_report':
+      return 'Revisando Relatório';
+    case 'completed':
+      return 'Concluída';
+    case 'error':
+      return 'Erro';
+    case 'deleted':
+      return 'Excluída';
+    case 'cancelling':
+      return 'Cancelando...';
+    case 'cancelled':
+      return 'Cancelada';
+    default:
+      return status;
   }
 };
-
 
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  
+
   const [showNewAnalysisForm, setShowNewAnalysisForm] = useState(false);
   const [expandedAnalysisId, setExpandedAnalysisId] = useState<string | null>(null);
 
@@ -73,7 +90,7 @@ export default function HomePage() {
   } = useFileUploadManager();
 
   const {
-    currentAnalysis, 
+    currentAnalysis,
     setCurrentAnalysis,
     pastAnalyses,
     isLoadingPastAnalyses,
@@ -89,7 +106,6 @@ export default function HomePage() {
     displayedAnalysisSteps,
   } = useAnalysisManager(user);
 
-
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace('/login');
@@ -98,77 +114,99 @@ export default function HomePage() {
     }
   }, [user, authLoading, router, fetchPastAnalyses]);
 
-
-  const handleUploadResult = useCallback(async (result: FileUploadManagerResult) => {
-    if (result.analysisId && !result.error && user && user.uid) {
-      try {
-        const analysisDocRef = doc(db, 'users', user.uid, 'analyses', result.analysisId);
-        const docSnap = await getDoc(analysisDocRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          const fetchedAnalysis: Analysis = {
-            id: docSnap.id,
-            userId: data.userId,
-            fileName: data.fileName,
-            title: data.title,
-            description: data.description,
-            languageCode: data.languageCode,
-            status: data.status, 
-            progress: data.progress,
-            uploadProgress: data.uploadProgress,
-            powerQualityDataUrl: data.powerQualityDataUrl,
-            powerQualityDataSummary: data.powerQualityDataSummary,
-            isDataChunked: data.isDataChunked,
-            identifiedRegulations: data.identifiedRegulations,
-            summary: data.summary,
-            complianceReport: data.complianceReport,
-            structuredReport: data.structuredReport,
-            mdxReportStoragePath: data.mdxReportStoragePath,
-            errorMessage: data.errorMessage,
-            tags: data.tags || [],
-            createdAt: data.createdAt.toDate().toISOString(),
-            completedAt: data.completedAt ? data.completedAt.toDate().toISOString() : undefined,
-          };
-          setCurrentAnalysis(fetchedAnalysis); 
-          setExpandedAnalysisId(fetchedAnalysis.id); 
-          setShowNewAnalysisForm(false); 
-          await fetchPastAnalyses(); 
-          if (fetchedAnalysis.status === 'summarizing_data' || fetchedAnalysis.status === 'identifying_regulations' || fetchedAnalysis.status === 'assessing_compliance' || fetchedAnalysis.status === 'reviewing_report') {
-             await startAiProcessing(result.analysisId, user.uid);
+  const handleUploadResult = useCallback(
+    async (result: FileUploadManagerResult) => {
+      if (result.analysisId && !result.error && user && user.uid) {
+        try {
+          const analysisDocRef = doc(db, 'users', user.uid, 'analyses', result.analysisId);
+          const docSnap = await getDoc(analysisDocRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            const fetchedAnalysis: Analysis = {
+              id: docSnap.id,
+              userId: data.userId,
+              fileName: data.fileName,
+              title: data.title,
+              description: data.description,
+              languageCode: data.languageCode,
+              status: data.status,
+              progress: data.progress,
+              uploadProgress: data.uploadProgress,
+              powerQualityDataUrl: data.powerQualityDataUrl,
+              powerQualityDataSummary: data.powerQualityDataSummary,
+              isDataChunked: data.isDataChunked,
+              identifiedRegulations: data.identifiedRegulations,
+              summary: data.summary,
+              complianceReport: data.complianceReport,
+              structuredReport: data.structuredReport,
+              mdxReportStoragePath: data.mdxReportStoragePath,
+              errorMessage: data.errorMessage,
+              tags: data.tags || [],
+              createdAt: data.createdAt.toDate().toISOString(),
+              completedAt: data.completedAt ? data.completedAt.toDate().toISOString() : undefined,
+            };
+            setCurrentAnalysis(fetchedAnalysis);
+            setExpandedAnalysisId(fetchedAnalysis.id);
+            setShowNewAnalysisForm(false);
+            await fetchPastAnalyses();
+            if (
+              fetchedAnalysis.status === 'summarizing_data' ||
+              fetchedAnalysis.status === 'identifying_regulations' ||
+              fetchedAnalysis.status === 'assessing_compliance' ||
+              fetchedAnalysis.status === 'reviewing_report'
+            ) {
+              await startAiProcessing(result.analysisId, user.uid);
+            }
+          } else {
+            console.error(
+              `[HomePage_handleUploadResult] Document ${result.analysisId} not found after upload.`
+            );
+            setCurrentAnalysis({
+              id: `error-fetch-${Date.now()}`,
+              userId: user.uid,
+              fileName: result.fileName || 'Desconhecido',
+              title: result.title || result.fileName || 'Desconhecido',
+              description: result.description || '',
+              languageCode: result.languageCode || navigator.language || 'pt-BR',
+              status: 'error',
+              progress: 0,
+              createdAt: new Date().toISOString(),
+              tags: [],
+              errorMessage: 'Falha ao buscar o documento da análise recém-criado após upload.',
+            });
+            setShowNewAnalysisForm(false);
+            setExpandedAnalysisId(`error-fetch-${Date.now()}`);
           }
-        } else {
-          console.error(`[HomePage_handleUploadResult] Document ${result.analysisId} not found after upload.`);
-           setCurrentAnalysis({
-            id: `error-fetch-${Date.now()}`, userId: user.uid, fileName: result.fileName || "Desconhecido",
-            title: result.title || result.fileName || "Desconhecido", description: result.description || "",
+        } catch (fetchError) {
+          console.error(
+            `[HomePage_handleUploadResult] Error fetching document ${result.analysisId}:`,
+            fetchError
+          );
+          setCurrentAnalysis({
+            id: `error-fetch-catch-${Date.now()}`,
+            userId: user.uid,
+            fileName: result.fileName || 'Desconhecido',
+            title: result.title || result.fileName || 'Desconhecido',
+            description: result.description || '',
             languageCode: result.languageCode || navigator.language || 'pt-BR',
-            status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
-            errorMessage: 'Falha ao buscar o documento da análise recém-criado após upload.'
-           });
-           setShowNewAnalysisForm(false); 
-           setExpandedAnalysisId(`error-fetch-${Date.now()}`);
+            status: 'error',
+            progress: 0,
+            createdAt: new Date().toISOString(),
+            tags: [],
+            errorMessage: 'Erro ao buscar detalhes da análise após upload.',
+          });
+          setShowNewAnalysisForm(false);
+          setExpandedAnalysisId(`error-fetch-catch-${Date.now()}`);
         }
-      } catch (fetchError) {
-        console.error(`[HomePage_handleUploadResult] Error fetching document ${result.analysisId}:`, fetchError);
-         setCurrentAnalysis({
-            id: `error-fetch-catch-${Date.now()}`, userId: user.uid, fileName: result.fileName || "Desconhecido",
-            title: result.title || result.fileName || "Desconhecido", description: result.description || "",
-            languageCode: result.languageCode || navigator.language || 'pt-BR',
-            status: 'error', progress: 0, createdAt: new Date().toISOString(), tags: [],
-            errorMessage: 'Erro ao buscar detalhes da análise após upload.'
-           });
-        setShowNewAnalysisForm(false);
-        setExpandedAnalysisId(`error-fetch-catch-${Date.now()}`);
-      }
-    } else if (result.error) {
-      const errorAnalysisId = result.analysisId || `error-upload-${Date.now()}`;
-      if (user && user.uid) {
-         setCurrentAnalysis({
+      } else if (result.error) {
+        const errorAnalysisId = result.analysisId || `error-upload-${Date.now()}`;
+        if (user && user.uid) {
+          setCurrentAnalysis({
             id: errorAnalysisId,
             userId: user.uid,
-            fileName: result.fileName || "Desconhecido",
-            title: result.title || result.fileName || "Desconhecido",
-            description: result.description || "",
+            fileName: result.fileName || 'Desconhecido',
+            title: result.title || result.fileName || 'Desconhecido',
+            description: result.description || '',
             languageCode: result.languageCode || navigator.language || 'pt-BR',
             status: 'error',
             progress: 0,
@@ -176,29 +214,32 @@ export default function HomePage() {
             errorMessage: result.error,
             tags: [],
             createdAt: new Date().toISOString(),
-        });
+          });
+        }
+        setShowNewAnalysisForm(false);
+        setExpandedAnalysisId(errorAnalysisId);
       }
-      setShowNewAnalysisForm(false); 
-      setExpandedAnalysisId(errorAnalysisId); 
-    }
-  }, [user, setCurrentAnalysis, startAiProcessing, uploadProgress, fetchPastAnalyses]);
+    },
+    [user, setCurrentAnalysis, startAiProcessing, uploadProgress, fetchPastAnalyses]
+  );
 
-
-  const handleStartUploadAndAnalyze = useCallback(async (title: string, description: string) => {
-    if (!user) {
-      router.replace('/login');
-      return;
-    }
-    const languageCode = navigator.language || 'pt-BR';
-    const result = await uploadFileAndCreateRecord(user, title, description, languageCode);
-    await handleUploadResult(result);
-  }, [user, uploadFileAndCreateRecord, handleUploadResult, router]);
-  
+  const handleStartUploadAndAnalyze = useCallback(
+    async (title: string, description: string) => {
+      if (!user) {
+        router.replace('/login');
+        return;
+      }
+      const languageCode = navigator.language || 'pt-BR';
+      const result = await uploadFileAndCreateRecord(user, title, description, languageCode);
+      await handleUploadResult(result);
+    },
+    [user, uploadFileAndCreateRecord, handleUploadResult, router]
+  );
 
   const handleToggleNewAnalysisForm = () => {
-    setShowNewAnalysisForm(prev => !prev);
+    setShowNewAnalysisForm((prev) => !prev);
     if (!showNewAnalysisForm) {
-      setExpandedAnalysisId(null); 
+      setExpandedAnalysisId(null);
       setCurrentAnalysis(null);
     }
   };
@@ -208,28 +249,27 @@ export default function HomePage() {
     setExpandedAnalysisId(null);
     setCurrentAnalysis(null);
     fetchPastAnalyses();
-  }
+  };
 
   const handleAccordionChange = (value: string | undefined) => {
     const newExpandedId = value || null;
     setExpandedAnalysisId(newExpandedId);
     if (newExpandedId) {
-      const analysisToExpand = pastAnalyses.find(a => a.id === newExpandedId);
+      const analysisToExpand = pastAnalyses.find((a) => a.id === newExpandedId);
       if (analysisToExpand) {
-        setCurrentAnalysis(analysisToExpand); 
+        setCurrentAnalysis(analysisToExpand);
       }
     } else {
       setCurrentAnalysis(null);
     }
-    if (showNewAnalysisForm) setShowNewAnalysisForm(false); 
-  };
-  
-  const afterDeleteAnalysis = () => {
-    fetchPastAnalyses(); 
-    setExpandedAnalysisId(null); 
-    setCurrentAnalysis(null);
+    if (showNewAnalysisForm) setShowNewAnalysisForm(false);
   };
 
+  const afterDeleteAnalysis = () => {
+    fetchPastAnalyses();
+    setExpandedAnalysisId(null);
+    setCurrentAnalysis(null);
+  };
 
   if (authLoading || (!user && !authLoading)) {
     return (
@@ -241,11 +281,11 @@ export default function HomePage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-secondary/50">
-      <AppHeader 
+      <AppHeader
         onStartNewAnalysis={handleToggleNewAnalysisForm}
         onNavigateToDashboard={handleNavigateToDashboard}
       />
-      <main className="flex-1 container mx-auto py-8 px-4">
+      <main className="container mx-auto flex-1 px-4 py-8">
         {showNewAnalysisForm ? (
           <NewAnalysisForm
             fileToUpload={fileToUpload}
@@ -259,43 +299,61 @@ export default function HomePage() {
         ) : (
           <Card className="shadow-xl">
             <CardHeader>
-              <CardTitle className="text-2xl font-headline text-primary">Suas Análises Anteriores</CardTitle>
-              <CardDescription>Veja o histórico de suas análises ou inicie uma nova no botão acima.</CardDescription>
+              <CardTitle className="text-2xl font-headline text-primary">
+                Suas Análises Anteriores
+              </CardTitle>
+              <CardDescription>
+                Veja o histórico de suas análises ou inicie uma nova no botão acima.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingPastAnalyses && <div className="flex justify-center py-8"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>}
+              {isLoadingPastAnalyses && (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                </div>
+              )}
               {!isLoadingPastAnalyses && pastAnalyses.length === 0 && (
-                <div className="text-center py-10 text-muted-foreground">
-                  <Inbox className="mx-auto h-12 w-12 mb-4" />
+                <div className="py-10 text-center text-muted-foreground">
+                  <Inbox className="mx-auto mb-4 h-12 w-12" />
                   <p className="text-lg">Nenhuma análise anterior encontrada.</p>
-                  <p>Clique em "Nova Análise" para começar.</p>
+                  <p>Clique em &quot;Nova Análise&quot; para começar.</p>
                 </div>
               )}
               {!isLoadingPastAnalyses && pastAnalyses.length > 0 && (
-                <Accordion 
-                  type="single" 
-                  collapsible 
-                  value={expandedAnalysisId || undefined} 
+                <Accordion
+                  type="single"
+                  collapsible
+                  value={expandedAnalysisId || undefined}
                   onValueChange={handleAccordionChange}
                   className="w-full"
                 >
                   {pastAnalyses.map((analysisItem) => (
-                    <AccordionItem value={analysisItem.id} key={analysisItem.id} className="border-b">
-                      <AccordionTrigger className="py-4 px-2 hover:bg-muted/50 w-full text-left">
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full">
-                          <span className="font-medium text-base text-foreground truncate max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl">
+                    <AccordionItem
+                      value={analysisItem.id}
+                      key={analysisItem.id}
+                      className="border-b"
+                    >
+                      <AccordionTrigger className="w-full px-2 py-4 text-left hover:bg-muted/50">
+                        <div className="flex w-full flex-col md:flex-row md:items-center md:justify-between">
+                          <span className="max-w-[200px] truncate font-medium text-foreground sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl">
                             {analysisItem.title || analysisItem.fileName}
                           </span>
-                          <div className="flex flex-col md:flex-row md:items-center text-sm text-muted-foreground mt-1 md:mt-0 md:ml-4 space-y-1 md:space-y-0 md:space-x-3">
+                          <div className="mt-1 flex flex-col text-sm text-muted-foreground md:mt-0 md:ml-4 md:flex-row md:items-center md:space-x-3 md:space-y-0">
                             <span>
-                              {analysisItem.createdAt ? format(new Date(analysisItem.createdAt as string), "dd/MM/yy HH:mm", { locale: ptBR }) : 'Data N/A'}
+                              {analysisItem.createdAt
+                                ? format(
+                                    new Date(analysisItem.createdAt as string),
+                                    'dd/MM/yy HH:mm',
+                                    { locale: ptBR }
+                                  )
+                                : 'Data N/A'}
                             </span>
-                            <Badge 
+                            <Badge
                               variant={getStatusBadgeVariant(analysisItem.status)}
                               className={`
-                                ${analysisItem.status === 'completed' ? 'bg-green-600 text-white' : ''} 
-                                ${analysisItem.status === 'error' ? 'bg-red-600 text-white' : ''} 
-                                ${analysisItem.status === 'cancelled' ? 'bg-yellow-500 text-white' : ''} 
+                                ${analysisItem.status === 'completed' ? 'bg-green-600 text-white' : ''}
+                                ${analysisItem.status === 'error' ? 'bg-red-600 text-white' : ''}
+                                ${analysisItem.status === 'cancelled' ? 'bg-yellow-500 text-white' : ''}
                                 ${analysisItem.status === 'cancelling' ? 'bg-yellow-400 text-yellow-900' : ''}
                                 ${analysisItem.status === 'reviewing_report' ? 'bg-blue-500 text-white' : ''}
                               `}
@@ -305,29 +363,44 @@ export default function HomePage() {
                           </div>
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent className="p-4 bg-background">
-                        {expandedAnalysisId === analysisItem.id && currentAnalysis && currentAnalysis.id === analysisItem.id ? (
+                      <AccordionContent className="bg-background p-4">
+                        {expandedAnalysisId === analysisItem.id &&
+                        currentAnalysis &&
+                        currentAnalysis.id === analysisItem.id ? (
                           <AnalysisView
-                            analysis={currentAnalysis} 
+                            analysis={currentAnalysis}
                             analysisSteps={displayedAnalysisSteps}
-                            onDownloadReport={() => downloadReportAsTxt(currentAnalysis)} 
+                            onDownloadReport={() => downloadReportAsTxt(currentAnalysis)}
                             tagInput={tagInput}
                             onTagInputChange={setTagInput}
                             onAddTag={(tag) => handleAddTag(currentAnalysis.id, tag)}
                             onRemoveTag={(tag) => handleRemoveTag(currentAnalysis.id, tag)}
-                            onDeleteAnalysis={() => handleDeleteAnalysis(currentAnalysis.id, afterDeleteAnalysis)}
+                            onDeleteAnalysis={() =>
+                              handleDeleteAnalysis(currentAnalysis.id, afterDeleteAnalysis)
+                            }
                             onCancelAnalysis={() => handleCancelAnalysis(currentAnalysis.id)}
                           />
-                        ) : expandedAnalysisId === analysisItem.id && analysisItem.status === 'error' && analysisItem.id.startsWith('error-') ? (
-                           <div className="p-4 bg-destructive/10 rounded-md border border-destructive">
-                            <h3 className="text-xl font-semibold mb-2 text-destructive flex items-center">
-                              <AlertTriangle className="mr-2" />Ocorreu um Erro
+                        ) : expandedAnalysisId === analysisItem.id &&
+                          analysisItem.status === 'error' &&
+                          analysisItem.id.startsWith('error-') ? (
+                          <div className="rounded-md border border-destructive bg-destructive/10 p-4">
+                            <h3 className="mb-2 flex items-center text-xl font-semibold text-destructive">
+                              <AlertTriangle className="mr-2" />
+                              Ocorreu um Erro
                             </h3>
-                            <p className="text-destructive-foreground">Não foi possível carregar ou processar esta análise.</p>
-                            <p className="text-sm mt-1"><strong>Detalhes:</strong> {analysisItem.errorMessage || 'Erro desconhecido.'}</p>
+                            <p className="text-destructive-foreground">
+                              Não foi possível carregar ou processar esta análise.
+                            </p>
+                            <p className="mt-1 text-sm">
+                              <strong>Detalhes:</strong>{' '}
+                              {analysisItem.errorMessage || 'Erro desconhecido.'}
+                            </p>
                           </div>
                         ) : expandedAnalysisId === analysisItem.id ? (
-                          <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /> Carregando detalhes...</div>
+                          <div className="flex justify-center py-4">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary" /> Carregando
+                            detalhes...
+                          </div>
                         ) : null}
                       </AccordionContent>
                     </AccordionItem>
@@ -338,12 +411,17 @@ export default function HomePage() {
           </Card>
         )}
       </main>
-      <footer className="py-6 text-center text-sm text-muted-foreground border-t border-border/50 bg-muted/20">
-        © {new Date().getFullYear()} EMA - Electric Magnitudes Analizer. Todos os direitos reservados.
+      <footer className="border-t border-border/50 bg-muted/20 py-6 text-center text-sm text-muted-foreground">
+        © {new Date().getFullYear()} EMA - Electric Magnitudes Analizer. Todos os direitos
+        reservados.
         <div className="mt-1">
-          <Link href="/privacy-policy" className="hover:underline">Política de Privacidade</Link>
+          <Link href="/privacy-policy" className="hover:underline">
+            Política de Privacidade
+          </Link>
           {' | '}
-          <Link href="/terms-of-service" className="hover:underline">Termos de Serviço</Link>
+          <Link href="/terms-of-service" className="hover:underline">
+            Termos de Serviço
+          </Link>
         </div>
       </footer>
     </div>

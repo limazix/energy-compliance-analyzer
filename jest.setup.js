@@ -8,19 +8,10 @@ import { Timestamp } from 'firebase/firestore';
 import React from 'react'; // Import React for createElement
 import { act } from '@testing-library/react';
 
-// --- Mock Firebase Env Vars for Jest ---
-process.env.NEXT_PUBLIC_FIREBASE_CONFIG = JSON.stringify({
-  apiKey: 'test-api-key',
-  authDomain: 'test-project.firebaseapp.com',
-  projectId: 'test-project',
-  storageBucket: 'test-project.appspot.com',
-  messagingSenderId: '1234567890',
-  appId: 'test-app-id',
-  measurementId: 'test-measurement-id',
-  databaseURL: 'https://test-project-default-rtdb.firebaseio.com',
-});
-process.env.NEXT_PUBLIC_GEMINI_API_KEY = 'test-gemini-api-key';
-// --- End Mock Firebase Env Vars ---
+// --- Firebase Env Vars are NOT mocked here. ---
+// They should be provided by your local .env.test (or similar mechanism)
+// or by CI environment variables.
+// src/lib/firebase.ts will throw an error if NEXT_PUBLIC_FIREBASE_CONFIG is not set.
 
 // --- Firebase Auth Mock ---
 // These variables are module-scoped within this mock's closure.
@@ -71,6 +62,12 @@ jest.mock('firebase/auth', () => {
 // --- End Firebase Auth Mock ---
 
 // --- Firebase Storage Mock ---
+/**
+ * @fileoverview Mock for the 'firebase/storage' module.
+ * This mock simulates the behavior of Firebase Storage functions like
+ * ref, uploadBytesResumable, and getDownloadURL for Jest tests.
+ * It includes a mock UploadTask that can simulate progress and completion.
+ */
 jest.mock('firebase/storage', () => {
   const actualStorage = jest.requireActual('firebase/storage');
 
@@ -84,7 +81,7 @@ jest.mock('firebase/storage', () => {
             bytesTransferred: 0,
             totalBytes: 100,
             state: 'running',
-            ref: mockUploadTask.snapshot.ref,
+            ref: mockUploadTask.snapshot.ref, // Provide the ref here
           })
         );
         act(() =>
@@ -111,38 +108,42 @@ jest.mock('firebase/storage', () => {
       return jest.fn(); // Return an unsubscribe function
     }),
     snapshot: {
-      ref: { toString: () => 'gs://fake-bucket/mock/path/to/file.csv', name: 'file.csv' },
+      ref: { toString: () => 'gs://fake-bucket/mock/path/to/file.csv', name: 'file.csv' }, // Mock ref
       bytesTransferred: 100,
       totalBytes: 100,
-      state: 'success',
-      metadata: { fullPath: 'mock/path/to/file.csv' },
-      task: null, // Filled by actual UploadTask
+      state: 'success', // Default to success
+      metadata: { fullPath: 'mock/path/to/file.csv' }, // Mock metadata
+      task: null, // Filled by actual UploadTask, can be null for mock
     },
     pause: jest.fn(),
     resume: jest.fn(),
     cancel: jest.fn(),
     then: jest.fn((onFulfilled, _onRejected) =>
+      // Simulate successful completion for promise resolution
       Promise.resolve(onFulfilled(mockUploadTask.snapshot))
     ),
-    catch: jest.fn((_onRejected) => Promise.resolve()),
+    catch: jest.fn((_onRejected) => Promise.resolve()), // Simulate no error for catch by default
   };
 
+  // Mock for storage.ref()
   const refMock = jest.fn((_storageInstance, path) => ({
     toString: () => `gs://fake-bucket/${path || 'undefined_path'}`,
     bucket: 'fake-bucket',
     fullPath: path || 'undefined_path',
     name: path ? path.substring(path.lastIndexOf('/') + 1) : 'undefined_filename',
-    parent: null,
-    root: null,
+    parent: null, // Simplified mock
+    root: null, // Simplified mock
   }));
 
+  // Mock for getDownloadURL()
   const getDownloadURLMock = jest.fn((ref) =>
     Promise.resolve(`https://fake.storage.googleapis.com/${ref.bucket}/${ref.fullPath}`)
   );
-  const uploadBytesResumableMock = jest.fn(() => mockUploadTask);
+  // Mock for uploadBytesResumable()
+  const uploadBytesResumableMock = jest.fn(() => mockUploadTask); // Return our mockUploadTask
 
   const mockModule = {
-    ...actualStorage,
+    ...actualStorage, // Spread actual module to get non-mocked parts
     ref: refMock,
     uploadBytesResumable: uploadBytesResumableMock,
     getDownloadURL: getDownloadURLMock,
@@ -150,13 +151,47 @@ jest.mock('firebase/storage', () => {
     __mockRef: refMock,
     __mockUploadBytesResumable: uploadBytesResumableMock,
     __mockGetDownloadURL: getDownloadURLMock,
-    __mockUploadTask_on: mockUploadTask.on,
-    __mockUploadTask_snapshot: mockUploadTask.snapshot,
+    __mockUploadTask_on: mockUploadTask.on, // Expose .on from the task
+    __mockUploadTask_snapshot: mockUploadTask.snapshot, // Expose snapshot
   };
 
   return mockModule;
 });
 // --- End Firebase Storage Mock ---
+
+// --- Firebase Functions Mock ---
+/**
+ * @fileoverview Mock for the 'firebase/functions' module.
+ * This mock simulates `getFunctions` and `httpsCallable` to allow testing
+ * of Server Actions that invoke HTTPS Callable Firebase Functions.
+ * Individual callable functions can be mocked by name.
+ */
+const mockHttpsCallable = jest.fn(); // This will store mocks keyed by function name
+jest.mock('firebase/functions', () => {
+  const actualFunctions = jest.requireActual('firebase/functions');
+  return {
+    ...actualFunctions,
+    getFunctions: jest.fn(() => ({
+      // Mock the FirebaseFunctions instance if needed for connectFunctionsEmulator
+      // For now, a simple object suffices as connectFunctionsEmulator is also mocked.
+    })),
+    httpsCallable: jest.fn((functionsInstance, functionName) => {
+      // Store the mock function per functionName to allow specific mock implementations
+      if (!mockHttpsCallable[functionName]) {
+        // Default mock if a specific one isn't set up by a test
+        mockHttpsCallable[functionName] = jest.fn(() =>
+          Promise.resolve({ data: { success: true, message: `Default mock for ${functionName}` } })
+        );
+      }
+      // Return the specific mock for this function name
+      return mockHttpsCallable[functionName];
+    }),
+    connectFunctionsEmulator: jest.fn(), // Mock connectFunctionsEmulator
+    // Expose the generic mock store for manipulation in tests if needed for all callables
+    __mockHttpsCallableGlobal: mockHttpsCallable,
+  };
+});
+// --- End Firebase Functions Mock ---
 
 // Mock Next.js router
 const mockRouterPush = jest.fn();
@@ -226,6 +261,9 @@ jest.mock('remark-gfm', () => jest.fn());
 jest.mock('remark-mermaidjs', () => jest.fn());
 
 // Server Actions Mocks
+// These will now use the __mockHttpsCallableGlobal or specific function mocks.
+const { __mockHttpsCallableGlobal: mockCallable } = jest.requireMock('firebase/functions');
+
 jest.mock('@/features/analysis-listing/actions/analysisListingActions', () => ({
   getPastAnalysesAction: jest.fn(() => Promise.resolve([])),
 }));
@@ -238,14 +276,42 @@ jest.mock('@/features/analysis-processing/actions/analysisProcessingActions', ()
     Promise.resolve({ success: true, analysisId: 'mock-analysis-id' })
   ),
 }));
-jest.mock('@/features/file-upload/actions/fileUploadActions', () => ({
-  createInitialAnalysisRecordAction: jest.fn((userId, fileName, title, description, lang) =>
-    Promise.resolve({ analysisId: `mock-analysis-id-for-${fileName}` })
-  ),
-  updateAnalysisUploadProgressAction: jest.fn(() => Promise.resolve({ success: true })),
-  finalizeFileUploadRecordAction: jest.fn(() => Promise.resolve({ success: true })),
-  markUploadAsFailedAction: jest.fn(() => Promise.resolve({ success: true })),
-}));
+
+// For fileUploadActions, their mocks will now reflect calling the httpsCallable mocks
+jest.mock('@/features/file-upload/actions/fileUploadActions', () => {
+  // Ensure the mock is set up before fileUploadActions is imported by tests
+  const { __mockHttpsCallableGlobal: callableMockFn } = jest.requireMock('firebase/functions'); // Corrected variable name
+
+  // Default mock for 'httpsCreateInitialAnalysisRecord'
+  if (!callableMockFn.httpsCreateInitialAnalysisRecord) {
+    callableMockFn.httpsCreateInitialAnalysisRecord = jest.fn();
+  }
+  callableMockFn.httpsCreateInitialAnalysisRecord.mockImplementation((data) =>
+    Promise.resolve({ data: { analysisId: `mock-analysis-id-for-${data.fileName}` } })
+  );
+
+  // Default mock for 'httpsUpdateAnalysisUploadProgress'
+  if (!callableMockFn.httpsUpdateAnalysisUploadProgress) {
+    callableMockFn.httpsUpdateAnalysisUploadProgress = jest.fn();
+  }
+  callableMockFn.httpsUpdateAnalysisUploadProgress.mockResolvedValue({ data: { success: true } });
+
+  // Default mock for 'httpsFinalizeFileUploadRecord'
+  if (!callableMockFn.httpsFinalizeFileUploadRecord) {
+    callableMockFn.httpsFinalizeFileUploadRecord = jest.fn();
+  }
+  callableMockFn.httpsFinalizeFileUploadRecord.mockResolvedValue({ data: { success: true } });
+
+  // Default mock for 'httpsMarkUploadAsFailed'
+  if (!callableMockFn.httpsMarkUploadAsFailed) {
+    callableMockFn.httpsMarkUploadAsFailed = jest.fn();
+  }
+  callableMockFn.httpsMarkUploadAsFailed.mockResolvedValue({ data: { success: true } });
+
+  // Now, return the actual module, which will use the mocked httpsCallable
+  return jest.requireActual('@/features/file-upload/actions/fileUploadActions');
+});
+
 jest.mock('@/features/report-chat/actions/reportChatActions', () => ({
   askReportOrchestratorAction: jest.fn(() =>
     Promise.resolve({ success: true, aiMessageRtdbKey: 'mock-ai-key' })
@@ -267,6 +333,12 @@ jest.mock('@/features/tag-management/actions/tagActions', () => ({
 }));
 
 // Mock useAnalysisManager
+/**
+ * @global
+ * @type {object}
+ * @description Global mock return value for the useAnalysisManager hook.
+ * Tests can modify this object to control the hook's output.
+ */
 global.mockUseAnalysisManagerReturnValue = {
   currentAnalysis: null,
   setCurrentAnalysis: jest.fn((newAnalysis) => {
@@ -296,13 +368,17 @@ jest.mock('@/hooks/useAnalysisManager', () => {
   return {
     ...actualHookModule,
     useAnalysisManager: jest.fn(() => {
-      // Return a new object (shallow copy) each time to better mimic React's re-render on hook output change
       return { ...global.mockUseAnalysisManagerReturnValue };
     }),
   };
 });
 
 // Mock useFileUploadManager
+/**
+ * @global
+ * @type {object}
+ * @description Global mock return value for the useFileUploadManager hook.
+ */
 const mockUploadFileAndCreateRecord = jest.fn(() =>
   Promise.resolve({ analysisId: 'mock-analysis-upload-id', fileName: 'mock-file.csv', error: null })
 );
@@ -315,12 +391,12 @@ global.mockUseFileUploadManagerReturnValue = {
   uploadFileAndCreateRecord: mockUploadFileAndCreateRecord,
 };
 jest.mock('@/features/file-upload/hooks/useFileUploadManager', () => ({
-  useFileUploadManager: jest.fn(() => ({ ...global.mockUseFileUploadManagerReturnValue })), // Also return a shallow copy
+  useFileUploadManager: jest.fn(() => ({ ...global.mockUseFileUploadManagerReturnValue })),
 }));
 
 global.Timestamp = Timestamp;
 
-// JSDOM API Mocks for Radix UI and other libraries
+// JSDOM API Mocks
 global.ResizeObserver = jest.fn().mockImplementation(() => ({
   observe: jest.fn(),
   unobserve: jest.fn(),
@@ -331,8 +407,8 @@ window.matchMedia = jest.fn().mockImplementation((query) => ({
   matches: false,
   media: query,
   onchange: null,
-  addListener: jest.fn(), // deprecated
-  removeListener: jest.fn(), // deprecated
+  addListener: jest.fn(),
+  removeListener: jest.fn(),
   addEventListener: jest.fn(),
   removeEventListener: jest.fn(),
   dispatchEvent: jest.fn(),
@@ -340,11 +416,10 @@ window.matchMedia = jest.fn().mockImplementation((query) => ({
 
 global.requestAnimationFrame = jest.fn((cb) => {
   if (typeof cb === 'function') cb(0);
-  return 0; // return a number
+  return 0;
 });
 global.cancelAnimationFrame = jest.fn();
 
-// Mock PointerEvent for Radix UI in JSDOM
 if (typeof window !== 'undefined' && !window.PointerEvent) {
   class PointerEvent extends MouseEvent {
     constructor(type, params = {}) {
@@ -364,7 +439,6 @@ if (typeof window !== 'undefined' && !window.PointerEvent) {
   window.PointerEvent = PointerEvent;
 }
 
-// To deal with "Could not parse CSS stylesheet" from Radix UI in tests
 if (typeof window !== 'undefined') {
   const originalGetComputedStyle = window.getComputedStyle;
   window.getComputedStyle = (elt, pseudoElt) => {
@@ -377,7 +451,6 @@ if (typeof window !== 'undefined') {
     } catch (e) {
       // console.warn(`Original getComputedStyle failed for ${elt.tagName}: ${e.message}. Using fallback.`);
     }
-
     const properties = {
       display: 'block',
       opacity: '1',
@@ -393,7 +466,6 @@ if (typeof window !== 'undefined') {
       border: '0px none rgb(0, 0, 0)',
       overflow: 'visible',
     };
-
     const mockStyle = {
       ...properties,
       getPropertyValue: (propertyName) => {
@@ -415,19 +487,16 @@ if (typeof window !== 'undefined') {
         return oldValue || '';
       },
     };
-
     for (let i = 0; i < mockStyle.length; i++) {
       const key = mockStyle.item(i);
       if (key) {
         mockStyle[i] = key;
       }
     }
-
     return mockStyle;
   };
 }
 
-// Mock for document.createRange, sometimes needed by positioning libraries
 if (typeof document.createRange === 'undefined') {
   global.document.createRange = () => {
     const range = new Range();
@@ -450,7 +519,6 @@ if (typeof document.createRange === 'undefined') {
   };
 }
 
-// Mock requestIdleCallback for Next.js Link prefetching
 if (typeof window !== 'undefined') {
   window.requestIdleCallback =
     window.requestIdleCallback ||
@@ -465,7 +533,6 @@ if (typeof window !== 'undefined') {
         });
       }, 1);
     };
-
   window.cancelIdleCallback =
     window.cancelIdleCallback ||
     function (id) {
@@ -473,13 +540,11 @@ if (typeof window !== 'undefined') {
     };
 }
 
-// Clear all mocks before each test
 beforeEach(() => {
   mockRouterPush.mockClear();
   mockRouterReplace.mockClear();
   mockToastFn.mockClear();
 
-  // Reset global useAnalysisManager mock state
   act(() => {
     global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
     global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
@@ -507,7 +572,6 @@ beforeEach(() => {
     .mockResolvedValue(undefined);
   global.mockUseAnalysisManagerReturnValue.downloadReportAsTxt.mockClear();
 
-  // Reset global useFileUploadManager mock state
   act(() => {
     global.mockUseFileUploadManagerReturnValue.fileToUpload = null;
     global.mockUseFileUploadManagerReturnValue.isUploading = false;
@@ -523,17 +587,10 @@ beforeEach(() => {
       error: null,
     });
 
-  // Reset server action mocks
   jest
     .requireMock('@/features/analysis-listing/actions/analysisListingActions')
     .getPastAnalysesAction.mockClear()
     .mockResolvedValue([]);
-  jest
-    .requireMock('@/features/file-upload/actions/fileUploadActions')
-    .createInitialAnalysisRecordAction.mockClear()
-    .mockImplementation((userId, fileName) =>
-      Promise.resolve({ analysisId: `mock-analysis-id-for-${fileName}` })
-    );
   jest
     .requireMock('@/features/report-viewing/actions/reportViewingActions')
     .getAnalysisReportAction.mockClear()
@@ -568,8 +625,26 @@ beforeEach(() => {
     .removeTagAction.mockClear()
     .mockResolvedValue(undefined);
 
-  // This ensures each test starts with a clean slate for what onAuthStateChanged reports
-  // by directly manipulating the module-scoped variables within the mock factory.
+  const { __mockHttpsCallableGlobal: callableMockClear } = jest.requireMock('firebase/functions');
+  if (callableMockClear.httpsCreateInitialAnalysisRecord)
+    callableMockClear.httpsCreateInitialAnalysisRecord
+      .mockClear()
+      .mockImplementation((data) =>
+        Promise.resolve({ data: { analysisId: `mock-analysis-id-for-${data.fileName}` } })
+      );
+  if (callableMockClear.httpsUpdateAnalysisUploadProgress)
+    callableMockClear.httpsUpdateAnalysisUploadProgress
+      .mockClear()
+      .mockResolvedValue({ data: { success: true } });
+  if (callableMockClear.httpsFinalizeFileUploadRecord)
+    callableMockClear.httpsFinalizeFileUploadRecord
+      .mockClear()
+      .mockResolvedValue({ data: { success: true } });
+  if (callableMockClear.httpsMarkUploadAsFailed)
+    callableMockClear.httpsMarkUploadAsFailed
+      .mockClear()
+      .mockResolvedValue({ data: { success: true } });
+
   mockFirebaseAuthUserForListener = null;
   if (authStateListenerCallback) {
     act(() => {
@@ -577,20 +652,18 @@ beforeEach(() => {
     });
   }
 
-  // Clear Firebase Storage mocks
   const storageMock = jest.requireMock('firebase/storage');
   if (storageMock.__mockRef) storageMock.__mockRef.mockClear();
   if (storageMock.__mockUploadBytesResumable)
     storageMock.__mockUploadBytesResumable
       .mockClear()
-      .mockReturnValue(storageMock.__mockUploadTask_on); // Ensure it returns the task mock
+      .mockReturnValue(storageMock.__mockUploadTask_on);
   if (storageMock.__mockGetDownloadURL)
     storageMock.__mockGetDownloadURL
       .mockClear()
       .mockResolvedValue('https://fake.storage.googleapis.com/mock/path/to/default.csv');
   if (storageMock.__mockUploadTask_on) storageMock.__mockUploadTask_on.mockClear();
 
-  // Clear the global console.error mock (if it was set up)
   if (typeof window !== 'undefined' && window.console.error?.mockClear) {
     window.console.error.mockClear();
   } else if (global.console.error?.mockClear) {
@@ -600,42 +673,24 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.clearAllMocks();
-  // Clean up authStateListenerCallback to prevent leaks between test files if AuthProvider isn't unmounted
   authStateListenerCallback = null;
 });
 
-// Helper to provide mock context for useAuth
 export const mockAuthContext = (user, loading = false) => {
   const useAuthActual = jest.requireActual('@/contexts/auth-context');
   jest.spyOn(useAuthActual, 'useAuth').mockReturnValue({ user, loading });
   return useAuthActual;
 };
 
-// --- Global Console Mocking for JSDOM environment ---
-// This ensures that `console.error` used by components is a Jest mock function.
+// --- Global Console Mocking ---
 if (typeof window !== 'undefined') {
-  // This check ensures we are in a JSDOM-like environment where 'window' is defined.
-  // console.log('Jest setup: Mocking window.console.error'); // For debugging
-  window.console = {
-    ...window.console, // Preserve other console methods like log, warn, info
-    error: jest.fn(), // Replace 'error' with a Jest mock function
-    // Optionally mock other console methods if they interfere with test output or assertions
-    // warn: jest.fn(),
-    // log: jest.fn(), // Be careful mocking log, it's used by test runners too
-  };
+  window.console = { ...window.console, error: jest.fn() };
 } else {
-  // Fallback for environments where 'window' might not be defined (e.g. pure Node for some tests)
-  // This branch is less likely to be hit for React component tests using JSDOM.
-  // console.log('Jest setup: Mocking global.console.error (window undefined)'); // For debugging
-  global.console = {
-    ...global.console,
-    error: jest.fn(),
-  };
+  global.console = { ...global.console, error: jest.fn() };
 }
 // --- End Global Console Mocking ---
 
 global.EMULATORS_CONNECTED = !!process.env.FIRESTORE_EMULATOR_HOST;
-
 console.log(`EMULATORS_CONNECTED: ${global.EMULATORS_CONNECTED}`);
 if (global.EMULATORS_CONNECTED) {
   console.log('Jest setup: Firebase SDKs should connect to emulators.');
