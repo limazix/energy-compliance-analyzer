@@ -1,36 +1,24 @@
-'use strict';
-Object.defineProperty(exports, '__esModule', { value: true });
-exports.summarizePowerQualityDataPromptConfig =
-  exports.SummarizePowerQualityDataOutputSchema =
-  exports.SummarizePowerQualityDataInputSchema =
-    void 0;
-const zod_1 = require('zod');
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.summarizePowerQualityDataPromptConfig = exports.SummarizePowerQualityDataOutputSchema = exports.SummarizePowerQualityDataInputSchema = void 0;
+const zod_1 = require("zod");
 exports.SummarizePowerQualityDataInputSchema = zod_1.z.object({
-  powerQualityDataCsv: zod_1.z
-    .string()
-    .describe(
-      'A CHUNK of power quality data in CSV format. This is one segment of a potentially larger dataset.'
-    ),
-  languageCode: zod_1.z
-    .string()
-    .optional()
-    .default('pt-BR')
-    .describe(
-      'The BCP-47 language code for the desired output language (e.g., "en-US", "pt-BR"). Defaults to "pt-BR" if not provided.'
-    ),
+    powerQualityDataCsv: zod_1.z
+        .string()
+        .describe('A CHUNK of power quality data in CSV format. This is one segment of a potentially larger dataset.'),
+    languageCode: zod_1.z.string().optional().default('pt-BR')
+        .describe('The BCP-47 language code for the desired output language (e.g., "en-US", "pt-BR"). Defaults to "pt-BR" if not provided.'),
 });
 exports.SummarizePowerQualityDataOutputSchema = zod_1.z.object({
-  dataSummary: zod_1.z
-    .string()
-    .describe(
-      'A comprehensive textual analysis of THIS SPECIFIC power quality data CHUNK, acting as a Senior Data Analyst. This output should be in the specified language and include: 1. Key metrics, statistics (min, max, avg), and significant anomalies/deviations. 2. Suggestions for data transformations or enrichments that would aid a detailed regulatory compliance review by an electrical engineer. 3. Preliminary ideas for graphics/visualizations based on this chunk. The summary must be factual, significantly smaller than the input, and ready for aggregation and further processing by specialized engineering agents.'
-    ),
+    dataSummary: zod_1.z
+        .string()
+        .describe('A comprehensive textual analysis of THIS SPECIFIC power quality data CHUNK, acting as a Senior Data Analyst. This output should be in the specified language and include: 1. Key metrics, statistics (min, max, avg), and significant anomalies/deviations. 2. Suggestions for data transformations or enrichments that would aid a detailed regulatory compliance review by an electrical engineer. 3. Preliminary ideas for graphics/visualizations based on this chunk. The summary must be factual, significantly smaller than the input, and ready for aggregation and further processing by specialized engineering agents.'),
 });
 exports.summarizePowerQualityDataPromptConfig = {
-  name: 'summarizePowerQualityDataChunkShared',
-  input: { schema: exports.SummarizePowerQualityDataInputSchema },
-  output: { schema: exports.SummarizePowerQualityDataOutputSchema },
-  prompt: `You are a Senior Data Analyst specializing in electrical power quality data from devices like PowerNET PQ-600 G4. You will be provided with a CHUNK of power quality data in CSV format. This is one segment of a potentially larger dataset.
+    name: 'summarizePowerQualityDataChunkShared',
+    input: { schema: exports.SummarizePowerQualityDataInputSchema },
+    output: { schema: exports.SummarizePowerQualityDataOutputSchema },
+    prompt: `You are a Senior Data Analyst specializing in electrical power quality data from devices like PowerNET PQ-600 G4. You will be provided with a CHUNK of power quality data in CSV format. This is one segment of a potentially larger dataset.
 Your task is to meticulously analyze THIS CHUNK and generate a comprehensive textual preparation report in the language specified by '{{languageCode}}' (default to Brazilian Portuguese if not specified or if the language is not well-supported for this technical domain).
 
 This preparation report for THIS CHUNK must include:

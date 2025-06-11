@@ -5,6 +5,8 @@
  * @fileOverview Cloud Function for processing energy analysis data.
  * This function is triggered by Firestore updates and uses Genkit AI flows
  * to analyze power quality data, identify regulations, and generate reports.
+ * Feature: Core Analysis
+ * Component: onUpdateTrigger (Firestore Event-Triggered)
  */
 
 const functions = require('firebase-functions');
@@ -12,19 +14,21 @@ const admin = require('firebase-admin');
 const { genkit } = require('genkit');
 const { googleAI } = require('@genkit-ai/googleai');
 
+// Adjusted paths for shared modules
 const {
   analyzeComplianceReportPromptConfig,
-} = require('../lib/shared/ai/prompt-configs/analyze-compliance-report-prompt-config.js');
+} = require('../../lib/shared/ai/prompt-configs/analyze-compliance-report-prompt-config.js');
 const {
   identifyAEEEResolutionsPromptConfig,
-} = require('../lib/shared/ai/prompt-configs/identify-aneel-resolutions-prompt-config.js');
+} = require('../../lib/shared/ai/prompt-configs/identify-aneel-resolutions-prompt-config.js');
 const {
   reviewComplianceReportPromptConfig,
-} = require('../lib/shared/ai/prompt-configs/review-compliance-report-prompt-config.js');
+} = require('../../lib/shared/ai/prompt-configs/review-compliance-report-prompt-config.js');
 const {
   summarizePowerQualityDataPromptConfig,
-} = require('../lib/shared/ai/prompt-configs/summarize-power-quality-data-prompt-config.js');
-const { convertStructuredReportToMdx } = require('../lib/shared/lib/reportUtils.js');
+} = require('../../lib/shared/ai/prompt-configs/summarize-power-quality-data-prompt-config.js');
+const { convertStructuredReportToMdx } = require('../../lib/shared/lib/reportUtils.js');
+const { getAdminFileContentFromStorage } = require('../utils/storage.js'); // Adjusted path
 
 // Initialize Firebase Admin SDK if not already done.
 if (admin.apps.length === 0) {
@@ -35,16 +39,16 @@ if (admin.apps.length === 0) {
 const firebaseRuntimeConfig = functions.config();
 const geminiApiKeyFromConfig =
   firebaseRuntimeConfig && firebaseRuntimeConfig.gemini
-    ? firebaseRuntimeConfig.gemini.api_key // Changed 'apikey' to 'api_key'
+    ? firebaseRuntimeConfig.gemini.api_key
     : undefined;
 
-// Determine Gemini API Key, prioritizing environment variables, then Firebase config, then Next.js public env var.
+// Determine Gemini API Key
 const geminiApiKey =
   process.env.GEMINI_API_KEY || geminiApiKeyFromConfig || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
 if (!geminiApiKey) {
   console.error(
-    'CRITICAL: GEMINI_API_KEY not found for Firebase Functions. Genkit AI calls WILL FAIL. Searched process.env.GEMINI_API_KEY, functions.config().gemini.api_key, and process.env.NEXT_PUBLIC_GEMINI_API_KEY.'
+    '[CoreAnalysis_OnUpdate] CRITICAL: GEMINI_API_KEY not found. Genkit AI calls WILL FAIL.'
   );
 }
 
@@ -65,7 +69,7 @@ const storageAdmin = admin.storage();
 const rtdbAdmin = admin.database();
 
 console.info(
-  '[Function_processAnalysis] Admin SDK for RTDB initialized, root URL (if configured for emulators/prod):',
+  '[CoreAnalysis_OnUpdate] Admin SDK for RTDB initialized, root URL (if configured for emulators/prod):',
   rtdbAdmin.ref().toString()
 );
 
@@ -94,31 +98,6 @@ const PROGRESS_FINAL_COMPLETE = 100;
 const MAX_ERROR_MSG_LENGTH = 1000;
 
 /**
- * Retrieves the content of a file from Firebase Storage.
- * @async
- * @param {string} filePath - The full path to the file in Firebase Storage.
- * @returns {Promise<string>} A promise that resolves with the file content as a UTF-8 string.
- * @throws {functions.https.HttpsError} If downloading the file fails.
- */
-async function getFileContentFromStorage(filePath) {
-  const bucketName = storageAdmin.bucket().name;
-  console.debug(`[Function_getFileContent] Reading from bucket: ${bucketName}, path: ${filePath}`);
-  const file = storageAdmin.bucket(bucketName).file(filePath);
-
-  try {
-    const [content] = await file.download();
-    return content.toString('utf-8');
-  } catch (error) {
-    console.error(`[Function_getFileContent] Error downloading file ${filePath}:`, error);
-    throw new functions.https.HttpsError(
-      'internal',
-      `Failed to download file from storage: ${filePath}`,
-      error
-    );
-  }
-}
-
-/**
  * Checks if an analysis has been requested for cancellation.
  * If cancellation is detected and status was 'cancelling', updates status to 'cancelled'.
  * @async
@@ -131,7 +110,7 @@ async function checkCancellation(analysisRef) {
     const data = currentSnap.data();
     if (data?.status === 'cancelling' || data?.status === 'cancelled') {
       console.info(
-        `[Function_checkCancellation] Cancellation detected for ${analysisRef.id}. Status: ${data.status}.`
+        `[CoreAnalysis_CheckCancellation] Cancellation detected for ${analysisRef.id}. Status: ${data.status}.`
       );
       if (data.status === 'cancelling') {
         await analysisRef.update({
@@ -166,13 +145,13 @@ exports.processAnalysisOnUpdate = functions
     const analysisRef = db.doc(`users/${userId}/analyses/${analysisId}`);
 
     console.info(
-      `[Function_processAnalysis] Triggered for analysisId: ${analysisId}, userId: ${userId}`
+      `[CoreAnalysis_OnUpdate] Triggered for analysisId: ${analysisId}, userId: ${userId}`
     );
     console.debug(
-      `[Function_processAnalysis] Status Before: ${analysisDataBefore?.status}, Status After: ${analysisDataAfter?.status}`
+      `[CoreAnalysis_OnUpdate] Status Before: ${analysisDataBefore?.status}, Status After: ${analysisDataAfter?.status}`
     );
     console.debug(
-      `[Function_processAnalysis] Progress Before: ${analysisDataBefore?.progress}, Progress After: ${analysisDataAfter?.progress}`
+      `[CoreAnalysis_OnUpdate] Progress Before: ${analysisDataBefore?.progress}, Progress After: ${analysisDataAfter?.progress}`
     );
 
     // Condition to check if the function should proceed based on status changes.
@@ -188,7 +167,7 @@ exports.processAnalysisOnUpdate = functions
         // Allow if progress is being made within summarizing_data (e.g., if function was restarted by Firebase)
       } else {
         console.info(
-          `[Function_processAnalysis] No action needed for status change from ${analysisDataBefore?.status} to ${analysisDataAfter?.status}. Exiting.`
+          `[CoreAnalysis_OnUpdate] No action needed for status change from ${analysisDataBefore?.status} to ${analysisDataAfter?.status}. Exiting.`
         );
         return null;
       }
@@ -200,10 +179,10 @@ exports.processAnalysisOnUpdate = functions
       analysisDataAfter?.status === 'summarizing_data'
     ) {
       console.info(
-        `[Function_processAnalysis] Analysis ${analysisId} was 'completed' but reset to 'summarizing_data'. Reprocessing allowed.`
+        `[CoreAnalysis_OnUpdate] Analysis ${analysisId} was 'completed' but reset to 'summarizing_data'. Reprocessing allowed.`
       );
     } else if (analysisDataBefore?.status === 'completed') {
-      console.info(`[Function_processAnalysis] Analysis ${analysisId} already completed. Exiting.`);
+      console.info(`[CoreAnalysis_OnUpdate] Analysis ${analysisId} already completed. Exiting.`);
       return null;
     }
 
@@ -215,7 +194,7 @@ exports.processAnalysisOnUpdate = functions
         )
       ) {
         console.info(
-          `[Function_processAnalysis] Analysis ${analysisId} was in a terminal state '${analysisDataBefore?.status}' and not reset from error. Exiting.`
+          `[CoreAnalysis_OnUpdate] Analysis ${analysisId} was in a terminal state '${analysisDataBefore?.status}' and not reset from error. Exiting.`
         );
         return null;
       }
@@ -237,11 +216,11 @@ exports.processAnalysisOnUpdate = functions
 
       if (await checkCancellation(analysisRef)) return null;
 
-      console.debug(`[Function_processAnalysis] Reading file: ${filePath}`);
+      console.debug(`[CoreAnalysis_OnUpdate] Reading file: ${filePath}`);
       await analysisRef.update({ progress: 5 }); // Initial progress update
-      const powerQualityDataCsv = await getFileContentFromStorage(filePath);
+      const powerQualityDataCsv = await getAdminFileContentFromStorage(filePath); // Use renamed utility
       console.debug(
-        `[Function_processAnalysis] File content read. Size: ${powerQualityDataCsv.length}.`
+        `[CoreAnalysis_OnUpdate] File content read. Size: ${powerQualityDataCsv.length}.`
       );
       await analysisRef.update({ progress: PROGRESS_FILE_READ });
 
@@ -269,18 +248,18 @@ exports.processAnalysisOnUpdate = functions
         if (await checkCancellation(analysisRef)) return null;
         const chunk = chunks[i];
         console.debug(
-          `[Function_processAnalysis] Summarizing ${analysisId}, chunk ${i + 1}/${chunks.length}.`
+          `[CoreAnalysis_OnUpdate] Summarizing ${analysisId}, chunk ${i + 1}/${chunks.length}.`
         );
 
         if (chunk.trim() === '') {
           console.warn(
-            `[Function_processAnalysis] Chunk ${i + 1} for ${analysisId} is empty. Skipping.`
+            `[CoreAnalysis_OnUpdate] Chunk ${i + 1} for ${analysisId} is empty. Skipping.`
           );
         } else {
           const summarizeInput = { powerQualityDataCsv: chunk, languageCode };
           const { output } = await summarizeDataChunkFlow(summarizeInput);
           if (!output?.dataSummary) throw new Error(`AI failed to summarize chunk ${i + 1}.`);
-          aggregatedSummary += (output.dataSummary || '') + '\n\n';
+          aggregatedSummary += (output.dataSummary || '') + '\\n\\n';
         }
         const currentChunkProgress = (i + 1) / chunks.length;
         await analysisRef.update({
@@ -295,12 +274,12 @@ exports.processAnalysisOnUpdate = functions
         status: 'identifying_regulations',
         progress: PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE + PROGRESS_SUMMARIZATION_TOTAL_SPAN,
       });
-      console.info(`[Function_processAnalysis] Summarization complete for ${analysisId}.`);
+      console.info(`[CoreAnalysis_OnUpdate] Summarization complete for ${analysisId}.`);
 
       if (await checkCancellation(analysisRef)) return null;
 
       // Identify relevant regulations
-      console.debug(`[Function_processAnalysis] Identifying regulations for ${analysisId}.`);
+      console.debug(`[CoreAnalysis_OnUpdate] Identifying regulations for ${analysisId}.`);
       const identifyInput = { powerQualityDataSummary: finalPowerQualityDataSummary, languageCode };
       const { output: resolutionsOutput } = await identifyResolutionsFlow(identifyInput);
       if (!resolutionsOutput?.relevantResolutions)
@@ -311,12 +290,12 @@ exports.processAnalysisOnUpdate = functions
         status: 'assessing_compliance',
         progress: PROGRESS_IDENTIFY_REGULATIONS_COMPLETE,
       });
-      console.info(`[Function_processAnalysis] Regulations identified for ${analysisId}.`);
+      console.info(`[CoreAnalysis_OnUpdate] Regulations identified for ${analysisId}.`);
 
       if (await checkCancellation(analysisRef)) return null;
 
       // Generate initial compliance report
-      console.debug(`[Function_processAnalysis] Analyzing compliance for ${analysisId}.`);
+      console.debug(`[CoreAnalysis_OnUpdate] Analyzing compliance for ${analysisId}.`);
       const reportInput = {
         powerQualityDataSummary: finalPowerQualityDataSummary,
         identifiedRegulations: identifiedRegulations.join(', '),
@@ -332,13 +311,13 @@ exports.processAnalysisOnUpdate = functions
         progress: PROGRESS_ANALYZE_COMPLIANCE_COMPLETE,
       });
       console.info(
-        `[Function_processAnalysis] Initial compliance analysis complete for ${analysisId}. Report ready for review.`
+        `[CoreAnalysis_OnUpdate] Initial compliance analysis complete for ${analysisId}. Report ready for review.`
       );
 
       if (await checkCancellation(analysisRef)) return null;
 
       // Review the structured report
-      console.debug(`[Function_processAnalysis] Reviewing structured report for ${analysisId}.`);
+      console.debug(`[CoreAnalysis_OnUpdate] Reviewing structured report for ${analysisId}.`);
       const reviewInput = {
         structuredReportToReview: initialStructuredReport,
         languageCode: languageCode,
@@ -346,7 +325,7 @@ exports.processAnalysisOnUpdate = functions
       const { output: reviewedStructuredReport } = await reviewReportFlow(reviewInput);
       if (!reviewedStructuredReport) {
         console.warn(
-          `[Function_processAnalysis] AI review failed. Using pre-review report for ${analysisId}.`
+          `[CoreAnalysis_OnUpdate] AI review failed. Using pre-review report for ${analysisId}.`
         );
         await analysisRef.update({
           structuredReport: initialStructuredReport,
@@ -360,7 +339,7 @@ exports.processAnalysisOnUpdate = functions
           progress: PROGRESS_REVIEW_REPORT_COMPLETE,
         });
       }
-      console.info(`[Function_processAnalysis] Report review complete for ${analysisId}.`);
+      console.info(`[CoreAnalysis_OnUpdate] Report review complete for ${analysisId}.`);
 
       if (await checkCancellation(analysisRef)) return null;
 
@@ -382,9 +361,9 @@ exports.processAnalysisOnUpdate = functions
         completedAt: admin.firestore.FieldValue.serverTimestamp(),
         errorMessage: null,
       });
-      console.info(`[Function_processAnalysis] Analysis ${analysisId} completed successfully.`);
+      console.info(`[CoreAnalysis_OnUpdate] Analysis ${analysisId} completed successfully.`);
     } catch (error) {
-      console.error(`[Function_processAnalysis] Error processing analysis ${analysisId}:`, error);
+      console.error(`[CoreAnalysis_OnUpdate] Error processing analysis ${analysisId}:`, error);
       let errorMessage = 'Erro desconhecido no processamento em segundo plano.';
       // @ts-ignore - Check if error is a GenerativeAIError
       if (
@@ -416,14 +395,14 @@ exports.processAnalysisOnUpdate = functions
           if (data?.status !== 'cancelling' && data?.status !== 'cancelled') {
             await analysisRef.update({
               status: 'error',
-              errorMessage: `Falha (Function): ${errorMessage.substring(0, MAX_ERROR_MSG_LENGTH)}`,
+              errorMessage: `Falha (OnUpdate): ${errorMessage.substring(0, MAX_ERROR_MSG_LENGTH)}`,
               // Do not reset progress here, let it reflect where it failed.
             });
           }
         }
       } catch (updateError) {
         console.error(
-          `[Function_processAnalysis] CRITICAL: Failed to update Firestore with error state for ${analysisId}:`,
+          `[CoreAnalysis_OnUpdate] CRITICAL: Failed to update Firestore with error state for ${analysisId}:`,
           updateError
         );
       }

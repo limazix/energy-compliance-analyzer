@@ -47,3 +47,5 @@ firebase-debug.log
 firebase-emulator-data/
 *.firebase.*.log
 firestore-debug.log
+
+functions/lib/**

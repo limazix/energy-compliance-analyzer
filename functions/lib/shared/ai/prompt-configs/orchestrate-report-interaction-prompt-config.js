@@ -1,55 +1,25 @@
-'use strict';
-Object.defineProperty(exports, '__esModule', { value: true });
-exports.orchestrateReportInteractionPromptConfig =
-  exports.OrchestrateReportInteractionOutputSchema =
-  exports.OrchestrateReportInteractionInputSchema =
-    void 0;
-const zod_1 = require('zod');
-const analyze_compliance_report_prompt_config_1 = require('./analyze-compliance-report-prompt-config');
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.orchestrateReportInteractionPromptConfig = exports.OrchestrateReportInteractionOutputSchema = exports.OrchestrateReportInteractionInputSchema = void 0;
+const zod_1 = require("zod");
+const analyze_compliance_report_prompt_config_1 = require("./analyze-compliance-report-prompt-config");
 exports.OrchestrateReportInteractionInputSchema = zod_1.z.object({
-  userInputText: zod_1.z
-    .string()
-    .describe("The user's question or request regarding the compliance report."),
-  currentReportMdx: zod_1.z
-    .string()
-    .describe('The full MDX content of the current compliance report being viewed.'),
-  currentStructuredReport:
-    analyze_compliance_report_prompt_config_1.AnalyzeComplianceReportOutputSchema.describe(
-      'The current full structured (JSON) compliance report object.'
-    ),
-  analysisFileName: zod_1.z
-    .string()
-    .describe('The original filename of the analyzed data, for context.'),
-  powerQualityDataSummary: zod_1.z
-    .string()
-    .optional()
-    .describe(
-      'The aggregated summary of the power quality data that was used to generate the report. This provides deeper context if the user asks about data specifics.'
-    ),
-  languageCode: zod_1.z
-    .string()
-    .optional()
-    .default('pt-BR')
-    .describe(
-      "The BCP-47 language code for the conversation (e.g., 'en-US', 'pt-BR'). Defaults to 'pt-BR'."
-    ),
+    userInputText: zod_1.z.string().describe("The user's question or request regarding the compliance report."),
+    currentReportMdx: zod_1.z.string().describe("The full MDX content of the current compliance report being viewed."),
+    currentStructuredReport: analyze_compliance_report_prompt_config_1.AnalyzeComplianceReportOutputSchema.describe("The current full structured (JSON) compliance report object."),
+    analysisFileName: zod_1.z.string().describe("The original filename of the analyzed data, for context."),
+    powerQualityDataSummary: zod_1.z.string().optional().describe("The aggregated summary of the power quality data that was used to generate the report. This provides deeper context if the user asks about data specifics."),
+    languageCode: zod_1.z.string().optional().default('pt-BR').describe("The BCP-47 language code for the conversation (e.g., 'en-US', 'pt-BR'). Defaults to 'pt-BR'."),
 });
 exports.OrchestrateReportInteractionOutputSchema = zod_1.z.object({
-  aiResponseText: zod_1.z
-    .string()
-    .describe(
-      "The AI agent's textual response to the user's query. This could be an explanation, a clarification, or a suggestion for how the report could be changed."
-    ),
-  revisedStructuredReport:
-    analyze_compliance_report_prompt_config_1.AnalyzeComplianceReportOutputSchema.optional().describe(
-      "If the 'callRevisorTool' was successfully used and made changes, this field will contain the entire new structured report object. Otherwise, it will be absent."
-    ),
+    aiResponseText: zod_1.z.string().describe("The AI agent's textual response to the user's query. This could be an explanation, a clarification, or a suggestion for how the report could be changed."),
+    revisedStructuredReport: analyze_compliance_report_prompt_config_1.AnalyzeComplianceReportOutputSchema.optional().describe("If the 'callRevisorTool' was successfully used and made changes, this field will contain the entire new structured report object. Otherwise, it will be absent.")
 });
 exports.orchestrateReportInteractionPromptConfig = {
-  name: 'orchestrateReportInteractionShared',
-  input: { schema: exports.OrchestrateReportInteractionInputSchema },
-  output: { schema: exports.OrchestrateReportInteractionOutputSchema },
-  prompt: `
+    name: 'orchestrateReportInteractionShared',
+    input: { schema: exports.OrchestrateReportInteractionInputSchema },
+    output: { schema: exports.OrchestrateReportInteractionOutputSchema },
+    prompt: `
 Você é um Agente Orquestrador especialista em interagir com relatórios de conformidade de qualidade de energia elétrica e seus usuários.
 Seu objetivo é ajudar o usuário a entender, refinar ou obter mais detalhes sobre o relatório fornecido.
 O relatório está em formato MDX, mas as modificações estruturais (se solicitadas) devem ser feitas através da ferramenta 'callRevisorTool' no relatório JSON estruturado fornecido em 'currentStructuredReport'.

@@ -1,32 +1,20 @@
-'use strict';
-Object.defineProperty(exports, '__esModule', { value: true });
-exports.reviewComplianceReportPromptConfig =
-  exports.ReviewComplianceReportOutputSchema =
-  exports.ReviewComplianceReportInputSchema =
-    void 0;
-const zod_1 = require('zod');
-const analyze_compliance_report_prompt_config_1 = require('./analyze-compliance-report-prompt-config');
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.reviewComplianceReportPromptConfig = exports.ReviewComplianceReportOutputSchema = exports.ReviewComplianceReportInputSchema = void 0;
+const zod_1 = require("zod");
+const analyze_compliance_report_prompt_config_1 = require("./analyze-compliance-report-prompt-config");
 exports.ReviewComplianceReportInputSchema = zod_1.z.object({
-  structuredReportToReview:
-    analyze_compliance_report_prompt_config_1.AnalyzeComplianceReportOutputSchema.describe(
-      'The structured compliance report object that needs to be reviewed and refined.'
-    ),
-  languageCode: zod_1.z
-    .string()
-    .optional()
-    .default('pt-BR')
-    .describe(
-      'The BCP-47 language code in which the report is written and should be reviewed (e.g., "en-US", "pt-BR"). Defaults to "pt-BR".'
-    ),
+    structuredReportToReview: analyze_compliance_report_prompt_config_1.AnalyzeComplianceReportOutputSchema.describe("The structured compliance report object that needs to be reviewed and refined."),
+    languageCode: zod_1.z.string().optional().default('pt-BR')
+        .describe('The BCP-47 language code in which the report is written and should be reviewed (e.g., "en-US", "pt-BR"). Defaults to "pt-BR".'),
 });
 // The output is the same schema as the input, but representing the reviewed/refined report
-exports.ReviewComplianceReportOutputSchema =
-  analyze_compliance_report_prompt_config_1.AnalyzeComplianceReportOutputSchema;
+exports.ReviewComplianceReportOutputSchema = analyze_compliance_report_prompt_config_1.AnalyzeComplianceReportOutputSchema;
 exports.reviewComplianceReportPromptConfig = {
-  name: 'reviewComplianceReportShared',
-  input: { schema: exports.ReviewComplianceReportInputSchema },
-  output: { schema: exports.ReviewComplianceReportOutputSchema },
-  prompt: `
+    name: 'reviewComplianceReportShared',
+    input: { schema: exports.ReviewComplianceReportInputSchema },
+    output: { schema: exports.ReviewComplianceReportOutputSchema },
+    prompt: `
 Você é um Revisor especialista e meticuloso, com foco em documentos técnicos de engenharia elétrica e conformidade regulatória da ANEEL.
 Sua tarefa é revisar o relatório estruturado fornecido (em formato JSON) e retornar uma versão refinada do MESMO OBJETO JSON, aplicando as seguintes melhorias no idioma especificado por '{{languageCode}}':
 

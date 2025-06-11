@@ -4,6 +4,8 @@
 /**
  * @fileOverview HTTPS Callable Firebase Functions for tag management operations.
  * These functions handle adding and removing tags from analysis documents in Firestore.
+ * Feature: Tag Management (HTTPS Callable)
+ * Component: ManageTags
  */
 
 const functions = require('firebase-functions');
@@ -50,7 +52,7 @@ exports.httpsCallableAddTag = functions.https.onCall(async (data, context) => {
 
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = db.doc(analysisDocPath);
-  console.info(`[Func_httpsAddTag] Adding tag '${trimmedTag}' to ${analysisDocPath}.`);
+  console.info(`[TagManagement_AddTag] Adding tag '${trimmedTag}' to ${analysisDocPath}.`);
 
   try {
     const analysisSnap = await analysisRef.get();
@@ -60,15 +62,15 @@ exports.httpsCallableAddTag = functions.https.onCall(async (data, context) => {
     const currentTags = analysisSnap.data()?.tags || [];
     if (!currentTags.includes(trimmedTag)) {
       await analysisRef.update({ tags: admin.firestore.FieldValue.arrayUnion(trimmedTag) });
-      console.info(`[Func_httpsAddTag] Tag '${trimmedTag}' added to ${analysisId}.`);
+      console.info(`[TagManagement_AddTag] Tag '${trimmedTag}' added to ${analysisId}.`);
       return { success: true, message: `Tag "${trimmedTag}" adicionada.` };
     }
-    console.info(`[Func_httpsAddTag] Tag '${trimmedTag}' already exists on ${analysisId}.`);
+    console.info(`[TagManagement_AddTag] Tag '${trimmedTag}' already exists on ${analysisId}.`);
     return { success: true, message: `Tag "${trimmedTag}" já existe.` };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `[Func_httpsAddTag] Firestore error for ${analysisDocPath}: ${errorMessage}`,
+      `[TagManagement_AddTag] Firestore error for ${analysisDocPath}: ${errorMessage}`,
       error
     );
     if (error instanceof functions.https.HttpsError) throw error; // Re-throw HttpsError
@@ -108,7 +110,7 @@ exports.httpsCallableRemoveTag = functions.https.onCall(async (data, context) =>
   const analysisDocPath = `users/${userId}/analyses/${analysisId}`;
   const analysisRef = db.doc(analysisDocPath);
   console.info(
-    `[Func_httpsRemoveTag] Removing tag '${trimmedTagToRemove}' from ${analysisDocPath}.`
+    `[TagManagement_RemoveTag] Removing tag '${trimmedTagToRemove}' from ${analysisDocPath}.`
   );
 
   try {
@@ -118,12 +120,14 @@ exports.httpsCallableRemoveTag = functions.https.onCall(async (data, context) =>
     }
     // Firestore 'arrayRemove' can be used directly without checking if it exists
     await analysisRef.update({ tags: admin.firestore.FieldValue.arrayRemove(trimmedTagToRemove) });
-    console.info(`[Func_httpsRemoveTag] Tag '${trimmedTagToRemove}' removed from ${analysisId}.`);
+    console.info(
+      `[TagManagement_RemoveTag] Tag '${trimmedTagToRemove}' removed from ${analysisId}.`
+    );
     return { success: true, message: `Tag "${trimmedTagToRemove}" removida.` };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `[Func_httpsRemoveTag] Firestore error for ${analysisDocPath}: ${errorMessage}`,
+      `[TagManagement_RemoveTag] Firestore error for ${analysisDocPath}: ${errorMessage}`,
       error
     );
     if (error instanceof functions.https.HttpsError) throw error; // Re-throw HttpsError

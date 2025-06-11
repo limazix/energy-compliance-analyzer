@@ -4,6 +4,8 @@
 /**
  * @fileOverview Utility functions for Firebase Admin SDK to interact with Firebase Storage.
  * These are intended for use within Firebase Functions.
+ * Feature: Utils
+ * Component: Storage
  */
 
 const admin = require('firebase-admin');
@@ -24,20 +26,20 @@ const MAX_ERROR_MSG_LENGTH_STORAGE = 250;
  */
 async function getAdminFileContentFromStorage(filePath) {
   if (!filePath || typeof filePath !== 'string' || filePath.trim() === '') {
-    console.error('[AdminStorageUtils_getContent] Invalid filePath provided:', filePath);
+    console.error('[Utils_Storage_getContent] Invalid filePath provided:', filePath);
     throw new Error('File path is invalid or missing for storage read.');
   }
   const bucket = storageAdmin.bucket(); // Default bucket
   const file = bucket.file(filePath);
 
   console.debug(
-    `[AdminStorageUtils_getContent] Reading from bucket: ${bucket.name}, path: ${filePath}`
+    `[Utils_Storage_getContent] Reading from bucket: ${bucket.name}, path: ${filePath}`
   );
 
   try {
     const [exists] = await file.exists();
     if (!exists) {
-      console.warn(`[AdminStorageUtils_getContent] File does not exist at path: ${filePath}`);
+      console.warn(`[Utils_Storage_getContent] File does not exist at path: ${filePath}`);
       throw new Error(`File not found at path: ${filePath}`);
     }
     const [content] = await file.download();
@@ -45,7 +47,7 @@ async function getAdminFileContentFromStorage(filePath) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `[AdminStorageUtils_getContent] Error downloading file ${filePath}:`,
+      `[Utils_Storage_getContent] Error downloading file ${filePath}:`,
       errorMessage,
       error
     );
@@ -67,10 +69,7 @@ async function getAdminFileContentFromStorage(filePath) {
  */
 async function deleteAdminFileFromStorage(filePath) {
   if (!filePath || typeof filePath !== 'string' || filePath.trim() === '') {
-    console.warn(
-      '[AdminStorageUtils_deleteFile] Invalid filePath provided for deletion:',
-      filePath
-    );
+    console.warn('[Utils_Storage_deleteFile] Invalid filePath provided for deletion:', filePath);
     // Don't throw an error if the path is invalid, just log and return,
     // as the calling function might try to delete optional files.
     return;
@@ -79,21 +78,21 @@ async function deleteAdminFileFromStorage(filePath) {
   const file = bucket.file(filePath);
 
   console.info(
-    `[AdminStorageUtils_deleteFile] Attempting to delete file from bucket: ${bucket.name}, path: ${filePath}`
+    `[Utils_Storage_deleteFile] Attempting to delete file from bucket: ${bucket.name}, path: ${filePath}`
   );
 
   try {
     const [exists] = await file.exists();
     if (exists) {
       await file.delete();
-      console.info(`[AdminStorageUtils_deleteFile] File deleted successfully: ${filePath}`);
+      console.info(`[Utils_Storage_deleteFile] File deleted successfully: ${filePath}`);
     } else {
-      console.warn(`[AdminStorageUtils_deleteFile] File not found, cannot delete: ${filePath}`);
+      console.warn(`[Utils_Storage_deleteFile] File not found, cannot delete: ${filePath}`);
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `[AdminStorageUtils_deleteFile] Error deleting file ${filePath}:`,
+      `[Utils_Storage_deleteFile] Error deleting file ${filePath}:`,
       errorMessage,
       error
     );

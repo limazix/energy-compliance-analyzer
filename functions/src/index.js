@@ -3,10 +3,8 @@
 
 /**
  * @fileOverview Firebase Functions entry point.
- * Initializes Firebase Admin SDK and exports all cloud functions for deployment,
- * including event-triggered functions for analysis processing and HTTPS callable
- * functions for client-invoked operations like file upload management, report chat,
- * tag management, and other analysis operations.
+ * Initializes Firebase Admin SDK and exports all cloud functions for deployment.
+ * Functions are organized by feature into subdirectories.
  */
 
 const admin = require('firebase-admin');
@@ -16,95 +14,40 @@ if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-// Import event-triggered functions
-const { processAnalysisOnUpdate } = require('./processAnalysis');
+// --- Import and Export Event-Triggered Functions ---
+const coreAnalysisTriggers = require('./core-analysis/onUpdateTrigger');
+exports.processAnalysisOnUpdate = coreAnalysisTriggers.processAnalysisOnUpdate;
 
-// Import HTTPS callable functions
-const fileUploadHttpsFunctions = require('./fileUploadHttps');
-const reportChatHttpsFunctions = require('./reportChatHttps');
-const tagManagementHttpsFunctions = require('./tagManagementHttps');
-const analysisHttpsFunctions = require('./analysisHttps'); // New import for analysis operations
+// --- Import and Export HTTPS Callable Functions ---
 
-/**
- * Cloud Function triggered by Firestore document updates to process energy analysis data.
- * @see ./processAnalysis.js#processAnalysisOnUpdate for implementation details.
- */
-exports.processAnalysisOnUpdate = processAnalysisOnUpdate;
+// File Upload HTTP Functions
+const fileUploadCreateInitial = require('./file-upload-http/createInitial');
+const fileUploadUpdateProgress = require('./file-upload-http/updateUploadProgress');
+const fileUploadFinalize = require('./file-upload-http/finalizeUpload');
+const fileUploadMarkFailed = require('./file-upload-http/markUploadFailed');
 
-// --- Export HTTPS callable functions for file upload management ---
-/**
- * HTTPS Callable: Creates an initial record for an analysis in Firestore.
- * @see ./fileUploadHttps.js#httpsCreateInitialAnalysisRecord
- */
-exports.httpsCreateInitialAnalysisRecord =
-  fileUploadHttpsFunctions.httpsCreateInitialAnalysisRecord;
-
-/**
- * HTTPS Callable: Updates the upload progress of an analysis in Firestore.
- * @see ./fileUploadHttps.js#httpsUpdateAnalysisUploadProgress
- */
+exports.httpsCreateInitialAnalysisRecord = fileUploadCreateInitial.httpsCreateInitialAnalysisRecord;
 exports.httpsUpdateAnalysisUploadProgress =
-  fileUploadHttpsFunctions.httpsUpdateAnalysisUploadProgress;
+  fileUploadUpdateProgress.httpsUpdateAnalysisUploadProgress;
+exports.httpsFinalizeFileUploadRecord = fileUploadFinalize.httpsFinalizeFileUploadRecord;
+exports.httpsMarkUploadAsFailed = fileUploadMarkFailed.httpsMarkUploadAsFailed;
 
-/**
- * HTTPS Callable: Finalizes the file upload record in Firestore.
- * @see ./fileUploadHttps.js#httpsFinalizeFileUploadRecord
- */
-exports.httpsFinalizeFileUploadRecord = fileUploadHttpsFunctions.httpsFinalizeFileUploadRecord;
+// Report Chat HTTP Functions
+const reportChatOrchestrator = require('./report-chat-http/orchestrator');
+exports.httpsCallableAskOrchestrator = reportChatOrchestrator.httpsCallableAskOrchestrator;
 
-/**
- * HTTPS Callable: Marks an analysis upload as failed in Firestore.
- * @see ./fileUploadHttps.js#httpsMarkUploadAsFailed
- */
-exports.httpsMarkUploadAsFailed = fileUploadHttpsFunctions.httpsMarkUploadAsFailed;
+// Tag Management HTTP Functions
+const tagManagementFunctions = require('./tag-management-http/manageTags');
+exports.httpsCallableAddTag = tagManagementFunctions.httpsCallableAddTag;
+exports.httpsCallableRemoveTag = tagManagementFunctions.httpsCallableRemoveTag;
 
-// --- Export HTTPS callable function for report chat ---
-/**
- * HTTPS Callable: Orchestrates user interaction with a compliance report via chat.
- * @see ./reportChatHttps.js#httpsCallableAskOrchestrator
- */
-exports.httpsCallableAskOrchestrator = reportChatHttpsFunctions.httpsCallableAskOrchestrator;
+// Analysis Management & Retrieval HTTP Functions
+const analysisCrudHttp = require('./analysis-management/crudHttp');
+const analysisReportRetrievalHttp = require('./analysis-management/reportRetrievalHttp');
+const coreAnalysisTriggerHttp = require('./core-analysis/triggerProcessingHttp');
 
-// --- Export HTTPS callable functions for tag management ---
-/**
- * HTTPS Callable: Adds a tag to an analysis document.
- * @see ./tagManagementHttps.js#httpsCallableAddTag
- */
-exports.httpsCallableAddTag = tagManagementHttpsFunctions.httpsCallableAddTag;
-
-/**
- * HTTPS Callable: Removes a tag from an analysis document.
- * @see ./tagManagementHttps.js#httpsCallableRemoveTag
- */
-exports.httpsCallableRemoveTag = tagManagementHttpsFunctions.httpsCallableRemoveTag;
-
-// --- Export HTTPS callable functions for general analysis operations ---
-/**
- * HTTPS Callable: Fetches past analyses for a user.
- * @see ./analysisHttps.js#httpsCallableGetPastAnalyses
- */
-exports.httpsCallableGetPastAnalyses = analysisHttpsFunctions.httpsCallableGetPastAnalyses;
-
-/**
- * HTTPS Callable: Deletes an analysis document and its associated files.
- * @see ./analysisHttps.js#httpsCallableDeleteAnalysis
- */
-exports.httpsCallableDeleteAnalysis = analysisHttpsFunctions.httpsCallableDeleteAnalysis;
-
-/**
- * HTTPS Callable: Requests cancellation of an analysis.
- * @see ./analysisHttps.js#httpsCallableCancelAnalysis
- */
-exports.httpsCallableCancelAnalysis = analysisHttpsFunctions.httpsCallableCancelAnalysis;
-
-/**
- * HTTPS Callable: Triggers the processing of an analysis file by setting its status.
- * @see ./analysisHttps.js#httpsCallableTriggerProcessing
- */
-exports.httpsCallableTriggerProcessing = analysisHttpsFunctions.httpsCallableTriggerProcessing;
-
-/**
- * HTTPS Callable: Fetches analysis report data (MDX content and metadata).
- * @see ./analysisHttps.js#httpsCallableGetAnalysisReport
- */
-exports.httpsCallableGetAnalysisReport = analysisHttpsFunctions.httpsCallableGetAnalysisReport;
+exports.httpsCallableGetPastAnalyses = analysisCrudHttp.httpsCallableGetPastAnalyses;
+exports.httpsCallableDeleteAnalysis = analysisCrudHttp.httpsCallableDeleteAnalysis;
+exports.httpsCallableCancelAnalysis = analysisCrudHttp.httpsCallableCancelAnalysis;
+exports.httpsCallableGetAnalysisReport = analysisReportRetrievalHttp.httpsCallableGetAnalysisReport;
+exports.httpsCallableTriggerProcessing = coreAnalysisTriggerHttp.httpsCallableTriggerProcessing;

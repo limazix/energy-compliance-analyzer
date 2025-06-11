@@ -4,6 +4,8 @@
 /**
  * @fileOverview HTTPS Callable Firebase Function for orchestrating user interaction with compliance reports via chat.
  * This function handles Genkit AI flow execution for chat responses, including report revisions.
+ * Feature: Report Interaction (Chat)
+ * Component: Orchestrator (HTTPS Callable)
  */
 
 const functions = require('firebase-functions');
@@ -12,18 +14,18 @@ const { genkit, ZodString } = require('genkit'); // ZodString for simpler schema
 const { googleAI } = require('@genkit-ai/googleai');
 const { z } = require('zod'); // Full Zod for complex schemas
 
-// Import shared prompt configurations and utility functions
+// Adjusted paths for shared modules
 const {
   orchestrateReportInteractionPromptConfig,
   OrchestrateReportInteractionInputSchema,
   AnalyzeComplianceReportOutputSchema, // Used by the Revisor tool and overall interaction output
-} = require('../lib/shared/ai/prompt-configs/orchestrate-report-interaction-prompt-config.js');
+} = require('../../lib/shared/ai/prompt-configs/orchestrate-report-interaction-prompt-config.js');
 const {
   reviewComplianceReportPromptConfig,
   ReviewComplianceReportInputSchema,
   // ReviewComplianceReportOutputSchema is AnalyzeComplianceReportOutputSchema
-} = require('../lib/shared/ai/prompt-configs/review-compliance-report-prompt-config.js');
-const { convertStructuredReportToMdx } = require('../lib/shared/lib/reportUtils.js');
+} = require('../../lib/shared/ai/prompt-configs/review-compliance-report-prompt-config.js');
+const { convertStructuredReportToMdx } = require('../../lib/shared/lib/reportUtils.js');
 
 // Initialize Firebase Admin SDK if not already done (should be handled by index.js, but good practice).
 if (admin.apps.length === 0) {
@@ -34,18 +36,18 @@ const db = admin.firestore();
 const storageAdmin = admin.storage();
 const rtdbAdmin = admin.database();
 
-// Initialize Genkit (similar to processAnalysis.js)
+// Initialize Genkit
 const firebaseRuntimeConfig = functions.config();
 const geminiApiKeyFromConfig =
   firebaseRuntimeConfig && firebaseRuntimeConfig.gemini
-    ? firebaseRuntimeConfig.gemini.api_key // Changed 'apikey' to 'api_key'
+    ? firebaseRuntimeConfig.gemini.api_key
     : undefined;
 const geminiApiKey =
   process.env.GEMINI_API_KEY || geminiApiKeyFromConfig || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
 if (!geminiApiKey) {
   console.error(
-    '[Func_reportChatHttps] CRITICAL: GEMINI_API_KEY not found. Genkit AI calls WILL FAIL. Searched process.env.GEMINI_API_KEY, functions.config().gemini.api_key, and process.env.NEXT_PUBLIC_GEMINI_API_KEY.'
+    '[ReportChat_Orchestrator] CRITICAL: GEMINI_API_KEY not found. Genkit AI calls WILL FAIL.'
   );
 }
 const ai = genkit({
@@ -57,7 +59,7 @@ const ai = genkit({
 // Define the Revisor Flow (using the shared prompt config)
 const reviewComplianceReportFlow = ai.defineFlow(
   {
-    name: 'reviewComplianceReportFlow_Firebase', // Unique name for Firebase context
+    name: 'reviewComplianceReportFlow_Chat', // Unique name for this context
     inputSchema: ReviewComplianceReportInputSchema,
     outputSchema: AnalyzeComplianceReportOutputSchema, // Output is the revised full report
   },
@@ -65,40 +67,38 @@ const reviewComplianceReportFlow = ai.defineFlow(
     const reviewPrompt = ai.definePrompt(reviewComplianceReportPromptConfig);
     const { output } = await reviewPrompt(input);
     if (!output) {
-      throw new Error('AI failed to review and refine the compliance report (Firebase Function).');
+      throw new Error('AI failed to review and refine the compliance report (Chat Orchestrator).');
     }
     return output;
   }
 );
 
 // Define the Revisor Tool (using the shared schemas)
-const callRevisorTool_Firebase = ai.defineTool(
+const callRevisorTool_Chat = ai.defineTool(
   {
-    name: 'callRevisorTool_Firebase',
+    name: 'callRevisorTool_Chat',
     description:
       'Reviews and refines a given structured compliance report. Use this if the user asks for rephrasing, grammar checks, structural adjustments, or overall improvement of the report content. This tool will return the entire revised structured report.',
     inputSchema: z.object({
-      structuredReportToReview: AnalyzeComplianceReportOutputSchema, // Matches shared schema
+      structuredReportToReview: AnalyzeComplianceReportOutputSchema,
       languageCode: OrchestrateReportInteractionInputSchema.shape.languageCode,
     }),
     outputSchema: AnalyzeComplianceReportOutputSchema,
   },
   async (toolInput) => {
     if (!toolInput.structuredReportToReview) {
-      throw new Error('Structured report is required for the Revisor tool (Firebase Function).');
+      throw new Error('Structured report is required for the Revisor tool (Chat Orchestrator).');
     }
-    // Call the Revisor Flow defined above
     const revisedReport = await reviewComplianceReportFlow(toolInput);
     return revisedReport;
   }
 );
 
 // Define the Main Interaction Prompt (using shared config and the Firebase-defined tool)
-const interactionPrompt_Firebase = ai.definePrompt({
-  ...orchestrateReportInteractionPromptConfig, // Spread existing config
-  name: 'orchestrateReportInteractionPrompt_Firebase', // Unique name
-  tools: [callRevisorTool_Firebase], // Use the tool defined in this Firebase context
-  // Output schema remains OrchestrateReportInteractionOutputSchema from shared config
+const interactionPrompt_Chat = ai.definePrompt({
+  ...orchestrateReportInteractionPromptConfig,
+  name: 'orchestrateReportInteractionPrompt_Chat',
+  tools: [callRevisorTool_Chat],
 });
 
 // --- HTTPS Callable Function ---
@@ -111,12 +111,11 @@ const interactionPrompt_Firebase = ai.definePrompt({
  * @param {string} data.analysisId - The ID of the analysis being discussed.
  * @param {string} data.userInputText - The user's message.
  * @param {string} data.currentReportMdx - Current MDX content of the report.
- * @param {import('../lib/shared/ai/prompt-configs/analyze-compliance-report-prompt-config.js').AnalyzeComplianceReportOutput} data.currentStructuredReport - Current structured report.
+ * @param {import('../../lib/shared/ai/prompt-configs/analyze-compliance-report-prompt-config.js').AnalyzeComplianceReportOutput} data.currentStructuredReport - Current structured report.
  * @param {string} data.analysisFileName - Original filename of the analysis.
  * @param {string} data.languageCode - BCP-47 language code for the interaction.
  * @param {functions.https.CallableContext} context - The context of the call (contains auth).
- * @returns {Promise<{success: boolean, error?: string, aiMessageRtdbKey?: string, reportModified?: boolean, revisedStructuredReport?: import('../lib/shared/ai/prompt-configs/analyze-compliance-report-prompt-config.js').AnalyzeComplianceReportOutput, newMdxContent?: string}>}
- *          Result object indicating success, AI's message key in RTDB, and any report modifications.
+ * @returns {Promise<{success: boolean, error?: string, aiMessageRtdbKey?: string, reportModified?: boolean, revisedStructuredReport?: import('../../lib/shared/ai/prompt-configs/analyze-compliance-report-prompt-config.js').AnalyzeComplianceReportOutput, newMdxContent?: string}>}
  */
 exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, context) => {
   if (!context.auth || !context.auth.uid) {
@@ -127,7 +126,7 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
   }
   const callingUserId = context.auth.uid;
   const {
-    userId, // This should match context.auth.uid if passed from server action
+    userId,
     analysisId,
     userInputText,
     currentReportMdx,
@@ -136,7 +135,6 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
     languageCode,
   } = data;
 
-  // Validate inputs
   if (callingUserId !== userId) {
     throw new functions.https.HttpsError(
       'permission-denied',
@@ -151,13 +149,12 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
   }
 
   console.info(
-    `[Func_httpsAskOrch] User: ${userId}, Analysis: ${analysisId}. Query: "${userInputText.substring(0, 50)}..."`
+    `[ReportChat_Orchestrator] User: ${userId}, Analysis: ${analysisId}. Query: "${userInputText.substring(0, 50)}..."`
   );
 
   const analysisDocRef = db.collection('users').doc(userId).collection('analyses').doc(analysisId);
   const chatRootRef = rtdbAdmin.ref(`chats/${analysisId}`);
 
-  // 1. Save user message to RTDB
   const userMessageForRtdb = {
     sender: 'user',
     text: userInputText,
@@ -167,34 +164,30 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
     await rtdbAdmin.ref(`chats/${analysisId}`).push(userMessageForRtdb);
   } catch (dbError) {
     console.error(
-      `[Func_httpsAskOrch] Failed to push user message to RTDB for ${analysisId}:`,
+      `[ReportChat_Orchestrator] Failed to push user message to RTDB for ${analysisId}:`,
       dbError
     );
-    // Non-fatal for AI processing, but good to log.
   }
 
-  // 2. Create placeholder for AI message in RTDB and get its key
   const newAiMessageNode = await rtdbAdmin.ref(`chats/${analysisId}`).push();
   const aiMessageRtdbKey = newAiMessageNode.key;
   if (!aiMessageRtdbKey) {
-    console.error(`[Func_httpsAskOrch] Failed to generate RTDB key for AI message.`);
+    console.error(`[ReportChat_Orchestrator] Failed to generate RTDB key for AI message.`);
     throw new functions.https.HttpsError('internal', 'Falha ao gerar ID para mensagem da IA.');
   }
   await newAiMessageNode.set({
     sender: 'ai',
-    text: '', // Start with empty text, will be appended by chunks
+    text: '',
     timestamp: admin.database.ServerValue.TIMESTAMP,
   });
 
   try {
-    // 3. Fetch powerQualityDataSummary for context
     const analysisSnap = await analysisDocRef.get();
     let powerQualityDataSummary;
     if (analysisSnap.exists()) {
       powerQualityDataSummary = analysisSnap.data()?.powerQualityDataSummary;
     }
 
-    // 4. Prepare input for Genkit flow
     const orchestratorInput = {
       userInputText,
       currentReportMdx,
@@ -206,9 +199,9 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
     };
 
     console.debug(
-      `[Func_httpsAskOrch] Calling interactionPrompt_Firebase.generateStream for AI message key ${aiMessageRtdbKey}.`
+      `[ReportChat_Orchestrator] Calling interactionPrompt_Chat.generateStream for AI message key ${aiMessageRtdbKey}.`
     );
-    const { stream, response } = interactionPrompt_Firebase.generateStream({
+    const { stream, response } = interactionPrompt_Chat.generateStream({
       input: orchestratorInput,
     });
 
@@ -217,25 +210,24 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
       const textChunk = chunk.text ?? '';
       if (textChunk) {
         streamedText += textChunk;
-        // Update the text field of the existing AI message in RTDB
         await rtdbAdmin
           .ref(`chats/${analysisId}/${aiMessageRtdbKey}`)
           .update({ text: streamedText });
       }
     }
-    console.info(`[Func_httpsAskOrch] Stream finished for AI message ${aiMessageRtdbKey}.`);
+    console.info(`[ReportChat_Orchestrator] Stream finished for AI message ${aiMessageRtdbKey}.`);
 
     const finalOutput = (await response)?.output;
 
     if (!finalOutput) {
       throw new Error(
-        'Orquestrador (Firebase Function) falhou em gerar uma resposta estruturada final.'
+        'Orquestrador (Chat Function) falhou em gerar uma resposta estruturada final.'
       );
     }
 
     if (finalOutput.revisedStructuredReport) {
       console.info(
-        `[Func_httpsAskOrch] Ferramenta Revisor usada. Novo relatório estruturado gerado para ${analysisId}.`
+        `[ReportChat_Orchestrator] Ferramenta Revisor usada. Novo relatório estruturado gerado para ${analysisId}.`
       );
       const newMdxContent = convertStructuredReportToMdx(
         finalOutput.revisedStructuredReport,
@@ -247,7 +239,7 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
         `user_reports/${userId}/${analysisId}/report.mdx`;
       const mdxFileStorageRef = storageAdmin.bucket().file(mdxFilePath);
       await mdxFileStorageRef.save(newMdxContent, { contentType: 'text/markdown' });
-      console.info(`[Func_httpsAskOrch] Novo MDX salvo em ${mdxFilePath}`);
+      console.info(`[ReportChat_Orchestrator] Novo MDX salvo em ${mdxFilePath}`);
 
       await analysisDocRef.update({
         structuredReport: finalOutput.revisedStructuredReport,
@@ -255,19 +247,18 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
         reportLastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       console.info(
-        `[Func_httpsAskOrch] Firestore atualizado com relatório revisado para ${analysisId}.`
+        `[ReportChat_Orchestrator] Firestore atualizado com relatório revisado para ${analysisId}.`
       );
 
       return {
         success: true,
         aiMessageRtdbKey,
         reportModified: true,
-        revisedStructuredReport: finalOutput.revisedStructuredReport, // Send back to Server Action
-        newMdxContent: newMdxContent, // Send back to Server Action
+        revisedStructuredReport: finalOutput.revisedStructuredReport,
+        newMdxContent: newMdxContent,
       };
     }
 
-    // If no revisions, just confirm success of streaming text
     return {
       success: true,
       aiMessageRtdbKey,
@@ -276,7 +267,7 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `[Func_httpsAskOrch] Erro para análise ${analysisId}, mensagem AI ${aiMessageRtdbKey}:`,
+      `[ReportChat_Orchestrator] Erro para análise ${analysisId}, mensagem AI ${aiMessageRtdbKey}:`,
       errorMessage,
       error
     );
@@ -287,11 +278,10 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
       });
     } catch (rtdbError) {
       console.error(
-        `[Func_httpsAskOrch] Falha ao atualizar RTDB com mensagem de erro para ${aiMessageRtdbKey}:`,
+        `[ReportChat_Orchestrator] Falha ao atualizar RTDB com mensagem de erro para ${aiMessageRtdbKey}:`,
         rtdbError
       );
     }
-    // Throw HttpsError so the client Server Action gets a structured error
     throw new functions.https.HttpsError('internal', errorMessage, {
       originalError: error,
       aiMessageRtdbKey,
