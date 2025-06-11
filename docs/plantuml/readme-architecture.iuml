@@ -1,124 +1,113 @@
-@startuml readme_architecture
-' Settings
+
+@startuml High-Level System Architecture (C4-Inspired)
+' C4 Standard Library Includes - MUST BE FIRST
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
+' GCP C4 Integration (includes GCPCommon.puml which defines generic sprites)
+!include https://raw.githubusercontent.com/Crashedmind/PlantUML-icons-GCP/master/dist/GCPC4Integration.puml
+
 ' Styling
 skinparam defaultFontName "Inter"
 skinparam defaultMonospacedFontName "Menlo"
-skinparam dpi 150
 skinparam shadowing false
+skinparam roundCorner 10
+skinparam ArrowColor #555555
+skinparam ArrowThickness 1.5
 
 skinparam person {
-  StereotypeFontColor #FFFFFF
-  BackgroundColor #08427B
-  BorderColor #073B6F
-  FontColor #FFFFFF
-  StereotypeFontSize 0
+  BackgroundColor #007bff
+  FontColor #ffffff
+  BorderColor #0056b3
+  StereotypeFontColor #ffffff
+  shadowing false
 }
 
 skinparam system {
-  StereotypeFontColor #FFFFFF
-  BackgroundColor #1168BD
-  BorderColor #105EAB
-  FontColor #FFFFFF
-  StereotypeFontSize 0
+  BackgroundColor #6c757d
+  FontColor #ffffff
+  BorderColor #494f54
+  StereotypeFontColor #ffffff
+  shadowing false
 }
-
 skinparam system_ext {
-  StereotypeFontColor #333333
-  BackgroundColor #999999
-  BorderColor #8A8A8A
-  FontColor #333333
-  StereotypeFontSize 0
+  BackgroundColor #6c757d
+  FontColor #ffffff
+  BorderColor #494f54
+  StereotypeFontColor #ffffff
+  shadowing false
 }
 
 skinparam container {
-  StereotypeFontColor #FFFFFF
-  BackgroundColor #438DD5
-  BorderColor #3C7FC0
-  FontColor #FFFFFF
-  StereotypeFontSize 0
+  BackgroundColor #145602
+  FontColor #ffffff
+  BorderColor #0F3E02
+  StereotypeFontColor #E6E6E6
+  shadowing false
 }
-
 skinparam containerDb {
-  StereotypeFontColor #FFFFFF
-  BackgroundColor #438DD5
-  BorderColor #3C7FC0
-  FontColor #FFFFFF
-  StereotypeFontSize 0
-  Shape Db
+  BackgroundColor #1E8403
+  FontColor #ffffff
+  BorderColor #145602
+  StereotypeFontColor #E6E6E6
+  shadowing false
+  shape MdDb
 }
 
 skinparam boundary {
-  BorderColor #B3B3B3
-  BackgroundColor #FFFFFF
-  FontColor #333333
-  StereotypeFontColor #333333
-  StereotypeFontSize 0
+  BorderColor #0F3E02
+  BackgroundColor #E6FEE0
+  FontColor #0F3E02
+  StereotypeFontColor #0F3E02
   shadowing false
-  LegendBorderColor #FFFFFF
-  LegendBackgroundColor #FFFFFF
 }
 
-' Diagram Definition
-' Title: High-Level System Architecture - Energy Compliance Analyzer (C4-Inspired)
-title High-Level System Architecture - Energy Compliance Analyzer
-
+' Layout Direction
 top to bottom direction
 
-Person(user, "User", "Interacts with the system to upload data, view reports, and use chat.")
-System_Ext(aneel, "ANEEL", "Brazilian National Electrical Energy Agency. Source of regulations.")
+' Elements
+Person(user, "User", "Interacts with the system to upload data, view reports, and chat.", $sprite="users") ' Using $fa_users from GCPCommon
+System_Ext(aneel, "ANEEL", "Brazilian National Electrical Energy Agency. Provides normative resolutions.", $sprite="gov_building") ' Generic icon for external org
 
-Boundary(b_app_hosting, "Firebase App Hosting", "Hosting Environment") {
-    Container(frontend, "Frontend Web App", "Next.js, React, ShadCN, Tailwind", "User Interface for data upload, visualization, and interaction.")
-    Container(server_actions, "Next.js Server Actions", "Node.js", "Backend API for frontend, triggers background processes, chat orchestration.")
+Boundary(b_app_hosting, "Firebase App Hosting", "Hosts the Next.js Application") {
+  ContainerGCP(frontend, "Frontend Web App", "Next.js/React", "SPA, ShadCN, Tailwind. User Interface for data upload, visualization, and interaction.", $sprite=$generic_web_frontend)
+  ContainerGCP(server_actions, "Next.js Server Actions", "Node.js", "Backend API for frontend, triggers background processes, chat orchestration.", $sprite=$generic_compute)
 }
 
-Boundary(b_firebase_services, "Firebase Services", "Backend Platform") {
-    Container(auth_service, "Authentication", "Firebase Authentication", "Handles user sign-in and identity management.")
-    ContainerDb(firestore_db, "Main Database", "Firebase Firestore (NoSQL)", "Stores analysis metadata, status, structured reports, and user data.")
-    ContainerDb(storage_service, "File Storage", "Firebase Storage", "Stores uploaded CSV files and generated MDX reports.")
-    ContainerDb(rtdb_chat, "Chat Database", "Firebase Realtime Database", "Stores chat messages for report interaction.")
+Boundary(b_firebase_backend, "Firebase Backend Services") {
+  ContainerGCP(auth, "Firebase Authentication", "Firebase", "Manages user authentication via Google Sign-In.", $sprite=$generic_security)
+  ContainerDbGCP(firestore, "Firebase Firestore", "NoSQL Document DB", "Stores analysis metadata, status, structured reports, and tags.", $sprite=$generic_database)
+  ContainerDbGCP(storage, "Firebase Storage", "Object Storage", "Stores uploaded CSV files and generated MDX reports.", $sprite=$generic_storage)
+  ContainerDbGCP(rtdb, "Firebase Realtime DB", "NoSQL JSON DB", "Stores chat history for report interaction.", $sprite=$generic_database)
+  ContainerGCP(functions, "Firebase Functions", "Serverless Compute", "Executes AI pipeline for data analysis and report generation.", $sprite=$generic_serverless)
 }
 
-Boundary(b_gcp_backend, "Google Cloud (Backend Processing)") {
-    Container(functions_service, "Background Processing", "Firebase Functions (Node.js)", "Executes AI pipeline for data analysis, report generation, and other background tasks.")
-    System_Ext(google_ai, "Google AI", "Gemini Models via Genkit", "Provides LLM capabilities for analysis, report generation, and chat.")
-}
+SystemGCP_Ext(gemini, "Google AI (Gemini)", "Generative AI Models", "Powers AI agents for data summarization, regulation identification, report generation/review, and chat.", $sprite=$generic_machine_learning)
 
 ' Relationships
-user --> frontend : "Uses GUI"
+user --> frontend : "Uploads CSV, Views Reports, Chats"
 
-frontend -> server_actions : "Makes API calls (HTTPS)"
-server_actions -> firestore_db : "Reads/Writes data (Initial record, status updates, structured report)"
-server_actions -> storage_service : "Initiates upload process, Gets MDX report path"
-server_actions -> rtdb_chat : "Saves/Reads chat messages"
-server_actions -> functions_service : "Triggers processing (via Firestore update)"
-server_actions -> google_ai : "Calls for chat orchestration"
+frontend <--> server_actions : "HTTP/S (Server Actions)"
+server_actions <--> auth : "Verifies User Identity"
+server_actions <--> firestore : "Manages Analysis Records, Tags"
+server_actions <--> storage : "Gets Report MDX Path"
+server_actions <--> rtdb : "Manages Chat Messages"
+server_actions --> gemini : "Orchestrates Chat AI (Genkit)"
 
-functions_service -> firestore_db : "Reads analysis details, Writes progress, status, and final reports"
-functions_service -> storage_service : "Reads CSV data, Writes MDX reports"
-functions_service -> google_ai : "Calls for data summarization, regulation identification, report generation, review"
+frontend --> auth : "Initiates Google Sign-In"
+frontend --> storage : "Uploads CSV (via client SDK)"
+frontend --> rtdb : "Listens for Chat Updates"
 
-auth_service <- frontend : "Authenticates User"
+functions <--> firestore : "Triggered by Status, Updates Records"
+functions <--> storage : "Reads CSV, Writes MDX Report"
+functions --> gemini : "Executes AI Analysis Pipeline (Genkit)"
 
-aneel -> functions_service : "Provides Regulatory Standards (Implicitly via AI Knowledge)"
+server_actions --> functions : "Indirectly, via Firestore status update"
 
-Rel(user, frontend, "Uploads CSV, Interacts with Report & Chat")
-Rel(frontend, server_actions, "Submits data, Sends chat messages, Fetches report")
-Rel(server_actions, auth_service, "Verifies User Token")
-Rel(server_actions, firestore_db, "CRUD Analysis Records, Tags")
-Rel(server_actions, rtdb_chat, "Stores/Streams Chat Messages")
-Rel(server_actions, google_ai, "Orchestrates Report Chat via Genkit")
-Rel(server_actions, functions_service, "Updates Firestore to Trigger")
-
-Rel(functions_service, firestore_db, "Updates Status, Progress, Results")
-Rel(functions_service, storage_service, "Reads CSV, Writes MDX Report")
-Rel(functions_service, google_ai, "Executes AI Agents (Summarizer, Engineer, Reviewer) via Genkit")
-
-Rel(storage_service, frontend, "Serves MDX Report (via Server Action)")
-
+Rel_Right(firestore, aneel, "References Resolutions")
+Rel_Right(gemini, aneel, "Uses Knowledge of Resolutions")
 
 @enduml
+
+    
