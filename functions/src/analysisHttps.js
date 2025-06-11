@@ -47,22 +47,24 @@ function statusIsValid(status) {
 /**
  * Fetches past analyses for a user.
  * @type {functions.HttpsFunction}
- * @param {object} _data - The data object sent from the client (not used, userId from context).
- * @param {functions.https.CallableContext} context - The context of the call, containing auth information.
+ * @param {{userId: string}} data - The data object sent from the client, must contain userId.
+ * @param {functions.https.CallableContext} _context - The context of the call (not directly used for UID here).
  * @returns {Promise<{analyses: import('../lib/shared/types/analysis.js').Analysis[]}>}
  *          A promise that resolves with an array of analysis objects.
- * @throws {functions.https.HttpsError} If unauthenticated or a Firestore error occurs.
+ * @throws {functions.https.HttpsError} If userId is missing or a Firestore error occurs.
  */
-exports.httpsCallableGetPastAnalyses = functions.https.onCall(async (_data, context) => {
-  if (!context.auth || !context.auth.uid) {
+exports.httpsCallableGetPastAnalyses = functions.https.onCall(async (data, _context) => {
+  const { userId } = data;
+
+  if (!userId || typeof userId !== 'string') {
     throw new functions.https.HttpsError(
-      'unauthenticated',
-      'A função deve ser chamada por um usuário autenticado.'
+      'invalid-argument',
+      'O ID do usuário (userId) é obrigatório no payload da solicitação.'
     );
   }
-  const userId = context.auth.uid;
+
   console.info(
-    `[Func_httpsGetPastAnalyses] Fetching for userId: ${userId}, Project: ${
+    `[Func_httpsGetPastAnalyses] Fetching for explicit userId: ${userId}, Project: ${
       process.env.GCLOUD_PROJECT || 'PROJECT_ID_NOT_SET_IN_FUNC_ENV'
     }`
   );
@@ -96,29 +98,30 @@ exports.httpsCallableGetPastAnalyses = functions.https.onCall(async (_data, cont
 
     const analyses = snapshot.docs
       .map((docSnap) => {
-        const data = docSnap.data();
+        const docData = docSnap.data();
         /** @type {Partial<import('../lib/shared/types/analysis.js').Analysis>} */
         const analysisResult = {
           id: docSnap.id,
-          userId: data.userId,
-          fileName: data.fileName,
-          title: data.title,
-          description: data.description,
-          languageCode: data.languageCode,
-          status: data.status,
-          progress: data.progress,
-          uploadProgress: data.uploadProgress,
-          powerQualityDataUrl: data.powerQualityDataUrl,
-          powerQualityDataSummary: data.powerQualityDataSummary,
-          isDataChunked: data.isDataChunked,
-          identifiedRegulations: data.identifiedRegulations,
-          summary: data.summary,
-          structuredReport: data.structuredReport,
-          mdxReportStoragePath: data.mdxReportStoragePath,
-          errorMessage: data.errorMessage,
-          tags: data.tags || [],
-          createdAt: mapTimestampToISO(data.createdAt) || new Date(0).toISOString(),
-          completedAt: mapTimestampToISO(data.completedAt),
+          userId: docData.userId,
+          fileName: docData.fileName,
+          title: docData.title,
+          description: docData.description,
+          languageCode: docData.languageCode,
+          status: docData.status,
+          progress: docData.progress,
+          uploadProgress: docData.uploadProgress,
+          powerQualityDataUrl: docData.powerQualityDataUrl,
+          powerQualityDataSummary: docData.powerQualityDataSummary,
+          isDataChunked: docData.isDataChunked,
+          identifiedRegulations: docData.identifiedRegulations,
+          summary: docData.summary,
+          structuredReport: docData.structuredReport,
+          mdxReportStoragePath: docData.mdxReportStoragePath,
+          errorMessage: docData.errorMessage,
+          tags: docData.tags || [],
+          createdAt: mapTimestampToISO(docData.createdAt) || new Date(0).toISOString(),
+          completedAt: mapTimestampToISO(docData.completedAt),
+          reportLastModifiedAt: mapTimestampToISO(docData.reportLastModifiedAt),
         };
 
         if (!statusIsValid(analysisResult.status)) {
@@ -130,7 +133,7 @@ exports.httpsCallableGetPastAnalyses = functions.https.onCall(async (_data, cont
           analysisResult.status = 'error';
           analysisResult.errorMessage =
             analysisResult.errorMessage ||
-            `Status inválido (${data.status}) recebido do Firestore.`;
+            `Status inválido (${docData.status}) recebido do Firestore.`;
         }
         return analysisResult;
       })
@@ -154,6 +157,7 @@ exports.httpsCallableGetPastAnalyses = functions.https.onCall(async (_data, cont
 
 /**
  * Deletes an analysis document and its associated files from Storage.
+ * Requires `context.auth` for user identification.
  * @type {functions.HttpsFunction}
  * @param {{analysisId: string}} data - The data object containing the analysis ID.
  * @param {functions.https.CallableContext} context - The context of the call.
@@ -200,11 +204,9 @@ exports.httpsCallableDeleteAnalysis = functions.https.onCall(async (data, contex
       identifiedRegulations: null,
       powerQualityDataSummary: null,
       errorMessage: 'Análise excluída pelo usuário.',
-      // Retain progress, completedAt, etc., for audit, or nullify them too
     });
     console.info(`[Func_httpsDeleteAnalysis] Firestore doc ${analysisId} marked as deleted.`);
 
-    // Attempt to delete associated files from Storage
     if (dataToDelete && dataToDelete.powerQualityDataUrl) {
       await deleteAdminFileFromStorage(dataToDelete.powerQualityDataUrl);
     }
@@ -229,6 +231,7 @@ exports.httpsCallableDeleteAnalysis = functions.https.onCall(async (data, contex
 
 /**
  * Requests cancellation of an analysis.
+ * Requires `context.auth` for user identification.
  * @type {functions.HttpsFunction}
  * @param {{analysisId: string}} data - The data object containing the analysis ID.
  * @param {functions.https.CallableContext} context - The context of the call.
@@ -275,14 +278,12 @@ exports.httpsCallableCancelAnalysis = functions.https.onCall(async (data, contex
     ) {
       const msg = `Análise ${analysisId} já está em um estado final (${currentStatus}) e não pode ser cancelada.`;
       console.warn(`[Func_httpsCancelAnalysis] ${msg}`);
-      // Not an error from the function's perspective, but a client-side state issue.
-      // Return success:false with a message so client can inform user.
       return { success: false, message: msg };
     }
     if (currentStatus === 'cancelling') {
       const msg = `Análise ${analysisId} já está sendo cancelada.`;
       console.info(`[Func_httpsCancelAnalysis] ${msg}`);
-      return { success: true, message: msg }; // Already in progress
+      return { success: true, message: msg };
     }
 
     await analysisRef.update({
@@ -304,7 +305,7 @@ exports.httpsCallableCancelAnalysis = functions.https.onCall(async (data, contex
 
 /**
  * Prepares an analysis for background processing by setting its status.
- * This function is called after file upload is complete to trigger the event-driven processing.
+ * Requires `context.auth` for user identification.
  * @type {functions.HttpsFunction}
  * @param {{analysisId: string}} data - The data object containing the analysis ID.
  * @param {functions.https.CallableContext} context - The context of the call.
@@ -344,7 +345,6 @@ exports.httpsCallableTriggerProcessing = functions.https.onCall(async (data, con
 
     const analysisData = analysisSnap.data();
     if (!analysisData) {
-      // Should not happen if exists() is true, but good practice.
       throw new functions.https.HttpsError('internal', 'Dados da análise não encontrados.');
     }
 
@@ -392,7 +392,6 @@ exports.httpsCallableTriggerProcessing = functions.https.onCall(async (data, con
       error
     );
 
-    // Attempt to update Firestore with an error state, avoiding race conditions with cancellation.
     try {
       const currentSnap = await analysisRef.get();
       if (currentSnap.exists()) {
@@ -426,6 +425,7 @@ exports.httpsCallableTriggerProcessing = functions.https.onCall(async (data, con
 
 /**
  * Fetches analysis report data (MDX content and metadata).
+ * Requires `context.auth` for user identification.
  * @type {functions.HttpsFunction}
  * @param {{analysisId: string}} data - The data object containing the analysis ID.
  * @param {functions.https.CallableContext} context - The context of the call.
@@ -447,7 +447,7 @@ exports.httpsCallableGetAnalysisReport = functions.https.onCall(async (data, con
     mdxContent: null,
     fileName: null,
     analysisId: analysisId || null,
-    structuredReport: null, // Added to match updated type
+    structuredReport: null,
   };
 
   if (!analysisId || typeof analysisId !== 'string') {
@@ -475,7 +475,6 @@ exports.httpsCallableGetAnalysisReport = functions.https.onCall(async (data, con
     if (!analysisData) {
       throw new functions.https.HttpsError('internal', 'Dados da análise não encontrados.');
     }
-    // No need to check analysisData.userId === userId here, path already includes userId from context.auth.uid
 
     if (analysisData.status === 'deleted') {
       throw new functions.https.HttpsError('failed-precondition', 'Esta análise foi excluída.');
@@ -495,8 +494,8 @@ exports.httpsCallableGetAnalysisReport = functions.https.onCall(async (data, con
       mdxContent,
       fileName: analysisData.fileName,
       analysisId,
-      error: null, // Explicitly null on success
-      structuredReport: analysisData.structuredReport || null, // Include structured report
+      error: null,
+      structuredReport: analysisData.structuredReport || null,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -510,7 +509,7 @@ exports.httpsCallableGetAnalysisReport = functions.https.onCall(async (data, con
       'internal',
       `Erro ao carregar o relatório (Função): ${errorMessage.substring(
         0,
-        MAX_ERROR_MESSAGE_LENGTH - 30 // Reserve space for prefix
+        MAX_ERROR_MESSAGE_LENGTH - 30
       )}`
     );
   }

@@ -18,12 +18,15 @@ interface HttpsCallableGetPastAnalysesResponse {
   analyses: Analysis[];
 }
 
+interface HttpsCallableGetPastAnalysesRequest {
+  userId: string;
+}
+
 /**
  * Server Action to fetch past analyses for the authenticated user.
  * It calls the `httpsCallableGetPastAnalyses` Firebase Function.
  * @param {string} userId - The ID of the user whose analyses are to be fetched.
- *                         This is used for logging/validation on the client/Server Action side;
- *                         the Firebase Function will use `context.auth.uid` for security.
+ *                         This is passed to the Callable Function.
  * @returns {Promise<Analysis[]>} A promise that resolves with an array of analysis objects.
  * @throws {Error} If the function call fails or returns an error.
  */
@@ -42,13 +45,13 @@ export async function getPastAnalysesAction(userId: string): Promise<Analysis[]>
 
   try {
     const callableFunction = httpsCallable<
-      // eslint-disable-next-line @typescript-eslint/ban-types
-      {}, // No specific data needs to be sent; userId comes from auth context in Function
+      HttpsCallableGetPastAnalysesRequest,
       HttpsCallableGetPastAnalysesResponse
     >(functionsInstance, 'httpsCallableGetPastAnalyses');
 
+    // Pass userId in the data payload to the callable function
     const result: HttpsCallableResult<HttpsCallableGetPastAnalysesResponse> =
-      await callableFunction({}); // Call with empty data object
+      await callableFunction({ userId });
 
     if (result.data && Array.isArray(result.data.analyses)) {
       console.info(
