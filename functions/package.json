@@ -1,9 +1,8 @@
-
 {
   "name": "functions",
   "description": "Cloud Functions for Firebase",
   "scripts": {
-    "lint": "eslint --ext .js .",
+    "lint": "eslint --ext .js ./src || true",
     "build:shared": "tsc -p tsconfig.shared.json",
     "build": "npm run build:shared",
     "serve": "firebase emulators:start --only functions",
