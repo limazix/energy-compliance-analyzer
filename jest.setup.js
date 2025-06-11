@@ -166,7 +166,7 @@ jest.mock('firebase/storage', () => {
  * of Server Actions that invoke HTTPS Callable Firebase Functions.
  * Individual callable functions can be mocked by name.
  */
-const mockHttpsCallable = jest.fn(); // This will store mocks keyed by function name
+const mockHttpsCallableStore = {}; // This will store mocks keyed by function name
 jest.mock('firebase/functions', () => {
   const actualFunctions = jest.requireActual('firebase/functions');
   return {
@@ -177,18 +177,18 @@ jest.mock('firebase/functions', () => {
     })),
     httpsCallable: jest.fn((functionsInstance, functionName) => {
       // Store the mock function per functionName to allow specific mock implementations
-      if (!mockHttpsCallable[functionName]) {
+      if (!mockHttpsCallableStore[functionName]) {
         // Default mock if a specific one isn't set up by a test
-        mockHttpsCallable[functionName] = jest.fn(() =>
+        mockHttpsCallableStore[functionName] = jest.fn(() =>
           Promise.resolve({ data: { success: true, message: `Default mock for ${functionName}` } })
         );
       }
       // Return the specific mock for this function name
-      return mockHttpsCallable[functionName];
+      return mockHttpsCallableStore[functionName];
     }),
     connectFunctionsEmulator: jest.fn(), // Mock connectFunctionsEmulator
     // Expose the generic mock store for manipulation in tests if needed for all callables
-    __mockHttpsCallableGlobal: mockHttpsCallable,
+    __mockHttpsCallableGlobal: mockHttpsCallableStore,
   };
 });
 // --- End Firebase Functions Mock ---
@@ -262,7 +262,6 @@ jest.mock('remark-mermaidjs', () => jest.fn());
 
 // Server Actions Mocks
 // These will now use the __mockHttpsCallableGlobal or specific function mocks.
-const { __mockHttpsCallableGlobal: mockCallable } = jest.requireMock('firebase/functions');
 
 jest.mock('@/features/analysis-listing/actions/analysisListingActions', () => ({
   getPastAnalysesAction: jest.fn(() => Promise.resolve([])),
@@ -280,43 +279,56 @@ jest.mock('@/features/analysis-processing/actions/analysisProcessingActions', ()
 // For fileUploadActions, their mocks will now reflect calling the httpsCallable mocks
 jest.mock('@/features/file-upload/actions/fileUploadActions', () => {
   // Ensure the mock is set up before fileUploadActions is imported by tests
-  const { __mockHttpsCallableGlobal: callableMockFn } = jest.requireMock('firebase/functions'); // Corrected variable name
+  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
 
   // Default mock for 'httpsCreateInitialAnalysisRecord'
-  if (!callableMockFn.httpsCreateInitialAnalysisRecord) {
-    callableMockFn.httpsCreateInitialAnalysisRecord = jest.fn();
+  if (!callableMockFnStore.httpsCreateInitialAnalysisRecord) {
+    callableMockFnStore.httpsCreateInitialAnalysisRecord = jest.fn();
   }
-  callableMockFn.httpsCreateInitialAnalysisRecord.mockImplementation((data) =>
+  callableMockFnStore.httpsCreateInitialAnalysisRecord.mockImplementation((data) =>
     Promise.resolve({ data: { analysisId: `mock-analysis-id-for-${data.fileName}` } })
   );
 
   // Default mock for 'httpsUpdateAnalysisUploadProgress'
-  if (!callableMockFn.httpsUpdateAnalysisUploadProgress) {
-    callableMockFn.httpsUpdateAnalysisUploadProgress = jest.fn();
+  if (!callableMockFnStore.httpsUpdateAnalysisUploadProgress) {
+    callableMockFnStore.httpsUpdateAnalysisUploadProgress = jest.fn();
   }
-  callableMockFn.httpsUpdateAnalysisUploadProgress.mockResolvedValue({ data: { success: true } });
+  callableMockFnStore.httpsUpdateAnalysisUploadProgress.mockResolvedValue({
+    data: { success: true },
+  });
 
   // Default mock for 'httpsFinalizeFileUploadRecord'
-  if (!callableMockFn.httpsFinalizeFileUploadRecord) {
-    callableMockFn.httpsFinalizeFileUploadRecord = jest.fn();
+  if (!callableMockFnStore.httpsFinalizeFileUploadRecord) {
+    callableMockFnStore.httpsFinalizeFileUploadRecord = jest.fn();
   }
-  callableMockFn.httpsFinalizeFileUploadRecord.mockResolvedValue({ data: { success: true } });
+  callableMockFnStore.httpsFinalizeFileUploadRecord.mockResolvedValue({ data: { success: true } });
 
   // Default mock for 'httpsMarkUploadAsFailed'
-  if (!callableMockFn.httpsMarkUploadAsFailed) {
-    callableMockFn.httpsMarkUploadAsFailed = jest.fn();
+  if (!callableMockFnStore.httpsMarkUploadAsFailed) {
+    callableMockFnStore.httpsMarkUploadAsFailed = jest.fn();
   }
-  callableMockFn.httpsMarkUploadAsFailed.mockResolvedValue({ data: { success: true } });
+  callableMockFnStore.httpsMarkUploadAsFailed.mockResolvedValue({ data: { success: true } });
 
   // Now, return the actual module, which will use the mocked httpsCallable
   return jest.requireActual('@/features/file-upload/actions/fileUploadActions');
 });
 
-jest.mock('@/features/report-chat/actions/reportChatActions', () => ({
-  askReportOrchestratorAction: jest.fn(() =>
-    Promise.resolve({ success: true, aiMessageRtdbKey: 'mock-ai-key' })
-  ),
-}));
+jest.mock('@/features/report-chat/actions/reportChatActions', () => {
+  const { __mockHttpsCallableGlobal: callableMockFnStore } = jest.requireMock('firebase/functions');
+  // Default mock for 'httpsCallableAskOrchestrator'
+  if (!callableMockFnStore.httpsCallableAskOrchestrator) {
+    callableMockFnStore.httpsCallableAskOrchestrator = jest.fn();
+  }
+  callableMockFnStore.httpsCallableAskOrchestrator.mockResolvedValue({
+    data: {
+      success: true,
+      aiMessageRtdbKey: 'mock-ai-key-default-callable',
+      reportModified: false,
+    },
+  });
+  return jest.requireActual('@/features/report-chat/actions/reportChatActions');
+});
+
 jest.mock('@/features/report-viewing/actions/reportViewingActions', () => ({
   getAnalysisReportAction: jest.fn(() =>
     Promise.resolve({
@@ -600,50 +612,37 @@ beforeEach(() => {
       analysisId: 'default-mock-analysis-id',
       error: null,
     });
-  jest
-    .requireMock('@/features/report-chat/actions/reportChatActions')
-    .askReportOrchestratorAction.mockClear()
-    .mockResolvedValue({ success: true, aiMessageRtdbKey: 'mock-ai-key-default' });
-  jest
-    .requireMock('@/features/analysis-management/actions/analysisManagementActions')
-    .deleteAnalysisAction.mockClear()
-    .mockResolvedValue(undefined);
-  jest
-    .requireMock('@/features/analysis-management/actions/analysisManagementActions')
-    .cancelAnalysisAction.mockClear()
-    .mockResolvedValue({ success: true });
-  jest
-    .requireMock('@/features/analysis-processing/actions/analysisProcessingActions')
-    .processAnalysisFile.mockClear()
-    .mockResolvedValue({ success: true, analysisId: 'mock-analysis-id' });
-  jest
-    .requireMock('@/features/tag-management/actions/tagActions')
-    .addTagToAction.mockClear()
-    .mockResolvedValue(undefined);
-  jest
-    .requireMock('@/features/tag-management/actions/tagActions')
-    .removeTagAction.mockClear()
-    .mockResolvedValue(undefined);
 
-  const { __mockHttpsCallableGlobal: callableMockClear } = jest.requireMock('firebase/functions');
-  if (callableMockClear.httpsCreateInitialAnalysisRecord)
-    callableMockClear.httpsCreateInitialAnalysisRecord
+  // Clear and reset mocks for httpsCallable functions
+  const { __mockHttpsCallableGlobal: callableMockClearStore } =
+    jest.requireMock('firebase/functions');
+  if (callableMockClearStore.httpsCreateInitialAnalysisRecord)
+    callableMockClearStore.httpsCreateInitialAnalysisRecord
       .mockClear()
       .mockImplementation((data) =>
         Promise.resolve({ data: { analysisId: `mock-analysis-id-for-${data.fileName}` } })
       );
-  if (callableMockClear.httpsUpdateAnalysisUploadProgress)
-    callableMockClear.httpsUpdateAnalysisUploadProgress
+  if (callableMockClearStore.httpsUpdateAnalysisUploadProgress)
+    callableMockClearStore.httpsUpdateAnalysisUploadProgress
       .mockClear()
       .mockResolvedValue({ data: { success: true } });
-  if (callableMockClear.httpsFinalizeFileUploadRecord)
-    callableMockClear.httpsFinalizeFileUploadRecord
+  if (callableMockClearStore.httpsFinalizeFileUploadRecord)
+    callableMockClearStore.httpsFinalizeFileUploadRecord
       .mockClear()
       .mockResolvedValue({ data: { success: true } });
-  if (callableMockClear.httpsMarkUploadAsFailed)
-    callableMockClear.httpsMarkUploadAsFailed
+  if (callableMockClearStore.httpsMarkUploadAsFailed)
+    callableMockClearStore.httpsMarkUploadAsFailed
       .mockClear()
       .mockResolvedValue({ data: { success: true } });
+  if (callableMockClearStore.httpsCallableAskOrchestrator) {
+    callableMockClearStore.httpsCallableAskOrchestrator.mockClear().mockResolvedValue({
+      data: {
+        success: true,
+        aiMessageRtdbKey: 'mock-ai-key-default-callable-cleared',
+        reportModified: false,
+      },
+    });
+  }
 
   mockFirebaseAuthUserForListener = null;
   if (authStateListenerCallback) {
@@ -657,7 +656,7 @@ beforeEach(() => {
   if (storageMock.__mockUploadBytesResumable)
     storageMock.__mockUploadBytesResumable
       .mockClear()
-      .mockReturnValue(storageMock.__mockUploadTask_on);
+      .mockReturnValue(storageMock.__mockUploadTask_on); // This was mockUploadTask, changed to the .on part of the task
   if (storageMock.__mockGetDownloadURL)
     storageMock.__mockGetDownloadURL
       .mockClear()

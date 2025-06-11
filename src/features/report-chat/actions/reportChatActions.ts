@@ -1,33 +1,62 @@
-
 'use server';
 
-import { doc, getDoc, updateDoc, serverTimestamp as firestoreServerTimestamp, type Timestamp } from 'firebase/firestore';
-import { ref as storageFileRef, uploadString } from 'firebase/storage';
-import { rtdb, db, storage } from '@/lib/firebase';
-import { ref as rtdbRef, update as rtdbUpdate, serverTimestamp as rtdbServerTimestamp, push as rtdbPush, child as rtdbChild } from 'firebase/database';
+/**
+ * @fileOverview Server Action for report chat interactions.
+ * This action now acts as a thin client, invoking an HTTPS Callable Firebase Function
+ * which handles the core chat orchestration logic, including Genkit AI calls and
+ * Firebase database interactions.
+ */
 
-import type { Analysis } from '@/types/analysis';
-import { 
-  interactionPrompt, // Import the prompt object directly
-  type OrchestrateReportInteractionInput, 
-  type OrchestrateReportInteractionOutput,
-  type OrchestrateReportInteractionInputSchema, // For type hints if needed
-} from '@/ai/flows/orchestrate-report-interaction';
-import { convertStructuredReportToMdx } from '@/lib/reportUtils';
+import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
+
 import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
-
+import { functionsInstance } from '@/lib/firebase'; // Firebase Functions instance for client SDK
 
 const CLIENT_ERROR_MESSAGE_MAX_LENGTH = 300;
 
-interface ReportInteractionServerResult {
-  success: boolean;
-  error?: string;
-  aiMessageRtdbKey?: string; // Key of the AI's message in RTDB
-  reportModified?: boolean; // Flag if the report content (MDX/Structured) was changed
-  revisedStructuredReport?: AnalyzeComplianceReportOutput; // The new structured report if modified
-  newMdxContent?: string; // The new MDX content if modified
+// --- Types for HTTPS Callable Function Request/Response ---
+interface HttpsCallableAskOrchestratorRequestData {
+  userId: string; // Important: Server Action must pass this, Function validates against context.auth.uid
+  analysisId: string;
+  userInputText: string;
+  currentReportMdx: string;
+  currentStructuredReport: AnalyzeComplianceReportOutput | null;
+  analysisFileName: string;
+  languageCode: string;
 }
 
+interface HttpsCallableAskOrchestratorResponseData {
+  success: boolean;
+  error?: string;
+  aiMessageRtdbKey?: string;
+  reportModified?: boolean;
+  revisedStructuredReport?: AnalyzeComplianceReportOutput;
+  newMdxContent?: string;
+}
+
+// Renaming for clarity, as this is what the frontend calls
+export interface AskReportOrchestratorServerActionResult {
+  success: boolean;
+  error?: string;
+  aiMessageRtdbKey?: string;
+  reportModified?: boolean;
+  revisedStructuredReport?: AnalyzeComplianceReportOutput;
+  newMdxContent?: string;
+}
+
+/**
+ * Server Action to process a user's message in the report chat.
+ * It calls the `httpsCallableAskOrchestrator` Firebase Function.
+ *
+ * @param {string} userIdInput - The ID of the authenticated user.
+ * @param {string} analysisIdInput - The ID of the analysis being discussed.
+ * @param {string} userInputText - The user's message.
+ * @param {string} currentReportMdx - Current MDX content of the report.
+ * @param {AnalyzeComplianceReportOutput | null} currentStructuredReport - Current structured (JSON) report object.
+ * @param {string} analysisFileName - Original filename of the analyzed data.
+ * @param {string} languageCode - BCP-47 language code for the interaction.
+ * @returns {Promise<AskReportOrchestratorServerActionResult>} Result of the interaction.
+ */
 export async function askReportOrchestratorAction(
   userIdInput: string,
   analysisIdInput: string,
@@ -36,148 +65,86 @@ export async function askReportOrchestratorAction(
   currentStructuredReport: AnalyzeComplianceReportOutput | null,
   analysisFileName: string,
   languageCode: string
-): Promise<ReportInteractionServerResult> {
+): Promise<AskReportOrchestratorServerActionResult> {
   const userId = userIdInput?.trim();
   const analysisId = analysisIdInput?.trim();
 
   if (!userId || !analysisId) {
-    const errorMsg = "User ID e Analysis ID são obrigatórios para interação.";
-    console.error(`[askReportOrchestratorAction] ${errorMsg} User: ${userIdInput}, Analysis: ${analysisIdInput}`);
+    const errorMsg = '[SA_askOrchestrator] User ID e Analysis ID são obrigatórios.';
+    console.error(`${errorMsg} User: ${userIdInput}, Analysis: ${analysisIdInput}`);
     return { success: false, error: errorMsg };
   }
   if (!userInputText.trim()) {
-    return { success: false, error: "Entrada do usuário vazia." };
+    return { success: false, error: '[SA_askOrchestrator] Entrada do usuário vazia.' };
   }
   if (!currentStructuredReport) {
-    const errorMsg = "O relatório estruturado atual é necessário para processar esta solicitação.";
-    console.error(`[askReportOrchestratorAction] ${errorMsg} Analysis: ${analysisId}`);
+    const errorMsg =
+      '[SA_askOrchestrator] O relatório estruturado atual é necessário para processar esta solicitação.';
+    console.error(`${errorMsg} Analysis: ${analysisId}`);
     return { success: false, error: errorMsg };
   }
   if (!currentReportMdx) {
-      const errorMsg = "O conteúdo MDX do relatório atual é necessário para fornecer contexto à IA.";
-      console.error(`[askReportOrchestratorAction] ${errorMsg} Analysis: ${analysisId}`);
-      return { success: false, error: errorMsg };
-  }
-
-
-  const analysisDocRef = doc(db, 'users', userId, 'analyses', analysisId);
-  const chatRootRef = rtdbRef(rtdb, `chats/${analysisId}`);
-  const newAiMessageRef = rtdbPush(chatRootRef); // Generate a unique key for the AI message
-  const aiMessageRtdbKey = newAiMessageRef.key;
-
-  if (!aiMessageRtdbKey) {
-    const errorMsg = "Falha ao gerar ID para mensagem da IA no RTDB.";
-    console.error(`[askReportOrchestratorAction] ${errorMsg}`);
+    const errorMsg =
+      '[SA_askOrchestrator] O conteúdo MDX do relatório atual é necessário para fornecer contexto à IA.';
+    console.error(`${errorMsg} Analysis: ${analysisId}`);
     return { success: false, error: errorMsg };
   }
 
+  const requestData: HttpsCallableAskOrchestratorRequestData = {
+    userId, // Pass userId explicitly for the Function to validate against context.auth.uid
+    analysisId,
+    userInputText,
+    currentReportMdx,
+    currentStructuredReport,
+    analysisFileName,
+    languageCode,
+  };
+
   try {
-    const analysisSnap = await getDoc(analysisDocRef);
-    let powerQualityDataSummary: string | undefined = undefined;
-    if (analysisSnap.exists()) {
-      const analysisData = analysisSnap.data() as Analysis;
-      powerQualityDataSummary = analysisData.powerQualityDataSummary;
-    } else {
-      console.warn(`[askReportOrchestratorAction] Analysis document ${analysisId} not found for fetching summary. Proceeding without it.`);
-    }
+    console.info(
+      `[SA_askOrchestrator] Calling HTTPS function 'httpsCallableAskOrchestrator' for analysis ${analysisId}.`
+    );
+    const callableFunction = httpsCallable<
+      HttpsCallableAskOrchestratorRequestData,
+      HttpsCallableAskOrchestratorResponseData
+    >(functionsInstance, 'httpsCallableAskOrchestrator');
 
-    // Push initial placeholder for AI message
-    const initialAiMessage = {
-      sender: 'ai',
-      text: '', // Start with empty text, will be appended by chunks
-      timestamp: rtdbServerTimestamp(),
-    };
-    await rtdbUpdate(newAiMessageRef, initialAiMessage);
+    const result: HttpsCallableResult<HttpsCallableAskOrchestratorResponseData> =
+      await callableFunction(requestData);
 
-    const orchestratorInput: OrchestrateReportInteractionInput = {
-      userInputText,
-      currentReportMdx,
-      currentStructuredReport,
-      analysisFileName,
-      powerQualityDataSummary,
-      languageCode,
-    };
+    console.info(
+      `[SA_askOrchestrator] HTTPS function 'httpsCallableAskOrchestrator' returned for analysis ${analysisId}. Success: ${result.data.success}`
+    );
+    return result.data; // Directly return the data object from the HttpsCallableResult
+  } catch (error: unknown) {
+    // Handle HttpsError from Firebase Functions
+    const firebaseError = error as { code?: string; message?: string; details?: unknown };
+    const code = firebaseError.code || 'unknown';
+    const message = firebaseError.message || 'Erro desconhecido ao chamar a função de chat.';
+    const details = firebaseError.details
+      ? ` Detalhes: ${JSON.stringify(firebaseError.details)}`
+      : '';
 
-    console.info(`[askReportOrchestratorAction] Calling orchestrator prompt.generateStream for analysis ${analysisId}, AI message key ${aiMessageRtdbKey}`);
-    
-    const { stream, response } = interactionPrompt.generateStream({
-      input: orchestratorInput,
-    });
+    console.error(
+      `[SA_askOrchestrator] Error calling 'httpsCallableAskOrchestrator' for analysis ${analysisId}: Code: ${code}, Message: ${message}${details}`,
+      error
+    );
 
-    let streamedText = "";
-    for await (const chunk of stream) {
-      const textChunk = chunk.text ?? '';
-      if (textChunk) {
-        streamedText += textChunk;
-        // Update the text field of the existing AI message in RTDB
-        await rtdbUpdate(rtdbChild(chatRootRef, aiMessageRtdbKey), { text: streamedText });
-      }
-    }
-    console.info(`[askReportOrchestratorAction] Stream finished for AI message ${aiMessageRtdbKey}.`);
+    // Try to extract aiMessageRtdbKey from details if it was an error during AI processing
+    const aiMessageRtdbKey =
+      firebaseError.details &&
+      typeof firebaseError.details === 'object' &&
+      'aiMessageRtdbKey' in firebaseError.details
+        ? (firebaseError.details as { aiMessageRtdbKey: string }).aiMessageRtdbKey
+        : undefined;
 
-    const finalOutput = (await response)?.output; // Access the structured output
-
-    if (!finalOutput) {
-      throw new Error("AI Orchestrator failed to generate a final structured response.");
-    }
-
-    // The finalOutput.aiResponseText might be redundant if we streamed everything,
-    // but good to debug or compare. The streamedText is what's in RTDB.
-    // The critical part is finalOutput.revisedStructuredReport.
-
-    if (finalOutput.revisedStructuredReport) {
-      console.info(`[askReportOrchestratorAction] Revisor tool was used. New structured report generated for ${analysisId}.`);
-      const newMdxContent = convertStructuredReportToMdx(finalOutput.revisedStructuredReport, analysisFileName);
-      
-      const mdxFilePath = analysisSnap.exists() ? (analysisSnap.data().mdxReportStoragePath || `user_reports/${userId}/${analysisId}/report.mdx`) : `user_reports/${userId}/${analysisId}/report.mdx`;
-      const mdxFileStorageRef = storageFileRef(storage, mdxFilePath);
-      await uploadString(mdxFileStorageRef, newMdxContent, 'raw', { contentType: 'text/markdown' });
-      console.info(`[askReportOrchestratorAction] New MDX saved to ${mdxFilePath}`);
-
-      if (analysisSnap.exists()) {
-        await updateDoc(analysisDocRef, {
-          structuredReport: finalOutput.revisedStructuredReport,
-          mdxReportStoragePath: mdxFilePath,
-          reportLastModifiedAt: firestoreServerTimestamp() as Timestamp,
-        });
-        console.info(`[askReportOrchestratorAction] Firestore updated with revised report for ${analysisId}.`);
-      }
-
-      return { 
-        success: true,
-        aiMessageRtdbKey,
-        reportModified: true,
-        revisedStructuredReport: finalOutput.revisedStructuredReport,
-        newMdxContent: newMdxContent,
-      };
-    }
-
-    // If no revisions, just confirm success of streaming text
-    return { 
-      success: true, 
-      aiMessageRtdbKey,
-      reportModified: false, // No structural changes to report
-    };
-
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[askReportOrchestratorAction] Error for analysis ${analysisId}, AI message ${aiMessageRtdbKey}:`, errorMessage, error);
-    // Update the AI message in RTDB with an error
-    try {
-      await rtdbUpdate(rtdbChild(chatRootRef, aiMessageRtdbKey), { 
-        text: `Desculpe, ocorreu um erro ao processar sua solicitação: ${errorMessage.substring(0, 100)}`,
-        isError: true // Custom flag
-      });
-    } catch (rtdbError) {
-      console.error(`[askReportOrchestratorAction] Failed to update RTDB with error message for ${aiMessageRtdbKey}:`, rtdbError);
-    }
     return {
       success: false,
-      error: `Erro ao processar sua solicitação: ${errorMessage.substring(0, CLIENT_ERROR_MESSAGE_MAX_LENGTH)}`,
-      aiMessageRtdbKey,
+      error: `Erro ao processar sua solicitação (SA): ${message.substring(
+        0,
+        CLIENT_ERROR_MESSAGE_MAX_LENGTH
+      )}`,
+      aiMessageRtdbKey, // Pass along if available, so client can still update that specific message with error
     };
   }
 }
-
-
-    

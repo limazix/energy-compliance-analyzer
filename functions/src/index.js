@@ -5,7 +5,7 @@
  * @fileOverview Firebase Functions entry point.
  * Initializes Firebase Admin SDK and exports all cloud functions for deployment,
  * including event-triggered functions for analysis processing and HTTPS callable
- * functions for client-invoked operations like file upload management.
+ * functions for client-invoked operations like file upload management and report chat.
  */
 
 const admin = require('firebase-admin');
@@ -19,6 +19,7 @@ if (admin.apps.length === 0) {
 const { processAnalysisOnUpdate } = require('./processAnalysis');
 // Import HTTPS callable functions
 const fileUploadHttpsFunctions = require('./fileUploadHttps');
+const reportChatHttpsFunctions = require('./reportChatHttps'); // Added new import
 
 /**
  * Cloud Function triggered by Firestore document updates to process energy analysis data.
@@ -52,3 +53,10 @@ exports.httpsFinalizeFileUploadRecord = fileUploadHttpsFunctions.httpsFinalizeFi
  * @see ./fileUploadHttps.js#httpsMarkUploadAsFailed
  */
 exports.httpsMarkUploadAsFailed = fileUploadHttpsFunctions.httpsMarkUploadAsFailed;
+
+// Export HTTPS callable function for report chat
+/**
+ * HTTPS Callable: Orchestrates user interaction with a compliance report via chat.
+ * @see ./reportChatHttps.js#httpsCallableAskOrchestrator
+ */
+exports.httpsCallableAskOrchestrator = reportChatHttpsFunctions.httpsCallableAskOrchestrator;
