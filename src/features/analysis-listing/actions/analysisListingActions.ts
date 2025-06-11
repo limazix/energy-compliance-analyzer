@@ -12,7 +12,7 @@ import type { Analysis } from '@/types/analysis';
 
 import type { HttpsCallableResult } from 'firebase/functions';
 
-const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
+const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 350; // Increased length for more detailed error
 
 interface HttpsCallableGetPastAnalysesResponse {
   analyses: Analysis[];
@@ -71,11 +71,16 @@ export async function getPastAnalysesAction(userId: string): Promise<Analysis[]>
       firebaseError.message || 'Erro desconhecido ao buscar análises via HTTPS Function.';
     console.error(
       `[SA_getPastAnalyses] Error calling 'httpsCallableGetPastAnalyses' for user ${userId}: Code: ${code}, Message: ${message}`,
-      error
+      firebaseError.details || error
     );
     const clientErrorMessage = `Código: ${code} - ${message}`;
-    throw new Error(
-      `Falha ao buscar análises (SA): ${clientErrorMessage.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH)}`
-    );
+
+    let detailedErrorMessage = `Falha ao buscar análises (SA): ${clientErrorMessage}`;
+    if (code === 'functions/permission-denied') {
+      detailedErrorMessage +=
+        ' Verifique as permissões IAM: a identidade que chama esta função (ex: Service Account do App Hosting) precisa da role "Cloud Functions Invoker" para a função de destino.';
+    }
+
+    throw new Error(detailedErrorMessage.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH));
   }
 }
