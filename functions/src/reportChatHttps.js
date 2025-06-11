@@ -38,14 +38,14 @@ const rtdbAdmin = admin.database();
 const firebaseRuntimeConfig = functions.config();
 const geminiApiKeyFromConfig =
   firebaseRuntimeConfig && firebaseRuntimeConfig.gemini
-    ? firebaseRuntimeConfig.gemini.apikey
+    ? firebaseRuntimeConfig.gemini.api_key // Changed 'apikey' to 'api_key'
     : undefined;
 const geminiApiKey =
   process.env.GEMINI_API_KEY || geminiApiKeyFromConfig || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
 if (!geminiApiKey) {
   console.error(
-    '[Func_reportChatHttps] CRITICAL: GEMINI_API_KEY not found. Genkit AI calls WILL FAIL.'
+    '[Func_reportChatHttps] CRITICAL: GEMINI_API_KEY not found. Genkit AI calls WILL FAIL. Searched process.env.GEMINI_API_KEY, functions.config().gemini.api_key, and process.env.NEXT_PUBLIC_GEMINI_API_KEY.'
   );
 }
 const ai = genkit({

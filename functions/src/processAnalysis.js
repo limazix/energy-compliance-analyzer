@@ -35,7 +35,7 @@ if (admin.apps.length === 0) {
 const firebaseRuntimeConfig = functions.config();
 const geminiApiKeyFromConfig =
   firebaseRuntimeConfig && firebaseRuntimeConfig.gemini
-    ? firebaseRuntimeConfig.gemini.apikey
+    ? firebaseRuntimeConfig.gemini.api_key // Changed 'apikey' to 'api_key'
     : undefined;
 
 // Determine Gemini API Key, prioritizing environment variables, then Firebase config, then Next.js public env var.
@@ -44,7 +44,7 @@ const geminiApiKey =
 
 if (!geminiApiKey) {
   console.error(
-    'CRITICAL: GEMINI_API_KEY not found for Firebase Functions. Genkit AI calls WILL FAIL.'
+    'CRITICAL: GEMINI_API_KEY not found for Firebase Functions. Genkit AI calls WILL FAIL. Searched process.env.GEMINI_API_KEY, functions.config().gemini.api_key, and process.env.NEXT_PUBLIC_GEMINI_API_KEY.'
   );
 }
 

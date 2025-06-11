@@ -62,7 +62,13 @@ The Energy Compliance Analyzer simplifies compliance verification for the electr
 
     # Gemini API Key for Genkit flows in Next.js (Server Actions) and Firebase Functions (when emulated locally)
     # For deployed Firebase Functions, this key is configured as a secret in the deployment environment.
+    # This key is also used by functions if functions.config().gemini.api_key is not set.
     NEXT_PUBLIC_GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+
+    # Optional: If you are NOT using Firebase CLI to set runtime config for functions (functions:config:set gemini.api_key=...),
+    # and you want local emulated functions to pick up the key via process.env.GEMINI_API_KEY,
+    # you can set it here. If set, it takes precedence over NEXT_PUBLIC_GEMINI_API_KEY for functions.
+    # GEMINI_API_KEY="YOUR_GEMINI_API_KEY_FOR_FUNCTIONS_EMULATOR"
     ```
 
     **Important:**
@@ -71,7 +77,8 @@ The Energy Compliance Analyzer simplifies compliance verification for the electr
       - The value for `projectId` MUST be `electric-magnitudes-analizer`.
       - The value for `databaseURL` is essential for Realtime Database (chat), e.g.: `https://electric-magnitudes-analizer-default-rtdb.firebaseio.com`.
       - Ensure the entire value of this variable is a single, valid JSON string, enclosed in single or double quotes as per your shell/`.env` syntax.
-    - `NEXT_PUBLIC_GEMINI_API_KEY`: Used by Genkit flows in both Next.js (for chat) and Firebase Functions (during local emulation).
+    - `NEXT_PUBLIC_GEMINI_API_KEY`: Used by Genkit flows in Next.js (for chat). Also used as a fallback by Firebase Functions during local emulation if `GEMINI_API_KEY` env var or `functions.config().gemini.api_key` is not set.
+    - `GEMINI_API_KEY` (optional in `.env`): If you set this variable in your root `.env` file, it will be prioritized by the emulated Firebase Functions over `NEXT_PUBLIC_GEMINI_API_KEY` and `functions.config()`. This is useful if you want to use a different key for functions emulation than for Next.js server actions. For deployed functions, this key must be set as a runtime environment variable directly in GCP or via Firebase CLI's `functions:config:set gemini.api_key=...`.
 
 5.  **Authorized Domains in Firebase Authentication:**
     In the Firebase Console (`electric-magnitudes-analizer` > Authentication > Settings > Authorized domains), add `localhost` and other development domains (e.g., `*.cloudworkstations.dev`).
@@ -97,6 +104,7 @@ The project is configured to connect to Firebase Emulators (Auth, Firestore, Sto
     ```
 
     This uses `--import=./firebase-emulator-data --export-on-exit`. The Emulator UI will be at `http://localhost:4001`. Verify that `auth`, `firestore`, `storage`, `functions`, and `database` emulators are active.
+    The functions will pick up Gemini API key from `process.env.GEMINI_API_KEY` (if set in your shell or root `.env`), then `functions.config().gemini.api_key` (if you've set it via `firebase functions:config:set`), then `process.env.NEXT_PUBLIC_GEMINI_API_KEY` (from root `.env`).
 
 3.  **Start your Next.js application:**
     (In another terminal)
@@ -143,7 +151,14 @@ The required environment variables are the same as those used by the CI workflow
     # .env.test
     # Consolidated Firebase configuration for tests (can use dummy values if actual calls are mocked)
     NEXT_PUBLIC_FIREBASE_CONFIG='{"apiKey":"test-api-key","authDomain":"localhost","projectId":"electric-magnitudes-analizer","storageBucket":"localhost","messagingSenderId":"test-sender-id","appId":"test-app-id","databaseURL":"http://localhost:9000/?ns=electric-magnitudes-analizer"}'
-    NEXT_PUBLIC_GEMINI_API_KEY="test-gemini-key-for-jest"
+
+    # Key for Next.js Server Actions (Genkit)
+    NEXT_PUBLIC_GEMINI_API_KEY="test-gemini-key-for-jest-nextjs"
+
+    # Key for Firebase Functions Emulators (Genkit). If functions.config().gemini.api_key is not set via CLI or if GEMINI_API_KEY is not set in the shell, this will be used as a fallback.
+    # Or, explicitly set GEMINI_API_KEY here if your test runner loads this into process.env for the emulators.
+    # GEMINI_API_KEY="test-gemini-key-for-jest-functions-emulator"
+
 
     # Emulator settings (match firebase.json and what CI uses)
     FIRESTORE_EMULATOR_HOST="localhost:8080"
@@ -189,3 +204,7 @@ Consult the [**Deployment Guide**](docs/DEPLOYMENT.md) for details on manual and
 ## License
 
 This project is licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for more details.
+
+```
+
+```
