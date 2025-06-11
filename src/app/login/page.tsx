@@ -1,17 +1,18 @@
-
 'use client';
 
 import { useEffect } from 'react';
+
+import { signInWithPopup, type FirebaseError } from 'firebase/auth';
+import { LogIn } from 'lucide-react';
 import Link from 'next/link'; // Import Link
 import { useRouter } from 'next/navigation';
-import { signInWithPopup } from 'firebase/auth';
-import { LogIn } from 'lucide-react';
-import { useAuth } from '@/contexts/auth-context';
-import { auth, googleProvider } from '@/lib/firebase';
+
+import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Logo } from '@/components/icons/logo';
+import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
+import { auth, googleProvider } from '@/lib/firebase';
 
 export default function LoginPage() {
   const { user, loading } = useAuth();
@@ -31,18 +32,27 @@ export default function LoginPage() {
       router.replace('/');
     } catch (error) {
       console.error('Erro no login com Google:', error);
-      toast({
-        title: 'Erro no Login',
-        description: 'Não foi possível fazer login com Google. Tente novamente.',
-        variant: 'destructive',
-      });
+      const firebaseError = error as FirebaseError;
+      if (firebaseError.code === 'auth/popup-closed-by-user') {
+        toast({
+          title: 'Login Cancelado',
+          description: 'A janela de login com Google foi fechada. Tente novamente se desejar.',
+          variant: 'default',
+        });
+      } else {
+        toast({
+          title: 'Erro no Login',
+          description: 'Não foi possível fazer login com Google. Tente novamente.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
   if (loading || (!loading && user)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
-         {/* Optionally, show a loader here or nothing while redirecting */}
+        {/* Optionally, show a loader here or nothing while redirecting */}
       </div>
     );
   }
@@ -52,9 +62,12 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="items-center text-center">
           <Logo className="mb-4 h-12 w-auto" />
-          <CardTitle className="text-3xl font-bold font-headline">EMA - Electric Magnitudes Analizer</CardTitle>
+          <CardTitle className="text-3xl font-bold font-headline">
+            EMA - Electric Magnitudes Analizer
+          </CardTitle>
           <CardDescription className="text-md">
-            Acesse para analisar dados de qualidade de energia e verificar conformidade com as normas ANEEL.
+            Acesse para analisar dados de qualidade de energia e verificar conformidade com as
+            normas ANEEL.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -78,6 +91,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-
-    
