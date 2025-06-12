@@ -1,99 +1,97 @@
 @startuml readme-architecture
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+!$pumlBootstrapVersion = "3.0.0"
 !include <tupadr3/common>
-!include <tupadr3/devicons/react>
-!include <tupadr3/devicons/google>
-!include <tupadr3/font-awesome-6/server>
-!include <tupadr3/font-awesome-6/database>
-!include <tupadr3/font-awesome-6/file_cloud>
-!include <tupadr3/font-awesome-6/bolt_lightning>
-!include <tupadr3/font-awesome-6/brain_circuit>
-!include <tupadr3/font-awesome-6/person>
-!include <tupadr3/font-awesome-6/file_arrow_up>
-!include <tupadr3/font-awesome-6/trash_can>
-!include <tupadr3/font-awesome-6/share_nodes>
-!include <tupadr3/font-awesome-6/gears>
+!include <tupadr3/font-awesome-5/user_cog>
+!include <tupadr3/font-awesome-5/mobile_alt>
+!include <tupadr3/font-awesome-5/server>
+!include <tupadr3/font-awesome-5/key> ! For Firebase Auth
+!include <tupadr3/font-awesome-5/database>
+!include <tupadr3/material/cloud_storage> ! For Firebase Storage
+!include <tupadr3/material/share_nodes>
+!include <tupadr3/font-awesome-5/envelope>
+!include <tupadr3/material/cloud_upload>
+!include <tupadr3/font-awesome-5/trash_alt>
+!include <tupadr3/font-awesome-5/cogs>
+!include <tupadr3/font-awesome-5/brain>
 
 
-title High-Level Architecture: Energy Compliance Analyzer (Event-Driven)
+title High-Level Architecture - Energy Compliance Analyzer
 
-actor User <&person>
-
-package "Web Application (Next.js on Firebase App Hosting)" {
-  component "Frontend Web App" as Frontend <<Next.js/React>> <&react>
-  component "Next.js Server Actions" as ServerActions <<API>> <&server>
+actor "Usuário" as User FA5_USER_COG #SteelBlue
+package "Frontend Web App (Next.js)" as FrontendApp FA5_MOBILE_ALT #LightSkyBlue {
+  component "Interface do Usuário (React, ShadCN)" as UI
+  component "Next.js Server Actions" as ServerActions FA5_SERVER #LightSteelBlue
 }
 
-package "Firebase & Google Cloud" {
-  database "Firebase Firestore" as Firestore <&database>
-  database "Firebase Storage" as Storage <&file_cloud>
-  database "Firebase Realtime DB" as RTDB <&share_nodes>
-  component "Firebase Auth" as Auth <&google>
+package "Firebase" as Firebase #Orange {
+  database "Firestore" as Firestore FA5_DATABASE #Tomato
+  database "Realtime DB (Chat)" as RTDB MATERIAL_SHARE_NODES #LightSalmon
+  storage "Cloud Storage" as Storage MATERIAL_CLOUD_STORAGE #OrangeRed
+  cloud "Authentication" as Auth FA5_KEY #IndianRed
+  cloud "Pub/Sub" as PubSubService FA5_ENVELOPE #DarkOrange
 
-  queue "Pub/Sub: File Upload Completed" as PubSubUpload <&file_arrow_up>
-  queue "Pub/Sub: Analysis Deletion Request" as PubSubDelete <&trash_can>
-
-  package "Firebase Functions" {
-    component "onFileUploadCompleted\n(Pub/Sub Trigger)" as FuncUploadComplete <<Function>> <&bolt_lightning>
-    component "processAnalysisOnUpdate\n(Firestore Trigger)" as FuncProcessAnalysis <<Function>> <&bolt_lightning>
-    component "onAnalysisDeletionRequested\n(Pub/Sub Trigger)" as FuncDeletionRequest <<Function>> <&bolt_lightning>
-    component "handleAnalysisDeletionRequest\n(Firestore Trigger)" as FuncHandleDelete <<Function>> <&bolt_lightning>
-    component "HTTPS Callables\n(Chat, Tags, etc.)" as FuncHttps <<Function>> <&gears>
+  package "Pub/Sub Topics" as PubSubTopics #DarkOrange {
+    queue "File Upload\nCompleted Topic" as UploadTopic MATERIAL_CLOUD_UPLOAD
+    queue "Analysis Deletion\nRequest Topic" as DeletionTopic FA5_TRASH_ALT
   }
 
-  component "Google AI (Genkit/Gemini)" as GenAI <&brain_circuit>
+  package "Firebase Functions" as Functions FA5_COGS #GoldenRod {
+    component "onFileUploadCompleted\n(Pub/Sub Triggered)" as FnUploadComplete
+    component "processAnalysisOnUpdate\n(Firestore Triggered)\n- AI Agent Pipeline" as FnProcessAnalysis
+    component "onAnalysisDeletionRequested\n(Pub/Sub Triggered)" as FnDeletionRequested
+    component "handleAnalysisDeletionRequest\n(Firestore Triggered)" as FnHandleDeletion
+    component "HTTPS Callables\n(Chat, Tags, etc.)" as FnHttp
+  }
 }
 
-' Relationships
-User --> Frontend : Interacts via Browser
-Frontend -> ServerActions : Invokes (Upload, Chat, Tags, Delete Req)
-ServerActions -> Auth : Verifies User
-ServerActions -> Firestore : (e.g., for initial record, tags, direct updates if any)
-ServerActions -> RTDB : (e.g., initial chat messages by AI)
-ServerActions -> GenAI : (e.g., for Chat Orchestrator)
+package "Google AI" as GoogleAI #LightGreen {
+  component "Genkit (Gemini Models)" as GenkitAI FA5_BRAIN
+}
 
-' File Upload Flow (Client-Side direct to Storage, then Server Action notifies)
-Frontend -> Storage : Uploads CSV File
-ServerActions -> PubSubUpload : Publishes 'File Upload Completed' event
+User --> UI : Interage com
+UI --> ServerActions : Chama (Upload, Tags, Chat)
 
-PubSubUpload --> FuncUploadComplete : Triggers
-FuncUploadComplete -> Firestore : Updates Analysis (status: summarizing_data, fileURL)
+ServerActions --> Firestore : Cria/Atualiza registros iniciais
+ServerActions --> Auth : Verifica usuário (implícito)
+ServerActions --> RTDB : Gerencia histórico de chat
+ServerActions --> PubSubService : Publica eventos (Upload Completo, Solicitação de Exclusão)
 
-' Main Analysis Flow (Event-Driven by Firestore)
-Firestore -> FuncProcessAnalysis : Triggers on status update
-FuncProcessAnalysis -> Storage : Reads CSV
-FuncProcessAnalysis -> GenAI : AI Pipeline (Summarizer, Regulations, Compliance, Reviewer)
-FuncProcessAnalysis -> Firestore : Saves structured report, updates status/progress
-FuncProcessAnalysis -> Storage : Saves MDX report
+PubSubService --> UploadTopic
+PubSubService --> DeletionTopic
 
-' Deletion Flow (Event-Driven via Pub/Sub then Firestore)
-ServerActions -> PubSubDelete : Publishes 'Analysis Deletion Request'
-PubSubDelete --> FuncDeletionRequest : Triggers
-FuncDeletionRequest -> Firestore : Updates Analysis (status: pending_deletion)
+UploadTopic --> FnUploadComplete : Aciona
+DeletionTopic --> FnDeletionRequested : Aciona
 
-Firestore -> FuncHandleDelete : Triggers on 'pending_deletion'
-FuncHandleDelete -> Storage : Deletes CSV & MDX files
-FuncHandleDelete -> Firestore : Updates Analysis (status: deleted)
+FnUploadComplete --> Firestore : Atualiza status/URL do arquivo
+FnProcessAnalysis --> Storage : Lê CSV, Salva MDX
+FnProcessAnalysis --> Firestore : Atualiza progresso/resultados
+FnProcessAnalysis --> GenkitAI : Processa dados
 
-' Chat and Other HTTPS Functions
-Frontend -> FuncHttps : (e.g., For operations not suitable for Server Actions directly, or complex backend logic)
-FuncHttps -> Firestore : Read/Write
-FuncHttps -> RTDB : Read/Write Chat
-FuncHttps -> GenAI : (e.g., if chat logic is entirely in a Callable Function)
+FnDeletionRequested --> Firestore : Atualiza status para 'pending_deletion'
+FnHandleDeletion --> Storage : Remove arquivos (CSV, MDX)
+FnHandleDeletion --> Firestore : Atualiza status para 'deleted'
 
+FnHttp --> Firestore : Lê/Escreve dados
+FnHttp --> RTDB : Lê/Escreve dados de chat
+FnHttp --> GenkitAI : Orquestra chat com IA
 
-' General Service Usage
-FuncProcessAnalysis <--> GenAI
-FuncHttps <--> GenAI
-FuncProcessAnalysis <--> Firestore
-FuncProcessAnalysis <--> Storage
-FuncHandleDelete <--> Firestore
-FuncHandleDelete <--> Storage
+Firestore -[hidden]-> Storage
+Storage -[hidden]-> RTDB
+RTDB -[hidden]-> Auth
+Auth -[hidden]-> PubSubService
 
-Frontend <--> RTDB : Real-time Chat Sync
-Frontend <--> Auth : Handles Authentication
-Frontend <--> Firestore : (e.g., onSnapshot for Analysis list/details)
+note right of ServerActions
+  Lógica de negócios,
+  validação, orquestração
+  de chamadas de backend.
+end note
 
+note right of FnProcessAnalysis
+  Pipeline de Agentes AI:
+  - Data Analyst (Summarizer)
+  - Regulation Identifier
+  - Compliance Engineer
+  - Report Reviewer
+end note
 
-hide empty members
 @enduml
