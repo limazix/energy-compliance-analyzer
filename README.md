@@ -1,24 +1,28 @@
 # Energy Compliance Analyzer
 
-This is a Next.js project to analyze the compliance of electrical power quality data based on the normative resolutions of ANEEL (Brazilian National Electrical Energy Agency). The application allows users to upload CSV files, identifies pertinent ANEEL resolutions, and generates a compliance report. Heavy data processing is performed by Firebase Functions, and an interactive chat interface allows the user to dialogue and refine the generated reports.
+This is a Next.js project to analyze the compliance of electrical power quality data based on the normative resolutions of ANEEL (Brazilian National Electrical Energy Agency). The application allows users to upload CSV files, identifies pertinent ANEEL resolutions, and generates a compliance report. Core data processing leverages an event-driven pipeline with Firebase Functions, and an interactive chat interface allows users to dialogue and refine the generated reports.
 
 ## Project Description
 
-The Energy Compliance Analyzer simplifies compliance verification for the electrical sector, using an artificial intelligence (Genkit) agent pipeline to automate the analysis of power quality data against ANEEL regulations. The main processing occurs in Firebase Functions, and an interactive chat interface with an orchestrator agent allows the user to interact and refine the generated reports, with AI responses streamed in real-time.
+The Energy Compliance Analyzer simplifies compliance verification for the electrical sector. It uses an artificial intelligence (Genkit) agent pipeline to automate the analysis of power quality data against ANEEL regulations. Key backend operations, such as file upload finalization and data processing, are handled by event-driven Firebase Functions, triggered by Pub/Sub events or Firestore document changes. This ensures a decoupled and resilient architecture. An interactive chat interface, powered by Next.js Server Actions and Genkit, allows users to interact with and refine generated reports, with AI responses streamed in real-time.
 
 ## Core Components
 
 - **Frontend:** Next.js, React, ShadCN UI, Tailwind CSS.
-- **Backend (API & Triggers):** Next.js Server Actions (for frontend interactions, like the report chat, and for triggering background processes).
-- **Background Processing:** Firebase Functions (Node.js, TypeScript) for data analysis and AI.
+- **Backend API & Event Triggers:** Next.js Server Actions (for frontend interactions, like the report chat, and for publishing events to Pub/Sub).
+- **Background Processing & Event Handling:** Firebase Functions (Node.js, TypeScript) for:
+  - Event-driven finalization of file uploads (triggered by Pub/Sub).
+  - Event-driven AI analysis pipeline (triggered by Firestore).
+  - Event-driven handling of analysis deletion requests (triggered by Pub/Sub and Firestore).
 - **Artificial Intelligence:** Genkit & Google AI (Gemini) running in Firebase Functions (for the main analysis and report generation pipeline with specialist agents: Data Analyst, Engineer, Reporter, Reviewer) and in Next.js Server Actions (for the interactive chat orchestrator agent).
-- **Database, Storage & Chat:** Firebase (Authentication, Firestore, Storage, Realtime Database for chat).
+- **Database, Storage, Messaging & Chat:** Firebase (Authentication, Firestore, Storage, Pub/Sub, Realtime Database for chat).
 - **Hosting:** Firebase App Hosting for the Next.js application.
 
 ## Key Features
 
 - Upload CSV files of power quality data.
-- Analysis pipeline with Specialized AI Agents in Firebase Functions:
+- Event-driven finalization of file uploads using Pub/Sub and Firebase Functions.
+- Analysis pipeline with Specialized AI Agents in Firebase Functions (triggered by Firestore changes):
   - **Senior Data Analyst:** Preprocessing, initial analysis, suggestion of transformations and visualizations.
   - **Electrical Engineer (Implicit):** Identification of ANEEL resolutions and compliance analysis.
   - **Reporter (Implicit):** Initial structuring of the report.
@@ -29,13 +33,19 @@ The Energy Compliance Analyzer simplifies compliance verification for the electr
   - Uses an Orchestrator Agent (via Next.js Server Actions and Genkit) to mediate the interaction.
   - AI responses are streamed in real-time.
   - Persistent chat history via Firebase Realtime Database.
-- Analysis management (viewing, deletion, tags).
+- Analysis management:
+  - Viewing, tags.
+  - Event-driven deletion of analyses and associated files (via Pub/Sub and Firebase Functions).
+  - Ability to retry failed analyses.
+  - Confirmation for cancelling in-progress analyses.
 
 ## High-Level Architecture
 
+The diagram below illustrates the main components and interactions within the Energy Compliance Analyzer. It highlights the event-driven nature of backend processing, utilizing Firebase Pub/Sub and Firestore triggers to orchestrate Firebase Functions for tasks like file upload finalization, data analysis, and deletion management.
+
 ![uncached image](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/readme-architecture.iuml)
 
-<p align="center" data-ai-hint="architecture diagram">Application Architecture Diagram</p>
+<p align="center" data-ai-hint="architecture diagram event-driven">Application Architecture Diagram</p>
 
 ## Running Locally
 
@@ -44,7 +54,7 @@ The Energy Compliance Analyzer simplifies compliance verification for the electr
 - Node.js (version 20 or higher)
 - npm or yarn
 - Firebase CLI installed (`npm install -g firebase-tools`)
-- Firebase Project (`electric-magnitudes-analizer`) with Authentication, Firestore, Storage, and Realtime Database enabled.
+- Firebase Project (`electric-magnitudes-analizer`) with Authentication, Firestore, Storage, Realtime Database, and Pub/Sub enabled.
 - Google AI (Gemini) API Key.
 
 ### Setup
@@ -69,6 +79,11 @@ The Energy Compliance Analyzer simplifies compliance verification for the electr
     # and you want local emulated functions to pick up the key via process.env.GEMINI_API_KEY,
     # you can set it here. If set, it takes precedence over NEXT_PUBLIC_GEMINI_API_KEY for functions.
     # GEMINI_API_KEY="YOUR_GEMINI_API_KEY_FOR_FUNCTIONS_EMULATOR"
+
+    # Optional: For Server Actions using Firebase Admin SDK (e.g., to publish to Pub/Sub) locally.
+    # Path to your Firebase service account key JSON file.
+    # GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/serviceAccountKey.json"
+    # Alternatively, you can set FIREBASE_ADMIN_SERVICE_ACCOUNT_PATH if src/lib/firebase-admin.ts is configured for it.
     ```
 
     **Important:**
@@ -79,6 +94,7 @@ The Energy Compliance Analyzer simplifies compliance verification for the electr
       - Ensure the entire value of this variable is a single, valid JSON string, enclosed in single or double quotes as per your shell/`.env` syntax.
     - `NEXT_PUBLIC_GEMINI_API_KEY`: Used by Genkit flows in Next.js (for chat). Also used as a fallback by Firebase Functions during local emulation if `GEMINI_API_KEY` env var or `functions.config().gemini.api_key` is not set.
     - `GEMINI_API_KEY` (optional in `.env`): If you set this variable in your root `.env` file, it will be prioritized by the emulated Firebase Functions over `NEXT_PUBLIC_GEMINI_API_KEY` and `functions.config()`. This is useful if you want to use a different key for functions emulation than for Next.js server actions. For deployed functions, this key must be set as a runtime environment variable directly in GCP or via Firebase CLI's `functions:config:set gemini.api_key=...`.
+    - `GOOGLE_APPLICATION_CREDENTIALS`: Essential for Server Actions using the Firebase Admin SDK (e.g., for Pub/Sub) to authenticate when running locally. Ensure this path is correct.
 
 5.  **Authorized Domains in Firebase Authentication:**
     In the Firebase Console (`electric-magnitudes-analizer` > Authentication > Settings > Authorized domains), add `localhost` and other development domains (e.g., `*.cloudworkstations.dev`).
@@ -90,7 +106,7 @@ The Energy Compliance Analyzer simplifies compliance verification for the electr
 
 ### Running the Application with Emulators (Recommended)
 
-The project is configured to connect to Firebase Emulators (Auth, Firestore, Storage, Functions, Realtime Database) when accessed via `localhost`.
+The project is configured to connect to Firebase Emulators (Auth, Firestore, Storage, Functions, Pub/Sub, Realtime Database) when accessed via `localhost`.
 
 1.  **Build Firebase Functions (required for the Functions emulator):**
     ```bash
@@ -103,20 +119,21 @@ The project is configured to connect to Firebase Emulators (Auth, Firestore, Sto
     npm run emulators:start
     ```
 
-    This uses `--import=./firebase-emulator-data --export-on-exit`. The Emulator UI will be at `http://localhost:4001`. Verify that `auth`, `firestore`, `storage`, `functions`, and `database` emulators are active.
+    This uses `--import=./firebase-emulator-data --export-on-exit`. The Emulator UI will be at `http://localhost:4001`. Verify that `auth`, `firestore`, `storage`, `functions`, `pubsub`, and `database` emulators are active.
     The functions will pick up Gemini API key from `process.env.GEMINI_API_KEY` (if set in your shell or root `.env`), then `functions.config().gemini.api_key` (if you've set it via `firebase functions:config:set`), then `process.env.NEXT_PUBLIC_GEMINI_API_KEY` (from root `.env`).
 
 3.  **Start your Next.js application:**
     (In another terminal)
+    Ensure `GOOGLE_APPLICATION_CREDENTIALS` is set in this terminal's environment if your Server Actions use the Admin SDK.
 
     ```bash
     npm run dev
     ```
 
-    Access your application (`http://localhost:9002`). `src/lib/firebase.ts` will connect to the emulators. The Next.js application will trigger the Functions (running in the emulator) through Firestore writes. The report's interactive chat interface interacts with Genkit flows via Next.js Server Actions, which will use the `NEXT_PUBLIC_GEMINI_API_KEY` from your `.env`.
+    Access your application (`http://localhost:9002`). `src/lib/firebase.ts` will connect to the emulators for client SDKs. The Next.js application Server Actions will use the Admin SDK (potentially connecting to live Pub/Sub if `PUBSUB_EMULATOR_HOST` isn't set for that environment, or to the Pub/Sub emulator if it is). Firestore changes will trigger Functions running in the emulator. The report's interactive chat interface interacts with Genkit flows via Next.js Server Actions, which will use the `NEXT_PUBLIC_GEMINI_API_KEY` from your `.env`.
 
 4.  **(Alternative) Emulators and dev server together with `firebase emulators:exec`:**
-    The `npm run emulators:dev` script is already configured for this (it builds the functions and then runs the Next.js dev server with the emulators).
+    The `npm run emulators:dev` script is already configured for this (it builds the functions and then runs the Next.js dev server with the emulators). Ensure `GOOGLE_APPLICATION_CREDENTIALS` is available to this script's environment.
     ```bash
     npm run emulators:dev
     ```
@@ -136,6 +153,7 @@ npm test
 ```
 
 This will use the `firebase emulators:exec --import=./firebase-emulator-data jest` script to run Jest tests in an environment with active emulators. Ensure that the functions have been built (`npm run build --prefix functions`) beforehand.
+The Server Actions in tests will use the Admin SDK. Ensure necessary environment variables (like `GOOGLE_APPLICATION_CREDENTIALS` for Pub/Sub publishing, or mocks) are available.
 
 ### Test Environment Setup for Jest (Local)
 
@@ -159,6 +177,9 @@ The required environment variables are the same as those used by the CI workflow
     # Or, explicitly set GEMINI_API_KEY here if your test runner loads this into process.env for the emulators.
     # GEMINI_API_KEY="test-gemini-key-for-jest-functions-emulator"
 
+    # For Server Actions using Admin SDK locally (e.g., Pub/Sub publish)
+    # GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/serviceAccountKey.json" # Replace with actual path or mock
+    # PUBSUB_EMULATOR_HOST="localhost:8085" # To make Admin SDK Pub/Sub client use emulator
 
     # Emulator settings (match firebase.json and what CI uses)
     FIRESTORE_EMULATOR_HOST="localhost:8080"
@@ -204,7 +225,3 @@ Consult the [**Deployment Guide**](docs/DEPLOYMENT.md) for details on manual and
 ## License
 
 This project is licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for more details.
-
-```
-
-```
