@@ -10,21 +10,11 @@
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const { genkit, ZodString } = require('genkit'); // ZodString for simpler schema if needed, or full zod
-const { googleAI } = require('@genkit-ai/googleai');
-const { z } = require('zod'); // Full Zod for complex schemas
+
+// Import the modularized Genkit agent for chat orchestration
+const { chatOrchestratorAgentPrompt } = require('../ai/flows/chatOrchestratorAgent.js');
 
 // Adjusted paths for shared modules
-const {
-  orchestrateReportInteractionPromptConfig,
-  OrchestrateReportInteractionInputSchema,
-  AnalyzeComplianceReportOutputSchema, // Used by the Revisor tool and overall interaction output
-} = require('../../lib/shared/ai/prompt-configs/orchestrate-report-interaction-prompt-config.js');
-const {
-  reviewComplianceReportPromptConfig,
-  ReviewComplianceReportInputSchema,
-  // ReviewComplianceReportOutputSchema is AnalyzeComplianceReportOutputSchema
-} = require('../../lib/shared/ai/prompt-configs/review-compliance-report-prompt-config.js');
 const { convertStructuredReportToMdx } = require('../../lib/shared/lib/reportUtils.js');
 
 // Initialize Firebase Admin SDK if not already done (should be handled by index.js, but good practice).
@@ -36,70 +26,7 @@ const db = admin.firestore();
 const storageAdmin = admin.storage();
 const rtdbAdmin = admin.database();
 
-// Initialize Genkit
-const firebaseRuntimeConfig = functions.config();
-const geminiApiKeyFromConfig =
-  firebaseRuntimeConfig && firebaseRuntimeConfig.gemini
-    ? firebaseRuntimeConfig.gemini.api_key
-    : undefined;
-const geminiApiKey =
-  process.env.GEMINI_API_KEY || geminiApiKeyFromConfig || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-
-if (!geminiApiKey) {
-  console.error(
-    '[ReportChat_Orchestrator] CRITICAL: GEMINI_API_KEY not found. Genkit AI calls WILL FAIL.'
-  );
-}
-const ai = genkit({
-  plugins: [googleAI({ apiKey: geminiApiKey })],
-});
-
-// --- Define Genkit Flows and Tools within this Firebase Function's context ---
-
-// Define the Revisor Flow (using the shared prompt config)
-const reviewComplianceReportFlow = ai.defineFlow(
-  {
-    name: 'reviewComplianceReportFlow_Chat', // Unique name for this context
-    inputSchema: ReviewComplianceReportInputSchema,
-    outputSchema: AnalyzeComplianceReportOutputSchema, // Output is the revised full report
-  },
-  async (input) => {
-    const reviewPrompt = ai.definePrompt(reviewComplianceReportPromptConfig);
-    const { output } = await reviewPrompt(input);
-    if (!output) {
-      throw new Error('AI failed to review and refine the compliance report (Chat Orchestrator).');
-    }
-    return output;
-  }
-);
-
-// Define the Revisor Tool (using the shared schemas)
-const callRevisorTool_Chat = ai.defineTool(
-  {
-    name: 'callRevisorTool_Chat',
-    description:
-      'Reviews and refines a given structured compliance report. Use this if the user asks for rephrasing, grammar checks, structural adjustments, or overall improvement of the report content. This tool will return the entire revised structured report.',
-    inputSchema: z.object({
-      structuredReportToReview: AnalyzeComplianceReportOutputSchema,
-      languageCode: OrchestrateReportInteractionInputSchema.shape.languageCode,
-    }),
-    outputSchema: AnalyzeComplianceReportOutputSchema,
-  },
-  async (toolInput) => {
-    if (!toolInput.structuredReportToReview) {
-      throw new Error('Structured report is required for the Revisor tool (Chat Orchestrator).');
-    }
-    const revisedReport = await reviewComplianceReportFlow(toolInput);
-    return revisedReport;
-  }
-);
-
-// Define the Main Interaction Prompt (using shared config and the Firebase-defined tool)
-const interactionPrompt_Chat = ai.definePrompt({
-  ...orchestrateReportInteractionPromptConfig,
-  name: 'orchestrateReportInteractionPrompt_Chat',
-  tools: [callRevisorTool_Chat],
-});
+// Genkit 'ai' instance is imported by the chatOrchestratorAgentPrompt module itself.
 
 // --- HTTPS Callable Function ---
 
@@ -126,7 +53,7 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
   }
   const callingUserId = context.auth.uid;
   const {
-    userId,
+    userId, // userId from data payload
     analysisId,
     userInputText,
     currentReportMdx,
@@ -138,7 +65,7 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
   if (callingUserId !== userId) {
     throw new functions.https.HttpsError(
       'permission-denied',
-      'UID do chamador não corresponde ao UID fornecido.'
+      'UID do chamador não corresponde ao UID fornecido no payload.'
     );
   }
   if (!analysisId || !userInputText || !currentStructuredReport || !currentReportMdx) {
@@ -148,6 +75,7 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
     );
   }
 
+  // eslint-disable-next-line no-console
   console.info(
     `[ReportChat_Orchestrator] User: ${userId}, Analysis: ${analysisId}. Query: "${userInputText.substring(0, 50)}..."`
   );
@@ -163,21 +91,30 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
   try {
     await rtdbAdmin.ref(`chats/${analysisId}`).push(userMessageForRtdb);
   } catch (dbError) {
+    // eslint-disable-next-line no-console
     console.error(
       `[ReportChat_Orchestrator] Failed to push user message to RTDB for ${analysisId}:`,
       dbError
     );
+    // Non-fatal for the AI call, but good to log.
   }
 
+  // Create a placeholder for AI response in RTDB to get its key
   const newAiMessageNode = await rtdbAdmin.ref(`chats/${analysisId}`).push();
   const aiMessageRtdbKey = newAiMessageNode.key;
+
   if (!aiMessageRtdbKey) {
-    console.error(`[ReportChat_Orchestrator] Failed to generate RTDB key for AI message.`);
+    // eslint-disable-next-line no-console
+    console.error(
+      `[ReportChat_Orchestrator] Failed to generate RTDB key for AI message for analysis ${analysisId}.`
+    );
     throw new functions.https.HttpsError('internal', 'Falha ao gerar ID para mensagem da IA.');
   }
+
+  // Initialize the AI message node.
   await newAiMessageNode.set({
     sender: 'ai',
-    text: '',
+    text: '', // Will be updated with streamed content
     timestamp: admin.database.ServerValue.TIMESTAMP,
   });
 
@@ -186,6 +123,11 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
     let powerQualityDataSummary;
     if (analysisSnap.exists()) {
       powerQualityDataSummary = analysisSnap.data()?.powerQualityDataSummary;
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[ReportChat_Orchestrator] Analysis document ${analysisId} not found. Proceeding without its summary.`
+      );
     }
 
     const orchestratorInput = {
@@ -194,14 +136,17 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
       currentStructuredReport,
       analysisFileName:
         analysisFileName || analysisSnap.data()?.fileName || 'Nome do arquivo desconhecido',
-      powerQualityDataSummary,
+      powerQualityDataSummary, // Can be undefined
       languageCode: languageCode || 'pt-BR',
     };
 
+    // eslint-disable-next-line no-console
     console.debug(
-      `[ReportChat_Orchestrator] Calling interactionPrompt_Chat.generateStream for AI message key ${aiMessageRtdbKey}.`
+      `[ReportChat_Orchestrator] Calling chatOrchestratorAgentPrompt.generateStream for AI message key ${aiMessageRtdbKey}.`
     );
-    const { stream, response } = interactionPrompt_Chat.generateStream({
+
+    // chatOrchestratorAgentPrompt is already an ai.definePrompt object
+    const { stream, response } = chatOrchestratorAgentPrompt.generateStream({
       input: orchestratorInput,
     });
 
@@ -210,22 +155,26 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
       const textChunk = chunk.text ?? '';
       if (textChunk) {
         streamedText += textChunk;
+        // Update the AI message node in RTDB with the new chunk of text.
         await rtdbAdmin
           .ref(`chats/${analysisId}/${aiMessageRtdbKey}`)
           .update({ text: streamedText });
       }
     }
+    // eslint-disable-next-line no-console
     console.info(`[ReportChat_Orchestrator] Stream finished for AI message ${aiMessageRtdbKey}.`);
 
     const finalOutput = (await response)?.output;
 
     if (!finalOutput) {
       throw new Error(
-        'Orquestrador (Chat Function) falhou em gerar uma resposta estruturada final.'
+        'Orquestrador de Chat (Função HTTPS) falhou em gerar uma resposta estruturada final.'
       );
     }
 
+    // Check if the 'callRevisorTool' was used and returned a revised report
     if (finalOutput.revisedStructuredReport) {
+      // eslint-disable-next-line no-console
       console.info(
         `[ReportChat_Orchestrator] Ferramenta Revisor usada. Novo relatório estruturado gerado para ${analysisId}.`
       );
@@ -234,18 +183,25 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
         orchestratorInput.analysisFileName
       );
 
+      // Determine the MDX file path. Use existing if available, otherwise construct default.
       const mdxFilePath =
         analysisSnap.data()?.mdxReportStoragePath ||
         `user_reports/${userId}/${analysisId}/report.mdx`;
+
       const mdxFileStorageRef = storageAdmin.bucket().file(mdxFilePath);
-      await mdxFileStorageRef.save(newMdxContent, { contentType: 'text/markdown' });
+      await mdxFileStorageRef.save(newMdxContent, {
+        contentType: 'text/markdown',
+      });
+      // eslint-disable-next-line no-console
       console.info(`[ReportChat_Orchestrator] Novo MDX salvo em ${mdxFilePath}`);
 
+      // Update Firestore with the revised structured report and the path to the (new/overwritten) MDX.
       await analysisDocRef.update({
         structuredReport: finalOutput.revisedStructuredReport,
-        mdxReportStoragePath: mdxFilePath,
+        mdxReportStoragePath: mdxFilePath, // Ensure this is updated if it was newly constructed
         reportLastModifiedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+      // eslint-disable-next-line no-console
       console.info(
         `[ReportChat_Orchestrator] Firestore atualizado com relatório revisado para ${analysisId}.`
       );
@@ -259,6 +215,7 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
       };
     }
 
+    // If no report modification, just return success and the AI message key
     return {
       success: true,
       aiMessageRtdbKey,
@@ -266,8 +223,9 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    // eslint-disable-next-line no-console
     console.error(
-      `[ReportChat_Orchestrator] Erro para análise ${analysisId}, mensagem AI ${aiMessageRtdbKey}:`,
+      `[ReportChat_Orchestrator] Erro durante o processamento da Genkit para análise ${analysisId}, mensagem AI ${aiMessageRtdbKey}:`,
       errorMessage,
       error
     );
@@ -277,14 +235,16 @@ exports.httpsCallableAskOrchestrator = functions.https.onCall(async (data, conte
         isError: true,
       });
     } catch (rtdbError) {
+      // eslint-disable-next-line no-console
       console.error(
         `[ReportChat_Orchestrator] Falha ao atualizar RTDB com mensagem de erro para ${aiMessageRtdbKey}:`,
         rtdbError
       );
     }
+    // Re-throw as HttpsError to be caught by the client Server Action
     throw new functions.https.HttpsError('internal', errorMessage, {
-      originalError: error,
-      aiMessageRtdbKey,
+      originalError: error, // Keep original error for server logs if needed
+      aiMessageRtdbKey, // Pass key so client might know which message failed
     });
   }
 });
