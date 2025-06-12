@@ -8,11 +8,11 @@ const createJestConfig = nextJest({
 // Add any custom config to be passed to Jest
 const customJestConfig = {
   coverageProvider: 'v8',
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'], // Changed to .js
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'], // Changed to .ts
   testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    // A entrada para 'lucide-react' foi removida daqui, pois o mock está em jest.setup.js
+    // The entry for 'lucide-react' is handled by its mock in jest/mocks/ui-components.setup.ts
   },
   transformIgnorePatterns: [
     // Whitelist specific ESM modules for transformation.
