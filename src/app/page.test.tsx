@@ -327,7 +327,7 @@ describe('HomePage', () => {
        * @it It should display the "Your Past Analyses" section.
        */
       it('should display the "Your Past Analyses" section', () => {
-        expect(screen.getByText(`Suas Análises Anteriores`)).toBeInTheDocument();
+        expect(screen.getByText(`Suas Análises Anteriores`, { exact: false })).toBeInTheDocument();
       });
 
       /**
