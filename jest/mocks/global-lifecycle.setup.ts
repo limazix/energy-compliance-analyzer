@@ -74,6 +74,7 @@ beforeEach(() => {
           return Promise.resolve();
         });
       manager.handleCancelAnalysis.mockClear().mockResolvedValue(undefined);
+      manager.handleRetryAnalysis.mockClear().mockResolvedValue(undefined); // Added
       manager.downloadReportAsTxt.mockClear();
     }
 
@@ -145,14 +146,11 @@ beforeEach(() => {
       mockFn.mockResolvedValue({
         data: { analyses: [] },
       } as HttpsCallableResult<{ analyses: Analysis[] }>);
-    } else if (key === 'httpsCallableDeleteAnalysis' && mockFn) {
-      mockFn.mockResolvedValue({
-        data: { success: true, message: 'Deleted (mock callable)' },
-      } as HttpsCallableResult<{ success: boolean; message: string }>);
     } else if (key === 'httpsCallableCancelAnalysis' && mockFn) {
+      // Adjusted this one based on actual usage in analysisManagementActions
       mockFn.mockResolvedValue({
         data: { success: true, message: 'Cancelled (mock callable)' },
-      } as HttpsCallableResult<{ success: boolean; message: string }>);
+      } as HttpsCallableResult<unknown>); // Use unknown if specific type is not critical here
     } else if (key === 'httpsCallableTriggerProcessing' && mockFn) {
       mockFn.mockResolvedValue({
         data: { success: true, analysisId: 'mock-analysis-id-triggered' },

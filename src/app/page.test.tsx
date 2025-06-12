@@ -153,6 +153,23 @@ const mockAnalysisItemInProgress: Analysis = {
   completedAt: undefined,
 };
 
+const mockAnalysisItemError: Analysis = {
+  id: 'analysis-id-error-03',
+  userId: mockUser.uid,
+  fileName: 'data_gamma_error.csv',
+  title: 'Análise Gamma com Erro',
+  description: 'Tentativa de análise para Gamma que resultou em erro.',
+  languageCode: 'pt-BR',
+  status: 'error',
+  progress: 45,
+  uploadProgress: 100,
+  powerQualityDataUrl: `user_uploads/${mockUser.uid}/analysis-id-error-03/data_gamma_error.csv`,
+  errorMessage: 'Falha na identificação de resoluções ANEEL devido a dados insuficientes.',
+  tags: ['gamma_setor', 'investigar'],
+  createdAt: new Date('2023-10-28T11:00:00Z').toISOString(),
+  powerQualityDataSummary: 'Dados iniciais do Setor Gamma indicam várias interrupções curtas.',
+};
+
 // Define a type for the global mock value for better type safety
 interface MockFileUploadManagerReturnValue {
   fileToUpload: File | null;
@@ -188,6 +205,8 @@ describe('HomePage', () => {
   let mockFetchPastAnalysesGlobal: jest.Mock;
   let mockStartAiProcessingGlobal: jest.Mock;
   let mockHandleDeleteAnalysisGlobal: jest.Mock;
+  let mockHandleCancelAnalysisGlobal: jest.Mock;
+  let mockHandleRetryAnalysisGlobal: jest.Mock;
 
   // Firebase auth mock helper from jest.setup.js
   let setMockUserForAuthStateChangedListener: (user: User | null) => void;
@@ -218,8 +237,14 @@ describe('HomePage', () => {
     mockHandleDeleteAnalysisGlobal = (
       global.mockUseAnalysisManagerReturnValue.handleDeleteAnalysis as jest.Mock
     ).mockClear();
+    mockHandleCancelAnalysisGlobal = (
+      global.mockUseAnalysisManagerReturnValue.handleCancelAnalysis as jest.Mock
+    ).mockClear();
+    mockHandleRetryAnalysisGlobal = (
+      global.mockUseAnalysisManagerReturnValue.handleRetryAnalysis as jest.Mock
+    ).mockClear();
+
     (global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis as jest.Mock).mockClear();
-    (global.mockUseAnalysisManagerReturnValue.handleCancelAnalysis as jest.Mock).mockClear();
     (global.mockUseAnalysisManagerReturnValue.setTagInput as jest.Mock).mockClear();
     (global.mockUseAnalysisManagerReturnValue.handleAddTag as jest.Mock).mockClear();
     (global.mockUseAnalysisManagerReturnValue.handleRemoveTag as jest.Mock).mockClear();
@@ -708,6 +733,98 @@ describe('HomePage', () => {
           await screen.findByText(/Nenhuma análise anterior encontrada./i)
         ).toBeInTheDocument();
         expect(global.mockUseAnalysisManagerReturnValue.currentAnalysis).toBeNull();
+      });
+    });
+
+    /**
+     * @describe Context: When managing an in-progress analysis via AnalysisView.
+     */
+    describe('when managing an in-progress analysis via AnalysisView', () => {
+      beforeEach(async () => {
+        (
+          global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock
+        ).mockImplementation(async () => {
+          await act(async () => {
+            global.mockUseAnalysisManagerReturnValue.pastAnalyses = [mockAnalysisItemInProgress];
+            global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
+          });
+        });
+        render(<HomePage />);
+        await act(async () => {
+          await (global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock)();
+        });
+        expect(await screen.findByText(mockAnalysisItemInProgress.title!)).toBeInTheDocument();
+
+        const accordionTrigger = screen.getByText(mockAnalysisItemInProgress.title!);
+        await act(async () => {
+          await userEvent.click(accordionTrigger);
+          global.mockUseAnalysisManagerReturnValue.currentAnalysis = mockAnalysisItemInProgress;
+          global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps =
+            calculateDisplayedAnalysisSteps(mockAnalysisItemInProgress);
+        });
+        // Check for an element unique to the AnalysisProgressDisplay
+        expect(await screen.findByText(/Progresso da Análise:/i)).toBeInTheDocument();
+      });
+
+      /**
+       * @it It should allow cancelling an analysis after confirmation.
+       */
+      it('should allow cancelling an analysis after confirmation', async () => {
+        await userEvent.click(screen.getByRole('button', { name: /Cancelar Análise/i }));
+
+        const confirmDialogTitle = await screen.findByText('Confirmar Cancelamento');
+        expect(confirmDialogTitle).toBeInTheDocument();
+
+        const confirmButton = screen.getByRole('button', { name: 'Confirmar Cancelamento' });
+        await act(async () => {
+          await userEvent.click(confirmButton);
+        });
+
+        await waitFor(() => {
+          expect(mockHandleCancelAnalysisGlobal).toHaveBeenCalledWith(
+            mockAnalysisItemInProgress.id
+          );
+        });
+      });
+    });
+
+    /**
+     * @describe Context: When managing an errored analysis via AnalysisView.
+     */
+    describe('when managing an errored analysis via AnalysisView', () => {
+      beforeEach(async () => {
+        (
+          global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock
+        ).mockImplementation(async () => {
+          await act(async () => {
+            global.mockUseAnalysisManagerReturnValue.pastAnalyses = [mockAnalysisItemError];
+            global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
+          });
+        });
+        render(<HomePage />);
+        await act(async () => {
+          await (global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock)();
+        });
+        expect(await screen.findByText(mockAnalysisItemError.title!)).toBeInTheDocument();
+
+        const accordionTrigger = screen.getByText(mockAnalysisItemError.title!);
+        await act(async () => {
+          await userEvent.click(accordionTrigger);
+          global.mockUseAnalysisManagerReturnValue.currentAnalysis = mockAnalysisItemError;
+          global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps =
+            calculateDisplayedAnalysisSteps(mockAnalysisItemError);
+        });
+        expect(await screen.findByText(/Ocorreu um Erro/i)).toBeInTheDocument();
+      });
+
+      /**
+       * @it It should allow retrying a failed analysis.
+       */
+      it('should allow retrying a failed analysis', async () => {
+        await userEvent.click(screen.getByRole('button', { name: /Tentar Novamente/i }));
+        await waitFor(() => {
+          expect(mockHandleRetryAnalysisGlobal).toHaveBeenCalledWith(mockAnalysisItemError.id);
+        });
       });
     });
   });

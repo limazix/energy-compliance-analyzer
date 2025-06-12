@@ -22,6 +22,7 @@ export interface MockAnalysisManagerReturnValue {
   handleRemoveTag: jest.Mock<Promise<void>, [string, string]>;
   handleDeleteAnalysis: jest.Mock<Promise<void>, [string, (() => void) | undefined]>;
   handleCancelAnalysis: jest.Mock<Promise<void>, [string]>;
+  handleRetryAnalysis: jest.Mock<Promise<void>, [string]>; // Added
   downloadReportAsTxt: jest.Mock<void, [Analysis | null]>;
   displayedAnalysisSteps: AnalysisStep[];
 }
@@ -75,6 +76,7 @@ globalThis.mockUseAnalysisManagerReturnValue = {
     return Promise.resolve();
   }),
   handleCancelAnalysis: jest.fn(() => Promise.resolve()),
+  handleRetryAnalysis: jest.fn(() => Promise.resolve()), // Added
   downloadReportAsTxt: jest.fn(),
   displayedAnalysisSteps: [],
 };
