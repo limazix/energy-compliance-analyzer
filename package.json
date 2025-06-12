@@ -16,12 +16,8 @@
     "emulators:start": "firebase emulators:start --import=./firebase-emulator-data --export-on-exit",
     "emulators:dev": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data 'npm run dev'",
     "test": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest",
-    "test:watch": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest --watch"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
+    "test:watch": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest --watch",
+    "prepare": "husky"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",
