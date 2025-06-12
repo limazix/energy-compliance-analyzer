@@ -22,22 +22,26 @@ exports.processAnalysisOnUpdate = coreAnalysisTriggers.processAnalysisOnUpdate;
 const analysisDeletionTrigger = require('./analysis-management/onDeleteTrigger');
 exports.handleAnalysisDeletionRequest = analysisDeletionTrigger.handleAnalysisDeletionRequest;
 
-// New Pub/Sub-triggered function for initiating deletion requests
+// Pub/Sub-triggered function for initiating deletion requests
 const analysisDeletionPubSubTrigger = require('./analysis-management/onDeletionRequestPublish');
 exports.onAnalysisDeletionRequested = analysisDeletionPubSubTrigger.onAnalysisDeletionRequested;
+
+// Pub/Sub-triggered function for finalizing file uploads
+const fileUploadProcessingTriggers = require('./file-upload-processing/onFileUploadCompleted');
+exports.onFileUploadCompleted = fileUploadProcessingTriggers.onFileUploadCompleted;
 
 // --- Import and Export HTTPS Callable Functions ---
 
 // File Upload HTTP Functions
 const fileUploadCreateInitial = require('./file-upload-http/createInitial');
 const fileUploadUpdateProgress = require('./file-upload-http/updateUploadProgress');
-const fileUploadFinalize = require('./file-upload-http/finalizeUpload');
+// finalizeUpload.js is removed as this is now event-driven
 const fileUploadMarkFailed = require('./file-upload-http/markUploadFailed');
 
 exports.httpsCreateInitialAnalysisRecord = fileUploadCreateInitial.httpsCreateInitialAnalysisRecord;
 exports.httpsUpdateAnalysisUploadProgress =
   fileUploadUpdateProgress.httpsUpdateAnalysisUploadProgress;
-exports.httpsFinalizeFileUploadRecord = fileUploadFinalize.httpsFinalizeFileUploadRecord;
+// exports.httpsFinalizeFileUploadRecord is removed
 exports.httpsMarkUploadAsFailed = fileUploadMarkFailed.httpsMarkUploadAsFailed;
 
 // Report Chat HTTP Functions
@@ -55,7 +59,6 @@ const analysisReportRetrievalHttp = require('./analysis-management/reportRetriev
 const coreAnalysisTriggerHttp = require('./core-analysis/triggerProcessingHttp');
 
 exports.httpsCallableGetPastAnalyses = analysisCrudHttp.httpsCallableGetPastAnalyses;
-// httpsCallableDeleteAnalysis was removed as deletion is now event-driven
 exports.httpsCallableCancelAnalysis = analysisCrudHttp.httpsCallableCancelAnalysis;
 exports.httpsCallableGetAnalysisReport = analysisReportRetrievalHttp.httpsCallableGetAnalysisReport;
 exports.httpsCallableTriggerProcessing = coreAnalysisTriggerHttp.httpsCallableTriggerProcessing;

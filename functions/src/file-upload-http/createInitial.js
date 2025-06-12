@@ -53,9 +53,9 @@ exports.httpsCreateInitialAnalysisRecord = functions.https.onCall(async (data, c
     title: finalTitle,
     description: finalDescription,
     languageCode: finalLanguageCode,
-    status: 'uploading',
-    progress: 0,
-    uploadProgress: 0,
+    status: 'uploading', // Status is 'uploading'
+    progress: 0, // Overall progress starts at 0, or a very small value indicating just record creation
+    uploadProgress: 0, // Specific upload progress starts at 0
     isDataChunked: false,
     tags: [],
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -71,12 +71,14 @@ exports.httpsCreateInitialAnalysisRecord = functions.https.onCall(async (data, c
   try {
     const analysisCollectionRef = db.collection('users').doc(userId).collection('analyses');
     const docRef = await analysisCollectionRef.add(analysisDataForFirestore);
-    console.info(`[FileUpload_CreateInitial] Doc created: ${docRef.id} for user ${userId}`);
+    // eslint-disable-next-line no-console
+    console.info(`[FileUpload_CreateInitial_Func] Doc created: ${docRef.id} for user ${userId}`);
     return { analysisId: docRef.id };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    // eslint-disable-next-line no-console
     console.error(
-      `[FileUpload_CreateInitial] Firestore error for user ${userId}: ${errorMessage}`,
+      `[FileUpload_CreateInitial_Func] Firestore error for user ${userId}: ${errorMessage}`,
       error
     );
     throw new functions.https.HttpsError(

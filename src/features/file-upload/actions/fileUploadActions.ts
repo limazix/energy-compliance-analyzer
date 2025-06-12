@@ -2,16 +2,19 @@
 'use server';
 /**
  * @fileOverview Server Actions for managing the file upload process.
- * These actions act as a bridge between the client (Next.js frontend) and
- * HTTPS Callable Firebase Functions, which handle the core backend logic
- * like Firestore interactions. This aligns with an API Gateway pattern.
+ * createInitialAnalysisRecordAction: Calls an HTTPS Function to create the Firestore doc.
+ * updateAnalysisUploadProgressAction: Calls an HTTPS Function to update upload progress.
+ * notifyFileUploadCompleteAction: Publishes a Pub/Sub event when file upload is complete.
+ * markUploadAsFailedAction: Calls an HTTPS Function to mark an upload as failed.
  */
 
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
 import { functionsInstance } from '@/lib/firebase'; // Firebase Functions instance for client SDK
+import { adminPubSub } from '@/lib/firebase-admin'; // For Pub/Sub
 
 const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
+const FILE_UPLOAD_COMPLETED_TOPIC = 'file-upload-completed-topic';
 
 /**
  * Helper to call an HTTPS Firebase Function and handle its result or error.
@@ -41,9 +44,6 @@ async function callFirebaseFunction<RequestData, ResponseData>(
     );
     return result;
   } catch (error: unknown) {
-    // Type 'error' as 'any' to access properties like 'code', 'message', 'details'
-    // which are common in Firebase HttpsError but not on generic 'Error' or 'unknown'.
-    // A more robust approach might involve type guards if specific error structures are expected.
     const firebaseError = error as { code?: string; message?: string; details?: unknown };
     const code = firebaseError.code || 'unknown';
     const message = firebaseError.message || 'Erro desconhecido ao chamar a função.';
@@ -85,7 +85,7 @@ interface CreateInitialRecordActionResponse {
  * @returns {Promise<CreateInitialRecordActionResponse>} The analysis ID or an error message.
  */
 export async function createInitialAnalysisRecordAction(
-  _userId: string, // Kept for signature consistency with hook, auth handled by Function context
+  _userId: string,
   fileName: string,
   title?: string,
   description?: string,
@@ -98,7 +98,6 @@ export async function createInitialAnalysisRecordAction(
     languageCode,
   };
   try {
-    // User ID is implicitly handled by the authenticated context of the callable function
     const result = await callFirebaseFunction<
       CreateInitialRecordRequestData,
       { analysisId: string }
@@ -143,37 +142,77 @@ export async function updateAnalysisUploadProgressAction(
   }
 }
 
-interface FinalizeUploadRequestData {
+interface NotifyUploadCompleteRequestData {
+  userId: string;
   analysisId: string;
   downloadURL: string;
 }
-interface FinalizeUploadActionResponse {
+interface NotifyUploadCompleteActionResponse {
   success: boolean;
   error?: string;
 }
+
 /**
- * Server Action to finalize the file upload record via an HTTPS Firebase Function.
- * This sets the file URL and transitions the status to trigger background processing.
- * @param {string} _userId - User ID (for logging/validation).
- * @param {string} analysisId - The ID of the analysis to finalize.
+ * Server Action to notify that a file upload is complete by publishing a Pub/Sub message.
+ * @param {string} userId - User ID.
+ * @param {string} analysisId - The ID of the analysis.
  * @param {string} downloadURL - The Firebase Storage download URL of the uploaded file.
- * @returns {Promise<FinalizeUploadActionResponse>} Success status or an error message.
+ * @returns {Promise<NotifyUploadCompleteActionResponse>} Success status or an error message.
  */
-export async function finalizeFileUploadRecordAction(
-  _userId: string,
+export async function notifyFileUploadCompleteAction(
+  userId: string,
   analysisId: string,
   downloadURL: string
-): Promise<FinalizeUploadActionResponse> {
-  const requestData: FinalizeUploadRequestData = { analysisId, downloadURL };
+): Promise<NotifyUploadCompleteActionResponse> {
+  // eslint-disable-next-line no-console
+  console.debug(
+    `[SA_notifyFileUploadComplete] User: ${userId}, AnalysisID: ${analysisId}. Publishing to Pub/Sub topic '${FILE_UPLOAD_COMPLETED_TOPIC}'. URL: ${downloadURL.substring(0, 50)}...`
+  );
+
+  if (!userId || !analysisId || !downloadURL) {
+    const errorMsg = `[SA_notifyFileUploadComplete] CRITICAL: userId ('${userId}'), analysisId ('${analysisId}'), or downloadURL is invalid.`;
+    // eslint-disable-next-line no-console
+    console.error(errorMsg);
+    return { success: false, error: errorMsg.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH) };
+  }
+  if (!adminPubSub) {
+    const errorMsg = `[SA_notifyFileUploadComplete] CRITICAL: adminPubSub is not initialized. Cannot publish event.`;
+    // eslint-disable-next-line no-console
+    console.error(errorMsg);
+    return { success: false, error: errorMsg.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH) };
+  }
+
+  const messagePayload: NotifyUploadCompleteRequestData = {
+    userId,
+    analysisId,
+    downloadURL,
+  };
+
   try {
-    await callFirebaseFunction<FinalizeUploadRequestData, { success: boolean }>(
-      'httpsFinalizeFileUploadRecord',
-      requestData
+    const topic = adminPubSub.topic(FILE_UPLOAD_COMPLETED_TOPIC);
+    const messageId = await topic.publishMessage({ json: messagePayload }); // Send as JSON
+
+    // eslint-disable-next-line no-console
+    console.info(
+      `[SA_notifyFileUploadComplete] Message ${messageId} published to ${FILE_UPLOAD_COMPLETED_TOPIC} for analysis ${analysisId}.`
     );
     return { success: true };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return { success: false, error: errorMessage.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH) };
+  } catch (error: unknown) {
+    const message =
+      (error instanceof Error ? error.message : String(error)) ||
+      'Erro desconhecido ao notificar conclusão do upload via Pub/Sub.';
+    // eslint-disable-next-line no-console
+    console.error(
+      `[SA_notifyFileUploadComplete] Error publishing to Pub/Sub for ${analysisId}: ${message}`,
+      error
+    );
+    return {
+      success: false,
+      error: `Falha ao notificar conclusão do upload (SA Pub/Sub): ${message.substring(
+        0,
+        MAX_CLIENT_ERROR_MESSAGE_LENGTH
+      )}`,
+    };
   }
 }
 
@@ -189,7 +228,7 @@ interface MarkFailedActionResponse {
 /**
  * Server Action to mark an analysis upload as failed via an HTTPS Firebase Function.
  * @param {string} _userId - User ID (for logging/validation).
- * @param {string | null} analysisId - The ID of the analysis. Can be null if record creation failed.
+ * @param {string | null} analysisId - The ID of the analysis. Can be null if record creation itself failed.
  * @param {string} uploadErrorMessage - The error message describing the failure.
  * @returns {Promise<MarkFailedActionResponse>} Success status, an optional message, or an error.
  */

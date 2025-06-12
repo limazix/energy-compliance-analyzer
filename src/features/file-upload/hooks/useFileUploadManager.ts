@@ -11,8 +11,8 @@ import {
 
 import {
   createInitialAnalysisRecordAction,
-  finalizeFileUploadRecordAction,
   markUploadAsFailedAction,
+  notifyFileUploadCompleteAction, // Changed from finalizeFileUploadRecordAction
   updateAnalysisUploadProgressAction,
 } from '@/features/file-upload/actions/fileUploadActions';
 import { useToast } from '@/hooks/use-toast';
@@ -225,19 +225,20 @@ export function useFileUploadManager() {
             }
           },
           async () => {
-            // On Success
+            // On Success of Storage Upload
             try {
               const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
               // eslint-disable-next-line no-console
               console.info(
-                `[useFileUploadManager_upload] Storage Upload complete for ${newAnalysisId}. URL: ${downloadURL}. Finalizing Firestore record.`
+                `[useFileUploadManager_upload] Storage Upload complete for ${newAnalysisId}. URL: ${downloadURL}. Notifying backend via Pub/Sub through Server Action.`
               );
 
-              const { success: finalizeSuccess, error: finalizeError } =
-                await finalizeFileUploadRecordAction(currentUserId, newAnalysisId, downloadURL);
+              // Call the new Server Action to publish Pub/Sub event
+              const { success: notifySuccess, error: notifyError } =
+                await notifyFileUploadCompleteAction(currentUserId, newAnalysisId, downloadURL);
 
-              if (!finalizeSuccess) {
-                const errorMessage = `Erro ao finalizar registro do upload no Firestore: ${finalizeError || 'Erro desconhecido'}`;
+              if (!notifySuccess) {
+                const errorMessage = `Erro ao notificar conclusão do upload (Pub/Sub): ${notifyError || 'Erro desconhecido'}`;
                 // eslint-disable-next-line no-console
                 console.error(
                   `[useFileUploadManager_upload] ${errorMessage} for analysis ${newAnalysisId}`
@@ -249,6 +250,7 @@ export function useFileUploadManager() {
                 });
                 setIsUploading(false);
                 setUploadError(errorMessage);
+                // Mark as failed in Firestore if Pub/Sub publish failed, as processing won't start
                 await markUploadAsFailedAction(currentUserId, newAnalysisId, errorMessage);
                 resolve({
                   analysisId: newAnalysisId,
@@ -263,7 +265,7 @@ export function useFileUploadManager() {
 
               toast({
                 title: 'Upload Concluído',
-                description: `Arquivo "${currentFileName}" enviado. O processamento será iniciado.`,
+                description: `Arquivo "${currentFileName}" enviado. O processamento será iniciado em breve.`,
               });
               setIsUploading(false);
               setFileToUpload(null);
