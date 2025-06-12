@@ -4,6 +4,8 @@
  * displays report content (MDX), handles chat interactions including sending messages
  * and displaying AI responses, and manages report updates, structured in BDD style.
  */
+import React from 'react'; // Import React for type definitions and JSX
+
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useParams as originalUseParams } from 'next/navigation';
@@ -20,8 +22,8 @@ import type { DatabaseReference } from 'firebase/database'; // For typing mocks
 // Mocks
 jest.mock('@/contexts/auth-context', () => ({
   __esModule: true,
-  ...jest.requireActual('@/contexts/auth-context'),
-  useAuth: jest.fn(),
+  ...jest.requireActual('@/contexts/auth-context'), // Important to get the actual AuthProvider
+  useAuth: jest.fn(), // This is what tests will override for components consuming the context
 }));
 const useAuth = originalUseAuth as jest.Mock;
 
@@ -54,7 +56,7 @@ interface MockRTDBMessage {
 
 // Define a type for the exported mock functions from the mocked module
 interface FirebaseDatabaseMockAccess {
-  getDatabase: jest.Mock;
+  getDatabase: jest.Mock<unknown, []>;
   ref: jest.Mock<DatabaseReference, [unknown, string?]>;
   onValue: jest.Mock<
     () => void,
@@ -72,36 +74,50 @@ interface FirebaseDatabaseMockAccess {
   off: jest.Mock<void, [DatabaseReference]>;
   child: jest.Mock<DatabaseReference, [DatabaseReference, string]>;
   // Actual mock instances for manipulation
-  __mockGetDatabase: jest.Mock;
-  __mockRef: jest.Mock;
-  __mockOnValue: jest.Mock;
-  __mockPush: jest.Mock;
-  __mockUpdate: jest.Mock;
-  __mockServerTimestamp: jest.Mock;
-  __mockOff: jest.Mock;
-  __mockChild: jest.Mock;
+  __mockGetDatabase: jest.Mock<unknown, []>;
+  __mockRef: jest.Mock<DatabaseReference, [unknown, string?]>;
+  __mockOnValue: jest.Mock<
+    () => void,
+    [
+      DatabaseReference,
+      (snapshot: {
+        exists: () => boolean;
+        val: () => Record<string, MockRTDBMessage> | null;
+      }) => void,
+    ]
+  >;
+  __mockPush: jest.Mock<
+    Promise<{ key: string | null }>,
+    [DatabaseReference, Partial<MockRTDBMessage>]
+  >;
+  __mockUpdate: jest.Mock<Promise<void>, [DatabaseReference, Partial<MockRTDBMessage>]>;
+  __mockServerTimestamp: jest.Mock<object, []>;
+  __mockOff: jest.Mock<void, [DatabaseReference]>;
+  __mockChild: jest.Mock<DatabaseReference, [DatabaseReference, string]>;
 }
 
 jest.mock('firebase/database', () => {
   const actualFirebaseDatabase =
     jest.requireActual<typeof import('firebase/database')>('firebase/database');
 
-  const _getDatabase = jest.fn(() => ({}));
-  const _ref = jest.fn(
-    (_db, path) =>
+  // Define mock functions *inside* the factory
+  const mockGetDatabaseFn = jest.fn(() => ({})); // Dummy DB object
+  const mockRefFn = jest.fn(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (_db: any, path?: string) =>
       ({
         path,
         key: path?.split('/').pop() || null,
         toString: () => path || '',
       }) as unknown as DatabaseReference
   );
-  const _onValue = jest.fn();
-  const _push = jest.fn();
-  const _update = jest.fn();
-  const _serverTimestamp = jest.fn(() => actualFirebaseDatabase.serverTimestamp());
-  const _off = jest.fn();
-  const _child = jest.fn(
-    (parentRef, childPath) =>
+  const mockOnValueFn = jest.fn();
+  const mockPushFn = jest.fn();
+  const mockUpdateFn = jest.fn();
+  const mockServerTimestampFn = jest.fn(() => actualFirebaseDatabase.serverTimestamp());
+  const mockOffFn = jest.fn();
+  const mockChildFn = jest.fn(
+    (parentRef: DatabaseReference, childPath: string) =>
       ({
         ...parentRef,
         path: `${(parentRef as { path: string }).path}/${childPath}`,
@@ -112,23 +128,25 @@ jest.mock('firebase/database', () => {
 
   return {
     ...actualFirebaseDatabase,
-    getDatabase: _getDatabase,
-    ref: _ref,
-    onValue: _onValue,
-    push: _push,
-    update: _update,
-    serverTimestamp: _serverTimestamp,
-    off: _off,
-    child: _child,
-    // Export the mock instances themselves
-    __mockGetDatabase: _getDatabase,
-    __mockRef: _ref,
-    __mockOnValue: _onValue,
-    __mockPush: _push,
-    __mockUpdate: _update,
-    __mockServerTimestamp: _serverTimestamp,
-    __mockOff: _off,
-    __mockChild: _child,
+    // Override with the locally defined mock functions
+    getDatabase: mockGetDatabaseFn,
+    ref: mockRefFn,
+    onValue: mockOnValueFn,
+    push: mockPushFn,
+    update: mockUpdateFn,
+    serverTimestamp: mockServerTimestampFn,
+    off: mockOffFn,
+    child: mockChildFn,
+    // Export these mock functions so tests can access them if needed
+    // using jest.requireMock('firebase/database').__mockGetDatabase etc.
+    __mockGetDatabase: mockGetDatabaseFn,
+    __mockRef: mockRefFn,
+    __mockOnValue: mockOnValueFn,
+    __mockPush: mockPushFn,
+    __mockUpdate: mockUpdateFn,
+    __mockServerTimestamp: mockServerTimestampFn,
+    __mockOff: mockOffFn,
+    __mockChild: mockChildFn,
   };
 });
 
@@ -226,8 +244,8 @@ describe('ReportPage', () => {
 
   beforeEach(() => {
     // Clear any previous mock states or implementations
-    getAnalysisReportAction.mockClear();
-    askReportOrchestratorAction.mockClear();
+    (getAnalysisReportAction as jest.Mock).mockClear();
+    (askReportOrchestratorAction as jest.Mock).mockClear();
 
     const {
       __mockGetDatabase,
@@ -253,7 +271,7 @@ describe('ReportPage', () => {
     useParams.mockReturnValue({ analysisId: mockAnalysisId });
 
     // Default mock implementation for getAnalysisReportAction
-    getAnalysisReportAction.mockResolvedValue({
+    (getAnalysisReportAction as jest.Mock).mockResolvedValue({
       mdxContent: mockMdxContent,
       fileName: mockFileName,
       analysisId: mockAnalysisId,
@@ -262,7 +280,7 @@ describe('ReportPage', () => {
     });
 
     // Default mock implementation for askReportOrchestratorAction
-    askReportOrchestratorAction.mockResolvedValue({
+    (askReportOrchestratorAction as jest.Mock).mockResolvedValue({
       success: true,
       aiMessageRtdbKey: 'ai-response-key-default',
       reportModified: false,
@@ -273,7 +291,8 @@ describe('ReportPage', () => {
 
     __mockGetDatabase.mockImplementation(() => ({}));
     __mockRef.mockImplementation(
-      (_db, path) =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (_db: any, path?: string) =>
         ({
           db: _db,
           path,
@@ -296,7 +315,7 @@ describe('ReportPage', () => {
         isError: payload.isError,
       };
       simulateRtdbChangeAndNotify();
-      return Promise.resolve({ key } as unknown as DatabaseReference);
+      return Promise.resolve({ key } as unknown as DatabaseReference); // Cast to DatabaseReference
     });
     __mockUpdate.mockImplementation(async (refPassedToUpdate, payload) => {
       const messageKey = (refPassedToUpdate as unknown as { key: string }).key;
@@ -307,7 +326,7 @@ describe('ReportPage', () => {
       return Promise.resolve();
     });
     __mockChild.mockImplementation(
-      (parentRef, childPath) =>
+      (parentRef: DatabaseReference, childPath: string) =>
         ({
           ...parentRef,
           path: `${(parentRef as { path: string }).path}/${childPath}`,
@@ -348,7 +367,9 @@ describe('ReportPage', () => {
      */
     it('should redirect to the login page', async () => {
       useAuth.mockReturnValue({ user: null, loading: false });
-      getAnalysisReportAction.mockImplementationOnce(() => new Promise(() => undefined));
+      (getAnalysisReportAction as jest.Mock).mockImplementationOnce(
+        () => new Promise(() => undefined)
+      ); // Prevent resolution
 
       render(<ReportPage />);
 
@@ -404,7 +425,7 @@ describe('ReportPage', () => {
       const aiRtdbKey = 'ai-key-test-stream';
 
       beforeEach(async () => {
-        askReportOrchestratorAction.mockResolvedValueOnce({
+        (askReportOrchestratorAction as jest.Mock).mockResolvedValueOnce({
           success: true,
           aiMessageRtdbKey: aiRtdbKey,
           reportModified: false,
@@ -510,7 +531,7 @@ describe('ReportPage', () => {
       };
 
       beforeEach(async () => {
-        askReportOrchestratorAction.mockResolvedValueOnce({
+        (askReportOrchestratorAction as jest.Mock).mockResolvedValueOnce({
           success: true,
           reportModified: true,
           revisedStructuredReport: revisedStructuredReport,
@@ -564,7 +585,7 @@ describe('ReportPage', () => {
   describe('given an invalid report ID or fetch error', () => {
     const errorMessage = 'Failed to load report MDX data due to network error.';
     beforeEach(async () => {
-      getAnalysisReportAction.mockResolvedValueOnce({
+      (getAnalysisReportAction as jest.Mock).mockResolvedValueOnce({
         mdxContent: null,
         fileName: mockFileName,
         analysisId: mockAnalysisId,
