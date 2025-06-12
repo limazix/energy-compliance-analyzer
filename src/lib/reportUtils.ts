@@ -1,8 +1,7 @@
-
-import type { 
-  AnalyzeComplianceReportOutput, 
+import type {
+  AnalyzeComplianceReportOutput,
   ReportSection as ReportSectionType,
-  BibliographyItem as BibliographyItemType
+  BibliographyItem as BibliographyItemType,
 } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config'; // Corrigido o caminho da importação
 
 function sanitizeForMdx(text: string | undefined): string {
@@ -14,17 +13,34 @@ export function convertStructuredReportToMdx(
   report: AnalyzeComplianceReportOutput | undefined,
   fileNameInput: string | undefined
 ): string {
-  const fileName = fileNameInput || "Nome de arquivo não disponível";
+  const fileName = fileNameInput || 'Nome de arquivo não disponível';
   try {
     if (!report) {
-      console.warn('[convertStructuredReportToMdx] Report data is undefined. Returning default MDX.');
+      console.warn(
+        '[convertStructuredReportToMdx] Report data is undefined. Returning default MDX.'
+      );
       return `# Relatório Indisponível\n\nOs dados para este relatório (arquivo: ${sanitizeForMdx(fileName)}) não foram encontrados ou estão incompletos.`;
     }
 
-    const { reportMetadata, tableOfContents, introduction, analysisSections, finalConsiderations, bibliography } = report;
+    const {
+      reportMetadata,
+      tableOfContents,
+      introduction,
+      analysisSections,
+      finalConsiderations,
+      bibliography,
+    } = report;
 
-    const meta = reportMetadata || { title: 'Relatório de Conformidade', author: 'Energy Compliance Analyzer', generatedDate: new Date().toISOString().split('T')[0] };
-    const intro = introduction || { objective: 'Não disponível.', overallResultsSummary: 'Não disponível.', usedNormsOverview: 'Não disponível.' };
+    const meta = reportMetadata || {
+      title: 'Relatório de Conformidade',
+      author: 'Energy Compliance Analyzer',
+      generatedDate: new Date().toISOString().split('T')[0],
+    };
+    const intro = introduction || {
+      objective: 'Não disponível.',
+      overallResultsSummary: 'Não disponível.',
+      usedNormsOverview: 'Não disponível.',
+    };
     const sections = analysisSections || [];
     const biblio = bibliography || [];
     const tocFromReport = tableOfContents || []; // Renomeado para evitar conflito com a variável 'toc' abaixo
@@ -47,7 +63,7 @@ fileName: "${sanitizeForMdx(fileName)}"
 
     if (tocFromReport.length > 0) {
       mdx += `\n## Sumário\n`;
-      tocFromReport.forEach((item: string) => { 
+      tocFromReport.forEach((item: string) => {
         mdx += `- ${sanitizeForMdx(item)}\n`;
       });
     }
@@ -58,23 +74,28 @@ fileName: "${sanitizeForMdx(fileName)}"
     mdx += `**Visão Geral das Normas Utilizadas:** ${sanitizeForMdx(intro.usedNormsOverview)}\n`;
 
     if (sections.length > 0) {
-      sections.forEach((section: ReportSectionType) => { 
-        const sec = section || { title: 'Seção Sem Título', content: 'Conteúdo não disponível.', insights: [], relevantNormsCited: [] }; 
+      sections.forEach((section: ReportSectionType) => {
+        const sec = section || {
+          title: 'Seção Sem Título',
+          content: 'Conteúdo não disponível.',
+          insights: [],
+          relevantNormsCited: [],
+        };
         mdx += `\n## ${sanitizeForMdx(sec.title)}\n`;
         mdx += `${sanitizeForMdx(sec.content)}\n`;
-        
+
         const insights = sec.insights || [];
         if (insights.length > 0) {
           mdx += `\n**Insights Chave:**\n`;
-          insights.forEach((insight: string) => mdx += `- ${sanitizeForMdx(insight)}\n`); 
+          insights.forEach((insight: string) => (mdx += `- ${sanitizeForMdx(insight)}\n`));
         }
-        
+
         const normsCited = sec.relevantNormsCited || [];
         if (normsCited.length > 0) {
           mdx += `\n**Normas Citadas nesta Seção:**\n`;
-          normsCited.forEach((norm: string) => mdx += `- ${sanitizeForMdx(norm)}\n`); 
+          normsCited.forEach((norm: string) => (mdx += `- ${sanitizeForMdx(norm)}\n`));
         }
-        
+
         if (sec.chartOrImageSuggestion) {
           mdx += `\n<div style={{padding: '1rem', backgroundColor: '#f0f0f0', border: '1px solid #ddd', borderRadius: '4px', margin: '1rem 0'}}>`;
           mdx += `  <strong>Sugestão de Gráfico/Imagem:</strong> ${sanitizeForMdx(sec.chartOrImageSuggestion)}`;
@@ -90,35 +111,51 @@ fileName: "${sanitizeForMdx(fileName)}"
 
     if (biblio.length > 0) {
       mdx += `\n## Referências Bibliográficas\n`;
-      biblio.forEach((refItem: BibliographyItemType) => { 
-        const item = refItem || { text: 'Referência não disponível' }; 
+      biblio.forEach((refItem: BibliographyItemType) => {
+        const item = refItem || { text: 'Referência não disponível' };
         mdx += `- ${sanitizeForMdx(item.text)}`;
         if (item.link) mdx += ` ([link](${sanitizeForMdx(item.link)}))`;
         mdx += `\n`;
       });
     }
     return mdx;
-
   } catch (error) {
-    console.error('[convertStructuredReportToMdx] Erro crítico durante a conversão do relatório para MDX:', error);
+    console.error(
+      '[convertStructuredReportToMdx] Erro crítico durante a conversão do relatório para MDX:',
+      error
+    );
     return `# Erro na Conversão do Relatório para MDX\n\nOcorreu um erro interno ao tentar formatar o relatório. Detalhes do erro foram registrados no servidor.\n\nArquivo Analisado: ${sanitizeForMdx(fileName)}`;
   }
 }
-
 
 export function formatStructuredReportToTxt(
   report: AnalyzeComplianceReportOutput | undefined,
   fileNameInput: string | undefined
 ): string {
-  const fileName = fileNameInput || "Nome de arquivo não disponível";
+  const fileName = fileNameInput || 'Nome de arquivo não disponível';
   if (!report) {
-    return "Relatório estruturado não disponível.";
+    return 'Relatório estruturado não disponível.';
   }
 
-  const { reportMetadata, tableOfContents, introduction, analysisSections, finalConsiderations, bibliography } = report;
+  const {
+    reportMetadata,
+    tableOfContents,
+    introduction,
+    analysisSections,
+    finalConsiderations,
+    bibliography,
+  } = report;
 
-  const meta = reportMetadata || { title: 'Relatório de Conformidade', author: 'Energy Compliance Analyzer', generatedDate: new Date().toISOString().split('T')[0] };
-  const intro = introduction || { objective: 'Não disponível.', overallResultsSummary: 'Não disponível.', usedNormsOverview: 'Não disponível.' };
+  const meta = reportMetadata || {
+    title: 'Relatório de Conformidade',
+    author: 'Energy Compliance Analyzer',
+    generatedDate: new Date().toISOString().split('T')[0],
+  };
+  const intro = introduction || {
+    objective: 'Não disponível.',
+    overallResultsSummary: 'Não disponível.',
+    usedNormsOverview: 'Não disponível.',
+  };
   const sections = analysisSections || [];
   const biblio = bibliography || [];
   const toc = tableOfContents || []; // Variável 'toc' não estava sendo usada, mas pode ser útil aqui
@@ -132,12 +169,13 @@ export function formatStructuredReportToTxt(
   txt += `Data de Geração: ${meta.generatedDate}\n`;
   txt += `Arquivo Analisado: ${fileName}\n\n`;
 
-  if (toc.length > 0) { // Adicionando TOC ao TXT se disponível
+  if (toc.length > 0) {
+    // Adicionando TOC ao TXT se disponível
     txt += `--------------------------------------------------\n`;
     txt += `SUMÁRIO\n`;
     txt += `--------------------------------------------------\n`;
     toc.forEach((item: string) => {
-        txt += `- ${item}\n`;
+      txt += `- ${item}\n`;
     });
     txt += `\n`;
   }
@@ -150,8 +188,13 @@ export function formatStructuredReportToTxt(
   txt += `Visão Geral das Normas Utilizadas: ${intro.usedNormsOverview}\n\n`;
 
   if (sections.length > 0) {
-    sections.forEach((section: ReportSectionType, index: number) => { 
-      const sec = section || { title: 'Seção Sem Título', content: 'Não disponível.', insights: [], relevantNormsCited: [] };
+    sections.forEach((section: ReportSectionType, index: number) => {
+      const sec = section || {
+        title: 'Seção Sem Título',
+        content: 'Não disponível.',
+        insights: [],
+        relevantNormsCited: [],
+      };
       txt += `--------------------------------------------------\n`;
       txt += `SEÇÃO ${index + 1}: ${sec.title}\n`;
       txt += `--------------------------------------------------\n`;
@@ -160,14 +203,14 @@ export function formatStructuredReportToTxt(
       const insights = sec.insights || [];
       if (insights.length > 0) {
         txt += `Insights Chave:\n`;
-        insights.forEach((insight: string) => txt += `  - ${insight}\n`); 
+        insights.forEach((insight: string) => (txt += `  - ${insight}\n`));
         txt += `\n`;
       }
 
       const normsCited = sec.relevantNormsCited || [];
       if (normsCited.length > 0) {
         txt += `Normas Citadas nesta Seção:\n`;
-        normsCited.forEach((norm: string) => txt += `  - ${norm}\n`); 
+        normsCited.forEach((norm: string) => (txt += `  - ${norm}\n`));
         txt += `\n`;
       }
 
@@ -176,7 +219,7 @@ export function formatStructuredReportToTxt(
       }
     });
   } else {
-    txt += `Nenhuma seção de análise detalhada foi gerada.\n\n`
+    txt += `Nenhuma seção de análise detalhada foi gerada.\n\n`;
   }
 
   if (finalConsiderations) {
@@ -192,7 +235,7 @@ export function formatStructuredReportToTxt(
     txt += `--------------------------------------------------\n`;
     txt += `REFERÊNCIAS BIBLIOGRÁFICAS\n`;
     txt += `--------------------------------------------------\n`;
-    biblio.forEach((refItem: BibliographyItemType) => { 
+    biblio.forEach((refItem: BibliographyItemType) => {
       const item = refItem || { text: 'Referência não disponível' };
       txt += `- ${item.text}`;
       if (item.link) txt += ` (Disponível em: ${item.link})`;
@@ -200,11 +243,8 @@ export function formatStructuredReportToTxt(
     });
     txt += `\n`;
   } else {
-     txt += `Nenhuma referência bibliográfica foi incluída.\n\n`;
+    txt += `Nenhuma referência bibliográfica foi incluída.\n\n`;
   }
 
   return txt;
 }
-
-
-    

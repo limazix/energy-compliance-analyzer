@@ -1,14 +1,6 @@
-
 'use client';
+import { AlertTriangle, Trash2, FileText as FileTextIcon, Info, XCircle } from 'lucide-react';
 
-import type { Analysis, AnalysisStep } from '@/types/analysis';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, Trash2, FileText as FileTextIcon, Info, XCircle } from 'lucide-react'; 
-import { AnalysisProgressDisplay } from './AnalysisProgressDisplay';
-import { AnalysisResultsDisplay } from './AnalysisResultsDisplay';
-import { TagEditor } from './TagEditor';
-import { AnalysisStepItem } from './AnalysisStepItem';
-import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,12 +11,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { Analysis, AnalysisStep } from '@/types/analysis';
+
+import { AnalysisProgressDisplay } from './AnalysisProgressDisplay';
+import { AnalysisResultsDisplay } from './AnalysisResultsDisplay';
+import { AnalysisStepItem } from './AnalysisStepItem';
+import { TagEditor } from './TagEditor';
 
 type AnalysisViewProps = {
   analysis: Analysis;
   analysisSteps: AnalysisStep[];
-  onDownloadReport: (analysisData: Analysis | null) => void; 
+  onDownloadReport: (analysisData: Analysis | null) => void;
   tagInput: string;
   onTagInputChange: (value: string) => void;
   onAddTag: (analysisId: string, tag: string) => void;
@@ -62,7 +62,7 @@ export function AnalysisView({
               {analysis.description}
             </CardDescription>
           )}
-           <CardDescription className="text-xs">
+          <CardDescription className="text-xs">
             Nome do arquivo original: {analysis.fileName}
           </CardDescription>
         </CardHeader>
@@ -76,29 +76,38 @@ export function AnalysisView({
               <XCircle className="mr-2 h-4 w-4" />
               Cancelar Análise
             </Button>
-             <p className="text-xs text-muted-foreground mt-1">
-              Solicitar o cancelamento da análise. O processo será interrompido o mais breve possível.
+            <p className="text-xs text-muted-foreground mt-1">
+              Solicitar o cancelamento da análise. O processo será interrompido o mais breve
+              possível.
             </p>
           </div>
         </>
       )}
 
       {isCompleted && (
-        <AnalysisResultsDisplay analysis={analysis} onDownloadReport={() => onDownloadReport(analysis)} />
+        <AnalysisResultsDisplay
+          analysis={analysis}
+          onDownloadReport={() => onDownloadReport(analysis)}
+        />
       )}
-      
+
       {isCancelled && (
-         <div className="p-4 bg-yellow-500/10 rounded-md border border-yellow-500">
+        <div className="p-4 bg-yellow-500/10 rounded-md border border-yellow-500">
           <h3 className="text-xl font-semibold mb-2 text-yellow-600 flex items-center">
-            <Info className="mr-2" />Análise Cancelada
+            <Info className="mr-2" />
+            Análise Cancelada
           </h3>
           <p className="text-yellow-700">
-            {analysis.status === 'cancelling' ? 'O cancelamento desta análise está em andamento...' : 'Esta análise foi cancelada pelo usuário.'}
+            {analysis.status === 'cancelling'
+              ? 'O cancelamento desta análise está em andamento...'
+              : 'Esta análise foi cancelada pelo usuário.'}
           </p>
           {analysis.errorMessage && analysis.status === 'cancelled' && (
-            <p className="text-sm mt-1"><strong>Motivo:</strong> {analysis.errorMessage}</p>
+            <p className="text-sm mt-1">
+              <strong>Motivo:</strong> {analysis.errorMessage}
+            </p>
           )}
-           {analysisSteps.find(s => s.status === 'cancelled') && (
+          {analysisSteps.find((s) => s.status === 'cancelled') && (
             <ul className="space-y-3 mt-4">
               {analysisSteps.map((step, index) => (
                 <AnalysisStepItem key={index} step={step} />
@@ -111,11 +120,14 @@ export function AnalysisView({
       {isError && (
         <div className="p-4 bg-destructive/10 rounded-md border border-destructive">
           <h3 className="text-xl font-semibold mb-2 text-destructive flex items-center">
-            <AlertTriangle className="mr-2" />Ocorreu um Erro
+            <AlertTriangle className="mr-2" />
+            Ocorreu um Erro
           </h3>
           <p className="text-destructive-foreground">Não foi possível completar a análise.</p>
-          <p className="text-sm mt-1"><strong>Detalhes:</strong> {analysis.errorMessage || 'Erro desconhecido.'}</p>
-          {analysisSteps.find(s => s.status === 'error') && (
+          <p className="text-sm mt-1">
+            <strong>Detalhes:</strong> {analysis.errorMessage || 'Erro desconhecido.'}
+          </p>
+          {analysisSteps.find((s) => s.status === 'error') && (
             <ul className="space-y-3 mt-4">
               {analysisSteps.map((step, index) => (
                 <AnalysisStepItem key={index} step={step} />
@@ -137,7 +149,11 @@ export function AnalysisView({
       <div className="mt-8 pt-6 border-t">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm" disabled={isInProgress || analysis.status === 'cancelling'}>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={isInProgress || analysis.status === 'cancelling'}
+            >
               <Trash2 className="mr-2 h-4 w-4" />
               Excluir Análise
             </Button>
@@ -146,7 +162,9 @@ export function AnalysisView({
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza de que deseja excluir a análise "{analysis.title || analysis.fileName}"? Esta ação não pode ser desfeita e todos os dados associados, incluindo o relatório e o arquivo original, serão removidos.
+                Tem certeza de que deseja excluir a análise &quot;
+                {analysis.title || analysis.fileName}&quot;? Esta ação não pode ser desfeita e todos
+                os dados associados, incluindo o relatório e o arquivo original, serão removidos.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

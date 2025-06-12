@@ -8,8 +8,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
-  useRouter as originalUseRouter,
   usePathname as originalUsePathname,
+  useRouter as originalUseRouter,
 } from 'next/navigation';
 
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';

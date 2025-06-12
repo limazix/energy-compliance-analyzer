@@ -1,9 +1,8 @@
-
 'use client';
-
 import { AlertTriangle, CheckCircle2, FileText, Loader2 } from 'lucide-react';
-import type { AnalysisStep } from '@/types/analysis';
+
 import { Progress } from '@/components/ui/progress';
+import type { AnalysisStep } from '@/types/analysis';
 
 type AnalysisStepItemProps = {
   step: AnalysisStep;
@@ -33,5 +32,3 @@ export function AnalysisStepItem({ step }: AnalysisStepItemProps) {
     </li>
   );
 }
-
-    

@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview Summarizes a chunk of power quality data to reduce token load for subsequent AI analysis.
@@ -8,13 +7,13 @@
  * - SummarizePowerQualityDataOutput - The return type for the summarizePowerQualityData function.
  */
 
-import {ai} from '@/ai/genkit';
-import { 
-  summarizePowerQualityDataPromptConfig, 
-  type SummarizePowerQualityDataInput, 
-  type SummarizePowerQualityDataOutput,
+import { ai } from '@/ai/genkit';
+import {
   SummarizePowerQualityDataInputSchema, // Import schema for flow definition
-  SummarizePowerQualityDataOutputSchema // Import schema for flow definition
+  SummarizePowerQualityDataOutputSchema, // Import schema for flow definition
+  summarizePowerQualityDataPromptConfig,
+  type SummarizePowerQualityDataInput,
+  type SummarizePowerQualityDataOutput,
 } from '@/ai/prompt-configs/summarize-power-quality-data-prompt-config';
 
 export type { SummarizePowerQualityDataInput, SummarizePowerQualityDataOutput }; // Re-export types for external use
@@ -35,19 +34,22 @@ const summarizePowerQualityDataFlow = ai.defineFlow(
     outputSchema: SummarizePowerQualityDataOutputSchema, // Use imported schema
   },
   async (input: SummarizePowerQualityDataInput) => {
-    if (!input.powerQualityDataCsv || input.powerQualityDataCsv.trim() === "") {
-      console.warn('[summarizePowerQualityDataFlow] Received empty or whitespace-only CSV data chunk. Returning empty summary for this chunk.');
-      return { dataSummary: "" }; 
+    if (!input.powerQualityDataCsv || input.powerQualityDataCsv.trim() === '') {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[summarizePowerQualityDataFlow] Received empty or whitespace-only CSV data chunk. Returning empty summary for this chunk.'
+      );
+      return { dataSummary: '' };
     }
     // Call the prompt defined with the local 'ai' instance
-    const {output} = await summarizeDataChunkPrompt(input); 
+    const { output } = await summarizeDataChunkPrompt(input);
     if (!output) {
-      console.error('[summarizePowerQualityDataFlow] AI failed to generate a summary for the provided chunk.');
+      // eslint-disable-next-line no-console
+      console.error(
+        '[summarizePowerQualityDataFlow] AI failed to generate a summary for the provided chunk.'
+      );
       throw new Error('AI failed to generate a summary for the data chunk.');
     }
     return output;
   }
 );
-
-
-    

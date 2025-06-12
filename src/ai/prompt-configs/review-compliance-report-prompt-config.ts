@@ -1,11 +1,18 @@
-
 import { z } from 'zod';
+
 import { AnalyzeComplianceReportOutputSchema } from './analyze-compliance-report-prompt-config';
 
 export const ReviewComplianceReportInputSchema = z.object({
-  structuredReportToReview: AnalyzeComplianceReportOutputSchema.describe("The structured compliance report object that needs to be reviewed and refined."),
-  languageCode: z.string().optional().default('pt-BR')
-    .describe('The BCP-47 language code in which the report is written and should be reviewed (e.g., "en-US", "pt-BR"). Defaults to "pt-BR".'),
+  structuredReportToReview: AnalyzeComplianceReportOutputSchema.describe(
+    'The structured compliance report object that needs to be reviewed and refined.'
+  ),
+  languageCode: z
+    .string()
+    .optional()
+    .default('pt-BR')
+    .describe(
+      'The BCP-47 language code in which the report is written and should be reviewed (e.g., "en-US", "pt-BR"). Defaults to "pt-BR".'
+    ),
 });
 export type ReviewComplianceReportInput = z.infer<typeof ReviewComplianceReportInputSchema>;
 

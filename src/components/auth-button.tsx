@@ -1,12 +1,11 @@
-
 'use client';
 
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { LogIn, LogOut, User as UserIcon, Settings } from 'lucide-react';
-import { useAuth } from '@/contexts/auth-context';
-import { auth, googleProvider } from '@/lib/firebase';
-import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +14,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
+import { auth, googleProvider } from '@/lib/firebase';
 
 export function AuthButton() {
   const { user } = useAuth();
@@ -26,6 +26,7 @@ export function AuthButton() {
       await signInWithPopup(auth, googleProvider);
       router.push('/');
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Erro no login com Google:', error);
       // Handle error (e.g., show toast)
     }
@@ -36,6 +37,7 @@ export function AuthButton() {
       await signOut(auth);
       router.push('/login');
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Erro no logout:', error);
       // Handle error
     }
@@ -56,7 +58,9 @@ export function AuthButton() {
         <Button variant="ghost" className="flex items-center space-x-2 rounded-md h-10 px-2">
           <Avatar className="h-8 w-8">
             <AvatarImage src={user.photoURL ?? undefined} alt={user.displayName ?? 'User Avatar'} />
-            <AvatarFallback>{user.displayName?.charAt(0).toUpperCase() ?? <UserIcon />}</AvatarFallback>
+            <AvatarFallback>
+              {user.displayName?.charAt(0).toUpperCase() ?? <UserIcon />}
+            </AvatarFallback>
           </Avatar>
           {user.displayName && (
             <span className="text-sm font-medium text-foreground hidden sm:inline-block">
@@ -65,22 +69,19 @@ export function AuthButton() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        className="w-56"
-        align="end"
-        forceMount
-        data-testid="auth-dropdown-menu"
-      >
+      <DropdownMenuContent className="w-56" align="end" forceMount data-testid="auth-dropdown-menu">
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{user.displayName}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
-            </p>
+            <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => {/* TODO: Navigate to settings or profile */}}>
+        <DropdownMenuItem
+          onClick={() => {
+            /* TODO: Navigate to settings or profile */
+          }}
+        >
           <Settings className="mr-2 h-4 w-4" />
           <span>Configurações</span>
         </DropdownMenuItem>

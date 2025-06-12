@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview Defines the Genkit prompt and schemas for orchestrating user interaction with a compliance report.
@@ -10,18 +9,19 @@
  * - callRevisorTool: A Genkit tool that can be used by the orchestrator.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit/zod';
+import { z } from 'genkit/zod';
+
+import { reviewComplianceReport } from '@/ai/flows/review-compliance-report';
+import { ai } from '@/ai/genkit';
+import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
 import {
-  orchestrateReportInteractionPromptConfig,
+  AnalyzeComplianceReportOutputSchema,
   OrchestrateReportInteractionInputSchema,
+  // OrchestrateReportInteractionOutputSchema, // This was unused so removed to fix lint
+  orchestrateReportInteractionPromptConfig,
   type OrchestrateReportInteractionInput,
-  OrchestrateReportInteractionOutputSchema,
   type OrchestrateReportInteractionOutput,
 } from '@/ai/prompt-configs/orchestrate-report-interaction-prompt-config';
-import { reviewComplianceReport } from '@/ai/flows/review-compliance-report';
-import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
-
 
 export type { OrchestrateReportInteractionInput, OrchestrateReportInteractionOutput };
 
@@ -32,7 +32,8 @@ export const callRevisorTool = ai.defineTool(
     description:
       'Reviews and refines a given structured compliance report. Use this if the user asks for rephrasing, grammar checks, structural adjustments, or overall improvement of the report content. This tool will return the entire revised structured report.',
     inputSchema: z.object({
-      structuredReportToReview: OrchestrateReportInteractionInputSchema.shape.currentStructuredReport,
+      structuredReportToReview:
+        OrchestrateReportInteractionInputSchema.shape.currentStructuredReport,
       languageCode: OrchestrateReportInteractionInputSchema.shape.languageCode,
     }),
     // The outputSchema for the tool should match what `reviewComplianceReport` returns,
@@ -41,7 +42,7 @@ export const callRevisorTool = ai.defineTool(
   },
   async (input) => {
     if (!input.structuredReportToReview) {
-        throw new Error("Structured report is required for the Revisor tool.");
+      throw new Error('Structured report is required for the Revisor tool.');
     }
     // reviewComplianceReport expects ReviewComplianceReportInput which has:
     // { structuredReportToReview: AnalyzeComplianceReportOutput, languageCode: string }

@@ -1,56 +1,129 @@
-
 import { z } from 'zod';
 
 export const AnalyzeComplianceReportInputSchema = z.object({
   powerQualityDataSummary: z
     .string()
-    .describe("A summary of the power quality data, highlighting key metrics and anomalies."),
+    .describe('A summary of the power quality data, highlighting key metrics and anomalies.'),
   identifiedRegulations: z
     .string()
-    .describe("The identified ANEEL regulations relevant to the data (comma-separated string of resolution numbers/names). These regulations are typically in Portuguese."),
-  fileName: z.string().describe("The name of the original file being analyzed, for context in the report."),
-  languageCode: z.string().optional().default('pt-BR')
-    .describe('The BCP-47 language code for the desired output language of the report (e.g., "en-US", "pt-BR"). Defaults to "pt-BR" if not provided.'),
+    .describe(
+      'The identified ANEEL regulations relevant to the data (comma-separated string of resolution numbers/names). These regulations are typically in Portuguese.'
+    ),
+  fileName: z
+    .string()
+    .describe('The name of the original file being analyzed, for context in the report.'),
+  languageCode: z
+    .string()
+    .optional()
+    .default('pt-BR')
+    .describe(
+      'The BCP-47 language code for the desired output language of the report (e.g., "en-US", "pt-BR"). Defaults to "pt-BR" if not provided.'
+    ),
 });
 export type AnalyzeComplianceReportInput = z.infer<typeof AnalyzeComplianceReportInputSchema>;
 
 export const ReportSectionSchema = z.object({
-  title: z.string().describe("Título da seção temática ou cronológica do relatório."),
-  content: z.string().describe("Conteúdo principal da seção, descrevendo os dados, análises e observações de forma técnica, clara e objetiva."),
-  insights: z.array(z.string()).describe("Lista de insights chave ou problemas específicos detectados e discutidos nesta seção."),
-  relevantNormsCited: z.array(z.string()).describe("Normas ANEEL (ex: 'Resolução XXX/YYYY, Art. Z') especificamente citadas e usadas como base para os insights desta seção. These should be cited in their original Portuguese form."),
-  chartOrImageSuggestion: z.string().optional().describe("Sugestão de diagrama em sintaxe Mermaid para ilustrar esta seção, e os dados que ele representaria. Ex: 'graph TD\\nA[Tensão Média Diária] --> B{Limite PRODIST}; B --> C[Conforme]; B --> D[Não Conforme];'. Consulte a documentação em https://mermaid.js.org/intro/ para referência.")
+  title: z.string().describe('Título da seção temática ou cronológica do relatório.'),
+  content: z
+    .string()
+    .describe(
+      'Conteúdo principal da seção, descrevendo os dados, análises e observações de forma técnica, clara e objetiva.'
+    ),
+  insights: z
+    .array(z.string())
+    .describe(
+      'Lista de insights chave ou problemas específicos detectados e discutidos nesta seção.'
+    ),
+  relevantNormsCited: z
+    .array(z.string())
+    .describe(
+      "Normas ANEEL (ex: 'Resolução XXX/YYYY, Art. Z') especificamente citadas e usadas como base para os insights desta seção. These should be cited in their original Portuguese form."
+    ),
+  chartOrImageSuggestion: z
+    .string()
+    .optional()
+    .describe(
+      "Sugestão de diagrama em sintaxe Mermaid para ilustrar esta seção, e os dados que ele representaria. Ex: 'graph TD\\nA[Tensão Média Diária] --> B{Limite PRODIST}; B --> C[Conforme]; B --> D[Não Conforme];'. Consulte a documentação em https://mermaid.js.org/intro/ para referência."
+    ),
 });
 export type ReportSection = z.infer<typeof ReportSectionSchema>;
 
-
 export const BibliographyItemSchema = z.object({
-  text: z.string().describe("Texto completo da referência bibliográfica (ex: ANEEL - Agência Nacional de Energia Elétrica. Resolução Normativa nº 956/2021. Estabelece os Procedimentos de Distribuição de Energia Elétrica no Sistema Elétrico Nacional – PRODIST – Módulo 8 – Qualidade da Energia Elétrica.). This should be in its original Portuguese form."),
-  link: z.string().url().optional().describe("Link para a norma ou documento, se disponível publicamente."),
+  text: z
+    .string()
+    .describe(
+      'Texto completo da referência bibliográfica (ex: ANEEL - Agência Nacional de Energia Elétrica. Resolução Normativa nº 956/2021. Estabelece os Procedimentos de Distribuição de Energia Elétrica no Sistema Elétrico Nacional – PRODIST – Módulo 8 – Qualidade da Energia Elétrica.). This should be in its original Portuguese form.'
+    ),
+  link: z
+    .string()
+    .url()
+    .optional()
+    .describe('Link para a norma ou documento, se disponível publicamente.'),
 });
 export type BibliographyItem = z.infer<typeof BibliographyItemSchema>;
 
 export const AnalyzeComplianceReportOutputSchema = z.object({
-  reportMetadata: z.object({
-    title: z.string().describe("Título principal do relatório. Ex: 'Relatório de Conformidade da Qualidade de Energia Elétrica'."),
-    subtitle: z.string().optional().describe("Subtítulo do relatório. Ex: 'Análise do arquivo [Nome do Arquivo]' ou 'Período de DD/MM/AAAA a DD/MM/AAAA'."),
-    author: z.string().describe("Autor do relatório. Pode ser 'Energy Compliance Analyzer' ou um nome genérico."),
-    generatedDate: z.string().describe("Data de geração do relatório no formato YYYY-MM-DD."),
-  }).describe("Metadados para a capa do relatório."),
-  
-  tableOfContents: z.array(z.string()).describe("Sumário gerado listando os títulos das seções principais (Introdução, cada seção temática, Considerações Finais, Referências Bibliográficas)."),
+  reportMetadata: z
+    .object({
+      title: z
+        .string()
+        .describe(
+          "Título principal do relatório. Ex: 'Relatório de Conformidade da Qualidade de Energia Elétrica'."
+        ),
+      subtitle: z
+        .string()
+        .optional()
+        .describe(
+          "Subtítulo do relatório. Ex: 'Análise do arquivo [Nome do Arquivo]' ou 'Período de DD/MM/AAAA a DD/MM/AAAA'."
+        ),
+      author: z
+        .string()
+        .describe("Autor do relatório. Pode ser 'Energy Compliance Analyzer' ou um nome genérico."),
+      generatedDate: z.string().describe('Data de geração do relatório no formato YYYY-MM-DD.'),
+    })
+    .describe('Metadados para a capa do relatório.'),
 
-  introduction: z.object({
-    objective: z.string().describe("Breve descrição sobre o objetivo principal deste relatório de conformidade."),
-    overallResultsSummary: z.string().describe("Um breve resumo dos principais resultados e do estado geral de conformidade encontrado."),
-    usedNormsOverview: z.string().describe("Menção geral às principais normas ANEEL (which are in Portuguese) que foram consideradas como base para a análise e este relatório."),
-  }).describe("Sessão introdutória do relatório."),
+  tableOfContents: z
+    .array(z.string())
+    .describe(
+      'Sumário gerado listando os títulos das seções principais (Introdução, cada seção temática, Considerações Finais, Referências Bibliográficas).'
+    ),
 
-  analysisSections: z.array(ReportSectionSchema).describe("Lista de seções detalhadas do relatório. Devem ser ordenadas por temas em comum e, se possível, de forma cronológica. Cada seção deve apresentar e respaldar os insights encontrados e seus respectivos detalhamentos."),
-  
-  finalConsiderations: z.string().describe("Considerações finais e as principais observações e recomendações (takeouts) do relatório."),
-  
-  bibliography: z.array(BibliographyItemSchema).describe("Lista de todas as referências bibliográficas e normas citadas ao longo do relatório, com o máximo de detalhes disponíveis (nome completo, link se houver). Norms should be in original Portuguese."),
+  introduction: z
+    .object({
+      objective: z
+        .string()
+        .describe('Breve descrição sobre o objetivo principal deste relatório de conformidade.'),
+      overallResultsSummary: z
+        .string()
+        .describe(
+          'Um breve resumo dos principais resultados e do estado geral de conformidade encontrado.'
+        ),
+      usedNormsOverview: z
+        .string()
+        .describe(
+          'Menção geral às principais normas ANEEL (which are in Portuguese) que foram consideradas como base para a análise e este relatório.'
+        ),
+    })
+    .describe('Sessão introdutória do relatório.'),
+
+  analysisSections: z
+    .array(ReportSectionSchema)
+    .describe(
+      'Lista de seções detalhadas do relatório. Devem ser ordenadas por temas em comum e, se possível, de forma cronológica. Cada seção deve apresentar e respaldar os insights encontrados e seus respectivos detalhamentos.'
+    ),
+
+  finalConsiderations: z
+    .string()
+    .describe(
+      'Considerações finais e as principais observações e recomendações (takeouts) do relatório.'
+    ),
+
+  bibliography: z
+    .array(BibliographyItemSchema)
+    .describe(
+      'Lista de todas as referências bibliográficas e normas citadas ao longo do relatório, com o máximo de detalhes disponíveis (nome completo, link se houver). Norms should be in original Portuguese.'
+    ),
 });
 export type AnalyzeComplianceReportOutput = z.infer<typeof AnalyzeComplianceReportOutputSchema>;
 
@@ -117,4 +190,3 @@ Gerar um relatório de conformidade completo no idioma '{{languageCode}}', segui
 *   Garanta que a saída seja um JSON válido que corresponda ao schema \`AnalyzeComplianceReportOutputSchema\`.
 `,
 };
-

@@ -5,11 +5,9 @@
  * These actions invoke HTTPS Callable Firebase Functions.
  */
 
-import { httpsCallable } from 'firebase/functions';
+import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
 import { functionsInstance } from '@/lib/firebase';
-
-import type { HttpsCallableResult } from 'firebase/functions';
 
 const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
 
@@ -30,11 +28,13 @@ interface ActionResponse {
  * @throws {Error} If the HTTPS call fails or the function returns an error.
  */
 export async function deleteAnalysisAction(userId: string, analysisId: string): Promise<void> {
+  // eslint-disable-next-line no-console
   console.debug(
     `[SA_deleteAnalysis] User: ${userId}, AnalysisID: ${analysisId}. Calling 'httpsCallableDeleteAnalysis'.`
   );
   if (!userId || !analysisId) {
     const errorMsg = `[SA_deleteAnalysis] CRITICAL: userId ('${userId}') or analysisId ('${analysisId}') invalid.`;
+    // eslint-disable-next-line no-console
     console.error(errorMsg);
     throw new Error(errorMsg);
   }
@@ -50,11 +50,13 @@ export async function deleteAnalysisAction(userId: string, analysisId: string): 
     if (!result.data.success) {
       const errorMsg =
         result.data.message || result.data.error || 'Falha ao excluir análise (Função HTTPS).';
+      // eslint-disable-next-line no-console
       console.error(
         `[SA_deleteAnalysis] 'httpsCallableDeleteAnalysis' reported failure for ${analysisId}: ${errorMsg}`
       );
       throw new Error(errorMsg);
     }
+    // eslint-disable-next-line no-console
     console.info(
       `[SA_deleteAnalysis] 'httpsCallableDeleteAnalysis' successful for ${analysisId}. Message: ${result.data.message}`
     );
@@ -63,6 +65,7 @@ export async function deleteAnalysisAction(userId: string, analysisId: string): 
     const message =
       (error instanceof Error ? error.message : String(error)) ||
       'Erro desconhecido ao excluir análise via HTTPS Function.';
+    // eslint-disable-next-line no-console
     console.error(
       `[SA_deleteAnalysis] Error calling 'httpsCallableDeleteAnalysis' for ${analysisId}: Code: ${
         firebaseError.code || 'N/A'
@@ -85,11 +88,13 @@ export async function cancelAnalysisAction(
   userId: string,
   analysisId: string
 ): Promise<ActionResponse> {
+  // eslint-disable-next-line no-console
   console.debug(
     `[SA_cancelAnalysis] User: ${userId}, AnalysisID: ${analysisId}. Calling 'httpsCallableCancelAnalysis'.`
   );
   if (!userId || !analysisId) {
     const errorMsg = `[SA_cancelAnalysis] CRITICAL: userId ('${userId}') or analysisId ('${analysisId}') invalid. Aborting.`;
+    // eslint-disable-next-line no-console
     console.error(errorMsg);
     return { success: false, error: errorMsg.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH) };
   }
@@ -102,6 +107,7 @@ export async function cancelAnalysisAction(
     );
     const result: HttpsCallableResult<ActionResponse> = await callableFunction(requestData);
 
+    // eslint-disable-next-line no-console
     console.info(
       `[SA_cancelAnalysis] 'httpsCallableCancelAnalysis' for ${analysisId} returned: Success: ${result.data.success}, Msg: ${result.data.message}, Err: ${result.data.error}`
     );
@@ -111,6 +117,7 @@ export async function cancelAnalysisAction(
     const message =
       (error instanceof Error ? error.message : String(error)) ||
       'Erro desconhecido ao cancelar análise via HTTPS Function.';
+    // eslint-disable-next-line no-console
     console.error(
       `[SA_cancelAnalysis] Error calling 'httpsCallableCancelAnalysis' for ${analysisId}: Code: ${
         firebaseError.code || 'N/A'

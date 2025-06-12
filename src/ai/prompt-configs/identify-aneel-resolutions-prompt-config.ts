@@ -1,25 +1,27 @@
-
 import { z } from 'zod';
 
 export const IdentifyAEEEResolutionsInputSchema = z.object({
   powerQualityDataSummary: z
     .string()
     .describe('A summary of the power quality data, highlighting key metrics and anomalies.'),
-  languageCode: z.string().optional().default('pt-BR')
-    .describe('The BCP-47 language code for the desired output language (e.g., "en-US", "pt-BR"). Defaults to "pt-BR" if not provided.'),
+  languageCode: z
+    .string()
+    .optional()
+    .default('pt-BR')
+    .describe(
+      'The BCP-47 language code for the desired output language (e.g., "en-US", "pt-BR"). Defaults to "pt-BR" if not provided.'
+    ),
 });
-export type IdentifyAEEEResolutionsInput = z.infer<
-  typeof IdentifyAEEEResolutionsInputSchema
->;
+export type IdentifyAEEEResolutionsInput = z.infer<typeof IdentifyAEEEResolutionsInputSchema>;
 
 export const IdentifyAEEEResolutionsOutputSchema = z.object({
   relevantResolutions: z
     .array(z.string())
-    .describe('The list of relevant ANEEL Normative Resolutions, with names/numbers in their original Portuguese form, but the surrounding explanation/list description in the specified languageCode.'),
+    .describe(
+      'The list of relevant ANEEL Normative Resolutions, with names/numbers in their original Portuguese form, but the surrounding explanation/list description in the specified languageCode.'
+    ),
 });
-export type IdentifyAEEEResolutionsOutput = z.infer<
-  typeof IdentifyAEEEResolutionsOutputSchema
->;
+export type IdentifyAEEEResolutionsOutput = z.infer<typeof IdentifyAEEEResolutionsOutputSchema>;
 
 export const identifyAEEEResolutionsPromptConfig = {
   name: 'identifyAEEEResolutionsShared',

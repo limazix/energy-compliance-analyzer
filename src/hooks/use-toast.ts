@@ -1,5 +1,4 @@
 'use client';
-
 // Inspired by react-hot-toast library
 import * as React from 'react';
 
@@ -213,10 +212,12 @@ function toast({ ...props }: ToastSignature) {
   // Use exported ToastSignature
   const id = genId();
 
-  const update = (props: ToasterToast) =>
+  const update = (
+    newProps: ToasterToast // Changed props to newProps to avoid conflict
+  ) =>
     dispatch({
       type: 'UPDATE_TOAST',
-      toast: { ...props, id },
+      toast: { ...newProps, id },
     });
   const dismiss = () => dispatch({ type: 'DISMISS_TOAST', toastId: id });
 

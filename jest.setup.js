@@ -268,10 +268,8 @@ jest.mock('remark-gfm', () => jest.fn());
 jest.mock('remark-mermaidjs', () => jest.fn());
 
 // --- Server Actions Mocks ---
-// REMOVED jest.mock blocks for specific server actions that returned jest.requireActual().
+// REMOVED jest.mock blocks for specific server actions.
 // Test files are now responsible for mocking these server actions if needed.
-// The mock for 'firebase/functions' (httpsCallable) above will be used if
-// a server action is *not* mocked in a test and its actual implementation is run.
 
 // Mock useAnalysisManager
 /**
@@ -308,9 +306,8 @@ jest.mock('@/hooks/useAnalysisManager', () => {
   const actualHookModule = jest.requireActual('@/hooks/useAnalysisManager');
   return {
     ...actualHookModule,
-    useAnalysisManager: jest.fn(() => {
-      return { ...global.mockUseAnalysisManagerReturnValue };
-    }),
+    // Return the global object directly, not a copy
+    useAnalysisManager: jest.fn(() => global.mockUseAnalysisManagerReturnValue),
   };
 });
 
@@ -332,7 +329,8 @@ global.mockUseFileUploadManagerReturnValue = {
   uploadFileAndCreateRecord: mockUploadFileAndCreateRecord,
 };
 jest.mock('@/features/file-upload/hooks/useFileUploadManager', () => ({
-  useFileUploadManager: jest.fn(() => ({ ...global.mockUseFileUploadManagerReturnValue })),
+  // Return the global object directly, not a copy
+  useFileUploadManager: jest.fn(() => global.mockUseFileUploadManagerReturnValue),
 }));
 
 global.Timestamp = Timestamp;

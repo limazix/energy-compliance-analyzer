@@ -1,29 +1,25 @@
-
 {
   "compilerOptions": {
     "target": "es2021",
     "module": "commonjs",
     "outDir": "./lib/shared", // Output para os arquivos JS compartilhados
-    "rootDir": "../src",     // Raiz dos arquivos TS compartilhados
-    "baseUrl": "..",         // Base para resolução de caminhos (raiz do projeto)
+    "rootDir": "../src", // Raiz dos arquivos TS compartilhados
+    "baseUrl": "..", // Base para resolução de caminhos (raiz do projeto)
     "paths": {
-      "@/*": ["src/*"]     // Mapeia @/* para a pasta src na raiz do projeto
+      "@/*": ["src/*"] // Mapeia @/* para a pasta src na raiz do projeto
     },
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "declaration": false,    // Não precisamos de .d.ts para os arquivos JS
-    "sourceMap": false,      // Não precisamos de source maps para os arquivos JS aqui
+    "declaration": false, // Não precisamos de .d.ts para os arquivos JS
+    "sourceMap": false, // Não precisamos de source maps para os arquivos JS aqui
     "allowJs": false
   },
-  "include": [
-    "../src/ai/prompt-configs/**/*.ts",
-    "../src/lib/reportUtils.ts"
-  ],
+  "include": ["../src/ai/prompt-configs/**/*.ts", "../src/lib/reportUtils.ts"],
   "exclude": [
     "node_modules",
     "../src/ai/flows/**/*.ts", // Não compilar os fluxos do Next.js aqui
-    "../src/ai/genkit.ts",     // Não compilar o genkit do Next.js aqui
+    "../src/ai/genkit.ts", // Não compilar o genkit do Next.js aqui
     "../src/app",
     "../src/components",
     "../src/contexts",

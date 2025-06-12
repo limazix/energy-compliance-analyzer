@@ -35,7 +35,7 @@ body {
     --border: 145 20% 80%; /* Light green-gray border */
     --input: 0 0% 100%; /* White input background for light theme */
     --ring: 145 60% 45%; /* Primary green for focus rings, slightly lighter for visibility */
-    
+
     --chart-1: 145 55% 45%; /* Shades of green and complementary colors */
     --chart-2: 120 45% 60%;
     --chart-3: 150 40% 50%;
@@ -82,7 +82,7 @@ body {
     --border: 145 20% 25%;
     --input: 145 20% 22%; /* Darker input background for dark theme */
     --ring: 120 50% 65%;
-    
+
     --chart-1: 145 60% 50%;
     --chart-2: 120 50% 65%;
     --chart-3: 150 45% 55%;

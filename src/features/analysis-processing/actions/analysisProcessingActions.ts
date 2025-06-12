@@ -6,11 +6,9 @@
  * which in turn triggers an event-driven Firebase Function for the actual processing.
  */
 
-import { httpsCallable } from 'firebase/functions';
+import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
 import { functionsInstance } from '@/lib/firebase';
-
-import type { HttpsCallableResult } from 'firebase/functions';
 
 const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
 
@@ -38,12 +36,14 @@ export async function processAnalysisFile(
   const analysisId = analysisIdInput?.trim();
   const userId = userIdInput?.trim(); // Used for logging
 
+  // eslint-disable-next-line no-console
   console.info(
     `[SA_processAnalysisFile] Triggered for analysisId: ${analysisId} (input: ${analysisIdInput}), User: ${userId}. Calling 'httpsCallableTriggerProcessing'.`
   );
 
   if (!analysisId) {
     const criticalMsg = `[SA_processAnalysisFile] CRITICAL: analysisId is invalid ('${analysisIdInput}' -> '${analysisId}'). Aborting.`;
+    // eslint-disable-next-line no-console
     console.error(criticalMsg);
     return {
       success: false,
@@ -65,6 +65,7 @@ export async function processAnalysisFile(
     const result: HttpsCallableResult<TriggerProcessingResponseData> =
       await callableFunction(requestData);
 
+    // eslint-disable-next-line no-console
     console.info(
       `[SA_processAnalysisFile] 'httpsCallableTriggerProcessing' for ${analysisId} returned: Success: ${result.data.success}, Msg: ${result.data.message}, Err: ${result.data.error}`
     );
@@ -75,6 +76,7 @@ export async function processAnalysisFile(
         result.data.error ||
         result.data.message ||
         'Falha ao enfileirar análise para processamento (Função HTTPS).';
+      // eslint-disable-next-line no-console
       console.error(
         `[SA_processAnalysisFile] 'httpsCallableTriggerProcessing' reported failure for ${analysisId}: ${errorMsg}`
       );
@@ -87,6 +89,7 @@ export async function processAnalysisFile(
     const message =
       (error instanceof Error ? error.message : String(error)) ||
       'Erro desconhecido ao enfileirar análise via HTTPS Function.';
+    // eslint-disable-next-line no-console
     console.error(
       `[SA_processAnalysisFile] Error calling 'httpsCallableTriggerProcessing' for ${analysisId}: Code: ${
         firebaseError.code || 'N/A'

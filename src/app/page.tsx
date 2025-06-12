@@ -1,5 +1,4 @@
 'use client';
-
 import { useCallback, useEffect, useState } from 'react';
 
 import { format } from 'date-fns';
@@ -18,7 +17,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+// Button import removed as it was unused
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -32,15 +33,14 @@ import type { Analysis } from '@/types/analysis';
 const getStatusBadgeVariant = (status: Analysis['status']) => {
   switch (status) {
     case 'completed':
-      return 'default';
+      return 'default'; // Will be styled green by custom CSS
     case 'error':
       return 'destructive';
     case 'cancelled':
-      return 'outline';
     case 'cancelling':
-      return 'outline';
+      return 'outline'; // Will be styled yellow by custom CSS
     case 'reviewing_report':
-      return 'secondary';
+      return 'default'; // Will be styled blue by custom CSS
     default:
       return 'secondary';
   }
@@ -158,6 +158,7 @@ export default function HomePage() {
               await startAiProcessing(result.analysisId, user.uid);
             }
           } else {
+            // eslint-disable-next-line no-console
             console.error(
               `[HomePage_handleUploadResult] Document ${result.analysisId} not found after upload.`
             );
@@ -178,6 +179,7 @@ export default function HomePage() {
             setExpandedAnalysisId(`error-fetch-${Date.now()}`);
           }
         } catch (fetchError) {
+          // eslint-disable-next-line no-console
           console.error(
             `[HomePage_handleUploadResult] Error fetching document ${result.analysisId}:`,
             fetchError
@@ -353,8 +355,7 @@ export default function HomePage() {
                               className={`
                                 ${analysisItem.status === 'completed' ? 'bg-green-600 text-white' : ''}
                                 ${analysisItem.status === 'error' ? 'bg-red-600 text-white' : ''}
-                                ${analysisItem.status === 'cancelled' ? 'bg-yellow-500 text-white' : ''}
-                                ${analysisItem.status === 'cancelling' ? 'bg-yellow-400 text-yellow-900' : ''}
+                                ${analysisItem.status === 'cancelled' || analysisItem.status === 'cancelling' ? 'bg-yellow-500 text-white' : ''}
                                 ${analysisItem.status === 'reviewing_report' ? 'bg-blue-500 text-white' : ''}
                               `}
                             >
@@ -383,19 +384,16 @@ export default function HomePage() {
                         ) : expandedAnalysisId === analysisItem.id &&
                           analysisItem.status === 'error' &&
                           analysisItem.id.startsWith('error-') ? (
-                          <div className="rounded-md border border-destructive bg-destructive/10 p-4">
-                            <h3 className="mb-2 flex items-center text-xl font-semibold text-destructive">
-                              <AlertTriangle className="mr-2" />
-                              Ocorreu um Erro
-                            </h3>
-                            <p className="text-destructive-foreground">
+                          <Alert variant="destructive" className="mt-4">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Ocorreu um Erro</AlertTitle>
+                            <AlertDescription>
                               Não foi possível carregar ou processar esta análise.
-                            </p>
-                            <p className="mt-1 text-sm">
+                              <br />
                               <strong>Detalhes:</strong>{' '}
                               {analysisItem.errorMessage || 'Erro desconhecido.'}
-                            </p>
-                          </div>
+                            </AlertDescription>
+                          </Alert>
                         ) : expandedAnalysisId === analysisItem.id ? (
                           <div className="flex justify-center py-4">
                             <Loader2 className="h-6 w-6 animate-spin text-primary" /> Carregando

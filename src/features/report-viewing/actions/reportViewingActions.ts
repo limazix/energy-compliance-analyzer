@@ -5,15 +5,13 @@
  * This action now calls an HTTPS Callable Firebase Function.
  */
 
-import { httpsCallable } from 'firebase/functions';
+import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
 import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
 import { functionsInstance } from '@/lib/firebase';
 // Ensure AnalysisReportData type definition is compatible or imported if it's more complex
 // For this refactor, the HTTPS function will return a structure matching AnalysisReportData.
 import type { AnalysisReportData as ClientAnalysisReportData } from '@/types/analysis';
-
-import type { HttpsCallableResult } from 'firebase/functions';
 
 const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
 
@@ -51,12 +49,14 @@ export async function getAnalysisReportAction(
     structuredReport: null, // Initialize
   };
 
+  // eslint-disable-next-line no-console
   console.debug(
     `[SA_getAnalysisReport] User: ${userId}, AnalysisID: ${analysisId}. Calling 'httpsCallableGetAnalysisReport'.`
   );
 
   if (!analysisId) {
     const errorMsg = '[SA_getAnalysisReport] Analysis ID é obrigatório.';
+    // eslint-disable-next-line no-console
     console.error(`${errorMsg} User: ${userId}, AnalysisID input: ${analysisIdInput}`);
     return { ...baseReturn, error: errorMsg.substring(0, MAX_CLIENT_ERROR_MESSAGE_LENGTH) };
   }
@@ -72,6 +72,7 @@ export async function getAnalysisReportAction(
     const result: HttpsCallableResult<HttpsCallableGetAnalysisReportResponseData> =
       await callableFunction(requestData);
 
+    // eslint-disable-next-line no-console
     console.info(
       `[SA_getAnalysisReport] 'httpsCallableGetAnalysisReport' for ${analysisId} returned. Error from func: ${result.data.error}`
     );
@@ -100,6 +101,7 @@ export async function getAnalysisReportAction(
     const message =
       (error instanceof Error ? error.message : String(error)) ||
       'Erro desconhecido ao buscar relatório via HTTPS Function.';
+    // eslint-disable-next-line no-console
     console.error(
       `[SA_getAnalysisReport] Error calling 'httpsCallableGetAnalysisReport' for ${analysisId}: Code: ${code}, Message: ${message}`,
       error

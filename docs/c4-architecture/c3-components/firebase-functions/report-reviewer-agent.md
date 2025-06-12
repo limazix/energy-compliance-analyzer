@@ -1,4 +1,3 @@
-
 # C3: Component - Agent: Report Reviewer (`reportReviewerAgent`)
 
 [<- Back to Firebase Functions Components](./../03-firebase-functions-components.md)
@@ -9,40 +8,38 @@ The **Report Reviewer Agent** is a Genkit flow (`reviewReportFlow` defined in `f
 
 ## Responsibilities (Behaviors)
 
-*   **Content Review:**
-    *   Receives the structured report (JSON) and language code as input.
-    *   Performs grammatical and syntactic correction throughout the report text, in the specified language.
-    *   Ensures the language is clear, concise, formal, and professional.
-*   **Reference Verification:**
-    *   Checks the accuracy and completeness of ANEEL standards citations in the `relevantNormsCited` sections and the `bibliography`.
-    *   Ensures ANEEL resolution names and normative texts are maintained in Portuguese.
-    *   Confirms that all cited standards are listed in the bibliography.
-*   **Cohesion and Clarity Improvement:**
-    *   Enhances text flow and logic.
-    *   Eliminates redundancies and ambiguities.
-    *   Verifies that insights are well-supported by section content.
-*   **Structure Consistency:**
-    *   Validates that the `tableOfContents` accurately reflects section titles.
-    *   Ensures all mandatory output schema fields are present and filled.
-*   **Output Format:**
-    *   Returns the complete JSON report object, following the `AnalyzeComplianceReportOutputSchema`, with all revisions and improvements incorporated.
+- **Content Review:**
+  - Receives the structured report (JSON) and language code as input.
+  - Performs grammatical and syntactic correction throughout the report text, in the specified language.
+  - Ensures the language is clear, concise, formal, and professional.
+- **Reference Verification:**
+  - Checks the accuracy and completeness of ANEEL standards citations in the `relevantNormsCited` sections and the `bibliography`.
+  - Ensures ANEEL resolution names and normative texts are maintained in Portuguese.
+  - Confirms that all cited standards are listed in the bibliography.
+- **Cohesion and Clarity Improvement:**
+  - Enhances text flow and logic.
+  - Eliminates redundancies and ambiguities.
+  - Verifies that insights are well-supported by section content.
+- **Structure Consistency:**
+  - Validates that the `tableOfContents` accurately reflects section titles.
+  - Ensures all mandatory output schema fields are present and filled.
+- **Output Format:**
+  - Returns the complete JSON report object, following the `AnalyzeComplianceReportOutputSchema`, with all revisions and improvements incorporated.
 
 ## Technologies and Key Aspects
 
-*   **Genkit:**
-    *   Defined as an `ai.definePrompt`.
-    *   Uses the prompt configured in `reviewComplianceReportPromptConfig`.
-*   **Google AI (Gemini):** The language model performing the review and refinement.
-*   **Input/Output Schemas (Zod):**
-    *   `ReviewComplianceReportInputSchema` for input (structured report, language code).
-    *   `ReviewComplianceReportOutputSchema` (same as `AnalyzeComplianceReportOutputSchema`) for output.
-*   **Quality Focus:** This agent is crucial for ensuring the quality, accuracy, and professionalism of the final report before MDX conversion.
+- **Genkit:**
+  - Defined as an `ai.definePrompt`.
+  - Uses the prompt configured in `reviewComplianceReportPromptConfig`.
+- **Google AI (Gemini):** The language model performing the review and refinement.
+- **Input/Output Schemas (Zod):**
+  - `ReviewComplianceReportInputSchema` for input (structured report, language code).
+  - `ReviewComplianceReportOutputSchema` (same as `AnalyzeComplianceReportOutputSchema`) for output.
+- **Quality Focus:** This agent is crucial for ensuring the quality, accuracy, and professionalism of the final report before MDX conversion.
 
 ## Interactions
 
-*   **Called by:** Pipeline Orchestrator (`processAnalysisFn`).
-*   **Uses:** Google AI (Gemini) via Genkit.
-*   **Input:** Structured report (JSON) to be reviewed, language code.
-*   **Output:** The revised structured compliance report object (JSON).
-
-    
+- **Called by:** Pipeline Orchestrator (`processAnalysisFn`).
+- **Uses:** Google AI (Gemini) via Genkit.
+- **Input:** Structured report (JSON) to be reviewed, language code.
+- **Output:** The revised structured compliance report object (JSON).

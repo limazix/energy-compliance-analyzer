@@ -1,6 +1,4 @@
-
 'use client';
-
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,10 +24,16 @@ export function TagEditor({
     <div className="mt-6 space-y-2">
       <h4 className="text-md font-semibold">Tags:</h4>
       <div className="flex flex-wrap gap-2 mb-2">
-        {(tags || []).map(tag => (
+        {(tags || []).map((tag) => (
           <Badge key={tag} variant="secondary" className="text-sm py-1 px-3">
             {tag}
-            <button onClick={() => onRemoveTag(analysisId, tag)} className="ml-2 text-muted-foreground hover:text-destructive">&times;</button>
+            <button
+              onClick={() => onRemoveTag(analysisId, tag)}
+              className="ml-2 text-muted-foreground hover:text-destructive"
+              aria-label={`Remover tag ${tag}`}
+            >
+              &times;
+            </button>
           </Badge>
         ))}
       </div>
@@ -42,10 +46,10 @@ export function TagEditor({
           className="max-w-xs"
           onKeyDown={(e) => e.key === 'Enter' && onAddTag(analysisId, tagInput)}
         />
-        <Button onClick={() => onAddTag(analysisId, tagInput)} variant="outline" size="sm">Adicionar</Button>
+        <Button onClick={() => onAddTag(analysisId, tagInput)} variant="outline" size="sm">
+          Adicionar
+        </Button>
       </div>
     </div>
   );
 }
-
-    

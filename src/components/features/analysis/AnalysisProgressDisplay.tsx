@@ -1,7 +1,6 @@
-
 'use client';
-
 import type { AnalysisStep } from '@/types/analysis';
+
 import { AnalysisStepItem } from './AnalysisStepItem';
 
 type AnalysisProgressDisplayProps = {
@@ -20,5 +19,3 @@ export function AnalysisProgressDisplay({ analysisSteps }: AnalysisProgressDispl
     </div>
   );
 }
-
-    

@@ -1,12 +1,18 @@
-
 import { z } from 'zod';
 
 export const SummarizePowerQualityDataInputSchema = z.object({
   powerQualityDataCsv: z
     .string()
-    .describe('A CHUNK of power quality data in CSV format. This is one segment of a potentially larger dataset.'),
-  languageCode: z.string().optional().default('pt-BR')
-    .describe('The BCP-47 language code for the desired output language (e.g., "en-US", "pt-BR"). Defaults to "pt-BR" if not provided.'),
+    .describe(
+      'A CHUNK of power quality data in CSV format. This is one segment of a potentially larger dataset.'
+    ),
+  languageCode: z
+    .string()
+    .optional()
+    .default('pt-BR')
+    .describe(
+      'The BCP-47 language code for the desired output language (e.g., "en-US", "pt-BR"). Defaults to "pt-BR" if not provided.'
+    ),
 });
 export type SummarizePowerQualityDataInput = z.infer<typeof SummarizePowerQualityDataInputSchema>;
 
@@ -20,7 +26,7 @@ export const SummarizePowerQualityDataOutputSchema = z.object({
 export type SummarizePowerQualityDataOutput = z.infer<typeof SummarizePowerQualityDataOutputSchema>;
 
 export const summarizePowerQualityDataPromptConfig = {
-  name: 'summarizePowerQualityDataChunkShared', 
+  name: 'summarizePowerQualityDataChunkShared',
   input: { schema: SummarizePowerQualityDataInputSchema },
   output: { schema: SummarizePowerQualityDataOutputSchema },
   prompt: `You are a Senior Data Analyst specializing in electrical power quality data from devices like PowerNET PQ-600 G4. You will be provided with a CHUNK of power quality data in CSV format. This is one segment of a potentially larger dataset.

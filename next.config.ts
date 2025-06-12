@@ -1,5 +1,4 @@
-
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -31,8 +30,8 @@ const nextConfig: NextConfig = {
     // or if we are renaming/aliasing NEXT_PUBLIC_ variables.
     // Since NEXT_PUBLIC_GEMINI_API_KEY is already prefixed, it's also automatically available.
     // This block can be used if you need to pass other specific env vars.
-    NEXT_PUBLIC_GEMINI_API_KEY: process.env.NEXT_PUBLIC_GEMINI_API_KEY 
-  }
+    NEXT_PUBLIC_GEMINI_API_KEY: process.env.NEXT_PUBLIC_GEMINI_API_KEY,
+  },
 };
 
 export default nextConfig;

@@ -1,10 +1,9 @@
-
 import { config } from 'dotenv';
+
+import '@/ai/flows/analyze-compliance-report';
+import '@/ai/flows/identify-aneel-resolutions';
+import '@/ai/flows/orchestrate-report-interaction'; // Added new flow
+import '@/ai/flows/review-compliance-report';
+import '@/ai/flows/summarize-power-quality-data';
+
 config();
-
-import '@/ai/flows/summarize-power-quality-data.ts';
-import '@/ai/flows/identify-aneel-resolutions.ts';
-import '@/ai/flows/analyze-compliance-report.ts';
-import '@/ai/flows/review-compliance-report.ts';
-import '@/ai/flows/orchestrate-report-interaction.ts'; // Added new flow
-

@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview Reviews and refines a structured compliance report.
@@ -8,13 +7,13 @@
  * - ReviewComplianceReportOutput - The return type for the reviewComplianceReport function.
  */
 
-import {ai} from '@/ai/genkit';
-import { 
+import { ai } from '@/ai/genkit';
+import {
+  ReviewComplianceReportInputSchema,
+  ReviewComplianceReportOutputSchema,
   reviewComplianceReportPromptConfig,
   type ReviewComplianceReportInput,
   type ReviewComplianceReportOutput,
-  ReviewComplianceReportInputSchema,
-  ReviewComplianceReportOutputSchema
 } from '@/ai/prompt-configs/review-compliance-report-prompt-config';
 
 export type { ReviewComplianceReportInput, ReviewComplianceReportOutput };
@@ -42,4 +41,3 @@ const reviewComplianceReportFlow = ai.defineFlow(
     return output;
   }
 );
-

@@ -38,12 +38,14 @@ export async function addTagToAction(
   const analysisId = analysisIdInput?.trim();
   const trimmedTag = tag?.trim();
 
+  // eslint-disable-next-line no-console
   console.debug(
     `[SA_addTag] User: ${_userId}, AnalysisID: ${analysisId}, Tag: ${trimmedTag} (Raw inputs: analysisId='${analysisIdInput}', tag='${tag}')`
   );
 
   if (!analysisId || !trimmedTag) {
     const errorMsg = '[SA_addTag] ID da análise e tag são obrigatórios.';
+    // eslint-disable-next-line no-console
     console.error(`${errorMsg} AnalysisID: ${analysisId}, Tag: ${trimmedTag}`);
     return { success: false, error: errorMsg };
   }
@@ -51,6 +53,7 @@ export async function addTagToAction(
   const requestData: TagOperationData = { analysisId, tag: trimmedTag };
 
   try {
+    // eslint-disable-next-line no-console
     console.info(
       `[SA_addTag] Calling HTTPS function 'httpsCallableAddTag' for analysis ${analysisId}, tag '${trimmedTag}'.`
     );
@@ -59,6 +62,7 @@ export async function addTagToAction(
       'httpsCallableAddTag'
     );
     const result: HttpsCallableResult<TagOperationResponse> = await callableFunction(requestData);
+    // eslint-disable-next-line no-console
     console.info(
       `[SA_addTag] HTTPS function 'httpsCallableAddTag' returned for analysis ${analysisId}. Success: ${result.data.success}`
     );
@@ -67,6 +71,7 @@ export async function addTagToAction(
     const firebaseError = error as { code?: string; message?: string; details?: unknown };
     const code = firebaseError.code || 'unknown';
     const message = firebaseError.message || 'Erro desconhecido ao adicionar tag.';
+    // eslint-disable-next-line no-console
     console.error(
       `[SA_addTag] Error calling 'httpsCallableAddTag' for analysis ${analysisId}: Code: ${code}, Message: ${message}`,
       error
@@ -93,12 +98,14 @@ export async function removeTagAction(
   const analysisId = analysisIdInput?.trim();
   const trimmedTagToRemove = tagToRemove?.trim();
 
+  // eslint-disable-next-line no-console
   console.debug(
     `[SA_removeTag] User: ${_userId}, AnalysisID: ${analysisId}, TagToRemove: ${trimmedTagToRemove} (Raw inputs: analysisId='${analysisIdInput}', tagToRemove='${tagToRemove}')`
   );
 
   if (!analysisId || !trimmedTagToRemove) {
     const errorMsg = '[SA_removeTag] ID da análise e tag para remover são obrigatórios.';
+    // eslint-disable-next-line no-console
     console.error(`${errorMsg} AnalysisID: ${analysisId}, TagToRemove: ${trimmedTagToRemove}`);
     return { success: false, error: errorMsg };
   }
@@ -106,6 +113,7 @@ export async function removeTagAction(
   const requestData: TagOperationData = { analysisId, tag: trimmedTagToRemove };
 
   try {
+    // eslint-disable-next-line no-console
     console.info(
       `[SA_removeTag] Calling HTTPS function 'httpsCallableRemoveTag' for analysis ${analysisId}, tag '${trimmedTagToRemove}'.`
     );
@@ -114,6 +122,7 @@ export async function removeTagAction(
       'httpsCallableRemoveTag'
     );
     const result: HttpsCallableResult<TagOperationResponse> = await callableFunction(requestData);
+    // eslint-disable-next-line no-console
     console.info(
       `[SA_removeTag] HTTPS function 'httpsCallableRemoveTag' returned for analysis ${analysisId}. Success: ${result.data.success}`
     );
@@ -122,6 +131,7 @@ export async function removeTagAction(
     const firebaseError = error as { code?: string; message?: string; details?: unknown };
     const code = firebaseError.code || 'unknown';
     const message = firebaseError.message || 'Erro desconhecido ao remover tag.';
+    // eslint-disable-next-line no-console
     console.error(
       `[SA_removeTag] Error calling 'httpsCallableRemoveTag' for analysis ${analysisId}: Code: ${code}, Message: ${message}`,
       error

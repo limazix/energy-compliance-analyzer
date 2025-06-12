@@ -1,8 +1,6 @@
-
 'use server';
-
 /**
- * @fileOverview Analyzes a summary of power quality data against ANEEL regulations 
+ * @fileOverview Analyzes a summary of power quality data against ANEEL regulations
  * and generates a structured compliance report suitable for eventual PDF generation.
  *
  * - analyzeComplianceReport - A function that analyzes power quality data summary and generates a structured compliance report.
@@ -10,13 +8,13 @@
  * - AnalyzeComplianceReportOutput - The return type for the analyzeComplianceReport function.
  */
 
-import {ai} from '@/ai/genkit';
-import { 
+import { ai } from '@/ai/genkit';
+import {
+  AnalyzeComplianceReportInputSchema, // Import schema for flow definition
+  AnalyzeComplianceReportOutputSchema, // Import schema for flow definition
   analyzeComplianceReportPromptConfig,
   type AnalyzeComplianceReportInput,
   type AnalyzeComplianceReportOutput,
-  AnalyzeComplianceReportInputSchema, // Import schema for flow definition
-  AnalyzeComplianceReportOutputSchema // Import schema for flow definition
 } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
 
 export type { AnalyzeComplianceReportInput, AnalyzeComplianceReportOutput }; // Re-export types
@@ -38,7 +36,7 @@ const analyzeComplianceReportFlow = ai.defineFlow(
   },
   async (input: AnalyzeComplianceReportInput) => {
     const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    
+
     // Call the prompt defined with the local 'ai' instance
     // The prompt configuration itself should handle languageCode,
     // but we pass all input fields.
@@ -46,18 +44,18 @@ const analyzeComplianceReportFlow = ai.defineFlow(
     if (!output) {
       throw new Error('AI failed to generate the structured compliance report.');
     }
-    
+
     // Ensure generatedDate is in the output, even if the prompt fails to add it (improbable with schema)
     if (!output.reportMetadata.generatedDate) {
-        output.reportMetadata.generatedDate = currentDate;
+      output.reportMetadata.generatedDate = currentDate;
     }
     // If the author is not defined by the IA, set a default.
     if (!output.reportMetadata.author) {
-        output.reportMetadata.author = "Energy Compliance Analyzer";
+      output.reportMetadata.author = 'Energy Compliance Analyzer';
     }
     // Populate subtitle if not provided by AI
     if (!output.reportMetadata.subtitle && input.fileName) {
-        output.reportMetadata.subtitle = `Análise referente ao arquivo '${input.fileName}'`;
+      output.reportMetadata.subtitle = `Análise referente ao arquivo '${input.fileName}'`;
     }
 
     return output;

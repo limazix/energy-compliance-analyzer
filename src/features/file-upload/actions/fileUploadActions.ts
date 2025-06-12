@@ -7,11 +7,9 @@
  * like Firestore interactions. This aligns with an API Gateway pattern.
  */
 
-import { httpsCallable } from 'firebase/functions';
+import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
 import { functionsInstance } from '@/lib/firebase'; // Firebase Functions instance for client SDK
-
-import type { HttpsCallableResult } from 'firebase/functions';
 
 const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
 
@@ -33,8 +31,10 @@ async function callFirebaseFunction<RequestData, ResponseData>(
     functionName
   );
   try {
+    // eslint-disable-next-line no-console
     console.debug(`[Action_${functionName}] Calling HTTPS function with data:`, data);
     const result = await callableFunction(data);
+    // eslint-disable-next-line no-console
     console.info(
       `[Action_${functionName}] HTTPS function call successful. Result data:`,
       result.data
@@ -48,6 +48,7 @@ async function callFirebaseFunction<RequestData, ResponseData>(
     const code = firebaseError.code || 'unknown';
     const message = firebaseError.message || 'Erro desconhecido ao chamar a função.';
     const details = firebaseError.details || undefined;
+    // eslint-disable-next-line no-console
     console.error(
       `[Action_${functionName}] Error calling HTTPS function: Code: ${code}, Message: ${message}, Details:`,
       details,

@@ -1,6 +1,5 @@
 // src/features/file-upload/hooks/useFileUploadManager.ts
 'use client';
-
 import { useState, useCallback } from 'react';
 
 import {
@@ -45,6 +44,7 @@ export function useFileUploadManager() {
           setFileToUpload(file);
           setUploadError(null);
           setUploadProgress(0);
+          // eslint-disable-next-line no-console
           console.debug(`[useFileUploadManager] File selected: ${file.name}, type: ${file.type}`);
         } else {
           toast({
@@ -71,6 +71,7 @@ export function useFileUploadManager() {
     ): Promise<FileUploadManagerResult> => {
       if (!user || !user.uid || typeof user.uid !== 'string' || user.uid.trim() === '') {
         const msg = 'Usuário não autenticado ou UID inválido para iniciar upload.';
+        // eslint-disable-next-line no-console
         console.error(
           `[useFileUploadManager_upload] CRITICAL: ${msg}. User object:`,
           user ? { uid: user.uid, email: user.email } : null
@@ -89,6 +90,7 @@ export function useFileUploadManager() {
       }
       if (!fileToUpload) {
         const msg = 'Nenhum arquivo selecionado para upload.';
+        // eslint-disable-next-line no-console
         console.warn(`[useFileUploadManager_upload] ${msg}`);
         toast({ title: 'Nenhum Arquivo', description: msg, variant: 'destructive' });
         setUploadError(msg);
@@ -97,6 +99,7 @@ export function useFileUploadManager() {
       }
       if (!fileToUpload.name || fileToUpload.name.trim() === '') {
         const msg = 'Nome de arquivo inválido.';
+        // eslint-disable-next-line no-console
         console.warn(`[useFileUploadManager_upload] ${msg}`);
         toast({ title: 'Nome Inválido', description: msg, variant: 'destructive' });
         setUploadError(msg);
@@ -111,6 +114,7 @@ export function useFileUploadManager() {
       const currentFileName = fileToUpload.name;
       const currentLanguageCode = languageCode || navigator.language || 'pt-BR';
 
+      // eslint-disable-next-line no-console
       console.info(
         `[useFileUploadManager_upload] Attempting to create initial record for: ${currentFileName}, User: ${currentUserId}, Title: ${title}, Lang: ${currentLanguageCode}`
       );
@@ -125,6 +129,7 @@ export function useFileUploadManager() {
 
       if (createRecordError || !newAnalysisId) {
         const detailedError = `[useFileUploadManager_upload] Failed to create initial Firestore record: ${createRecordError || 'newAnalysisId is null/undefined'}. FileName: ${currentFileName}`;
+        // eslint-disable-next-line no-console
         console.error(detailedError);
         toast({
           title: 'Erro ao Iniciar Análise',
@@ -144,6 +149,7 @@ export function useFileUploadManager() {
         };
       }
 
+      // eslint-disable-next-line no-console
       console.info(
         `[useFileUploadManager_upload] Initial Firestore record created. Analysis ID: ${newAnalysisId}. Starting Storage upload for: ${currentFileName}`
       );
@@ -168,6 +174,7 @@ export function useFileUploadManager() {
                 );
               }
             } catch (progressError) {
+              // eslint-disable-next-line no-console
               console.warn(
                 `[useFileUploadManager_upload] Non-critical error updating upload progress in Firestore for ${newAnalysisId}:`,
                 progressError
@@ -177,6 +184,7 @@ export function useFileUploadManager() {
           async (storageError: FirebaseStorageError) => {
             try {
               const errorMessage = `Falha no upload para o Firebase Storage: ${storageError.code} - ${storageError.message}`;
+              // eslint-disable-next-line no-console
               console.error(
                 `[useFileUploadManager_upload] Firebase Storage upload error for analysis ${newAnalysisId}, file ${currentFileName}:`,
                 storageError
@@ -201,6 +209,7 @@ export function useFileUploadManager() {
               });
             } catch (markFailError) {
               const finalErrorMsg = `Erro no upload e também ao marcar falha: ${markFailError instanceof Error ? markFailError.message : String(markFailError)}`;
+              // eslint-disable-next-line no-console
               console.error(
                 `[useFileUploadManager_upload] Error marking upload as failed for ${newAnalysisId} after Storage error:`,
                 markFailError
@@ -219,6 +228,7 @@ export function useFileUploadManager() {
             // On Success
             try {
               const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              // eslint-disable-next-line no-console
               console.info(
                 `[useFileUploadManager_upload] Storage Upload complete for ${newAnalysisId}. URL: ${downloadURL}. Finalizing Firestore record.`
               );
@@ -228,6 +238,7 @@ export function useFileUploadManager() {
 
               if (!finalizeSuccess) {
                 const errorMessage = `Erro ao finalizar registro do upload no Firestore: ${finalizeError || 'Erro desconhecido'}`;
+                // eslint-disable-next-line no-console
                 console.error(
                   `[useFileUploadManager_upload] ${errorMessage} for analysis ${newAnalysisId}`
                 );
@@ -270,6 +281,7 @@ export function useFileUploadManager() {
                   ? completionError.message
                   : String(completionError);
               const finalErrorMessage = `Erro crítico na conclusão do upload: ${errorMsg}`;
+              // eslint-disable-next-line no-console
               console.error(
                 `[useFileUploadManager_upload] ${finalErrorMessage} for analysis ${newAnalysisId}:`,
                 completionError
@@ -285,6 +297,7 @@ export function useFileUploadManager() {
                 try {
                   await markUploadAsFailedAction(currentUserId, newAnalysisId, finalErrorMessage);
                 } catch (markError) {
+                  // eslint-disable-next-line no-console
                   console.error(
                     `[useFileUploadManager_upload] Error marking upload as failed after completion error for ${newAnalysisId}:`,
                     markError

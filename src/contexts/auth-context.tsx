@@ -1,12 +1,10 @@
-
 'use client';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-import type { User } from 'firebase/auth';
-import { onAuthStateChanged } from 'firebase/auth';
-import type { ReactNode } from 'react';
-import { createContext, useContext, useEffect, useState } from 'react';
-import { auth } from '@/lib/firebase';
+import { onAuthStateChanged, type User } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
+
+import { auth } from '@/lib/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -21,9 +19,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.debug('[AuthProvider] Auth state changed. currentUser:', currentUser ? { uid: currentUser.uid, email: currentUser.email, displayName: currentUser.displayName } : null);
+      // eslint-disable-next-line no-console
+      console.debug(
+        '[AuthProvider] Auth state changed. currentUser:',
+        currentUser
+          ? { uid: currentUser.uid, email: currentUser.email, displayName: currentUser.displayName }
+          : null
+      );
       if (currentUser && !currentUser.uid) {
-        console.error('[AuthProvider] CRITICAL: currentUser exists but uid is missing or empty!', currentUser);
+        // eslint-disable-next-line no-console
+        console.error(
+          '[AuthProvider] CRITICAL: currentUser exists but uid is missing or empty!',
+          currentUser
+        );
       }
       setUser(currentUser);
       setLoading(false);
@@ -39,11 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  return (
-    <AuthContext.Provider value={{ user, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
@@ -53,6 +57,3 @@ export function useAuth() {
   }
   return context;
 }
-
-
-    

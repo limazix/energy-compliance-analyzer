@@ -1,5 +1,4 @@
 'use server';
-
 /**
  * @fileOverview Server Action for report chat interactions.
  * This action now acts as a thin client, invoking an HTTPS Callable Firebase Function
@@ -71,6 +70,7 @@ export async function askReportOrchestratorAction(
 
   if (!userId || !analysisId) {
     const errorMsg = '[SA_askOrchestrator] User ID e Analysis ID são obrigatórios.';
+    // eslint-disable-next-line no-console
     console.error(`${errorMsg} User: ${userIdInput}, Analysis: ${analysisIdInput}`);
     return { success: false, error: errorMsg };
   }
@@ -80,12 +80,14 @@ export async function askReportOrchestratorAction(
   if (!currentStructuredReport) {
     const errorMsg =
       '[SA_askOrchestrator] O relatório estruturado atual é necessário para processar esta solicitação.';
+    // eslint-disable-next-line no-console
     console.error(`${errorMsg} Analysis: ${analysisId}`);
     return { success: false, error: errorMsg };
   }
   if (!currentReportMdx) {
     const errorMsg =
       '[SA_askOrchestrator] O conteúdo MDX do relatório atual é necessário para fornecer contexto à IA.';
+    // eslint-disable-next-line no-console
     console.error(`${errorMsg} Analysis: ${analysisId}`);
     return { success: false, error: errorMsg };
   }
@@ -101,6 +103,7 @@ export async function askReportOrchestratorAction(
   };
 
   try {
+    // eslint-disable-next-line no-console
     console.info(
       `[SA_askOrchestrator] Calling HTTPS function 'httpsCallableAskOrchestrator' for analysis ${analysisId}.`
     );
@@ -112,6 +115,7 @@ export async function askReportOrchestratorAction(
     const result: HttpsCallableResult<HttpsCallableAskOrchestratorResponseData> =
       await callableFunction(requestData);
 
+    // eslint-disable-next-line no-console
     console.info(
       `[SA_askOrchestrator] HTTPS function 'httpsCallableAskOrchestrator' returned for analysis ${analysisId}. Success: ${result.data.success}`
     );
@@ -125,6 +129,7 @@ export async function askReportOrchestratorAction(
       ? ` Detalhes: ${JSON.stringify(firebaseError.details)}`
       : '';
 
+    // eslint-disable-next-line no-console
     console.error(
       `[SA_askOrchestrator] Error calling 'httpsCallableAskOrchestrator' for analysis ${analysisId}: Code: ${code}, Message: ${message}${details}`,
       error

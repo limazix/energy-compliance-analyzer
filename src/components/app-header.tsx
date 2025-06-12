@@ -1,10 +1,10 @@
-
 'use client';
 
-import Link from 'next/link';
 import { PlusCircle } from 'lucide-react';
-import { Logo } from '@/components/icons/logo';
+import Link from 'next/link';
+
 import { AuthButton } from '@/components/auth-button';
+import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context'; // Import useAuth
 
@@ -28,9 +28,7 @@ export function AppHeader({ onStartNewAnalysis, onNavigateToDashboard }: AppHead
           <Logo className="h-8 w-auto" />
         </Link>
 
-        <nav className="flex flex-1 items-center">
-          {/* Tabs removidas */}
-        </nav>
+        <nav className="flex flex-1 items-center">{/* Tabs removidas */}</nav>
 
         <div className="ml-auto flex items-center space-x-4">
           {user && ( // Conditionally render the button if user is logged in

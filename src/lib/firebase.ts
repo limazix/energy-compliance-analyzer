@@ -5,17 +5,14 @@
  * such as Auth, Firestore, Storage, Realtime Database, and Functions. It also
  * handles connecting to Firebase emulators in a local development environment.
  */
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 import { getFirestore } from 'firebase/firestore';
-import { getFunctions } from 'firebase/functions';
+import { getFunctions, type Functions as FirebaseFunctionsService } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
 
 import { connectEmulators } from './emulators';
-
-import type { FirebaseApp } from 'firebase/app';
-import type { Functions as FirebaseFunctionsService } from 'firebase/functions';
 
 interface FirebaseConfig {
   apiKey: string;
@@ -33,6 +30,7 @@ const firebaseConfigString = process.env.NEXT_PUBLIC_FIREBASE_CONFIG;
 if (!firebaseConfigString) {
   const errorMsg =
     'CRITICAL_CONFIG_ERROR: Firebase config JSON (NEXT_PUBLIC_FIREBASE_CONFIG) is undefined or empty. Check your .env file or deployment environment variables.';
+  // eslint-disable-next-line no-console
   console.error(errorMsg);
   throw new Error(errorMsg);
 }
@@ -44,6 +42,7 @@ try {
   const errorMsg = `CRITICAL_CONFIG_ERROR: Failed to parse Firebase config JSON (NEXT_PUBLIC_FIREBASE_CONFIG). Error: ${
     e instanceof Error ? e.message : String(e)
   }. Value: ${firebaseConfigString}`;
+  // eslint-disable-next-line no-console
   console.error(errorMsg);
   throw new Error(errorMsg);
 }
@@ -51,16 +50,19 @@ try {
 if (!firebaseConfig.apiKey) {
   const errorMsg =
     'CRITICAL_CONFIG_ERROR: "apiKey" is missing in Firebase config JSON (NEXT_PUBLIC_FIREBASE_CONFIG).';
+  // eslint-disable-next-line no-console
   console.error(errorMsg);
   throw new Error(errorMsg);
 }
 if (!firebaseConfig.projectId) {
   const errorMsg =
     'CRITICAL_CONFIG_ERROR: "projectId" is missing in Firebase config JSON (NEXT_PUBLIC_FIREBASE_CONFIG).';
+  // eslint-disable-next-line no-console
   console.error(errorMsg);
   throw new Error(errorMsg);
 }
 
+// eslint-disable-next-line no-console
 console.info(
   `Firebase Init: Using NEXT_PUBLIC_FIREBASE_CONFIG. Project ID: ${
     firebaseConfig.projectId
@@ -83,6 +85,7 @@ const storage = getStorage(app);
 const rtdb = getDatabase(app);
 // Specify the region for the Functions client instance
 const functionsRegion = process.env.GCLOUD_REGION || 'us-central1';
+// eslint-disable-next-line no-console
 console.info(`Firebase Init: Initializing Functions client for region: ${functionsRegion}`);
 const functionsInstance: FirebaseFunctionsService = getFunctions(app, functionsRegion);
 const googleProvider = new GoogleAuthProvider();

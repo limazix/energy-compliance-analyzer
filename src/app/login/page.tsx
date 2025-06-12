@@ -1,5 +1,4 @@
 'use client';
-
 import { useEffect } from 'react';
 
 import { signInWithPopup, type FirebaseError } from 'firebase/auth';
@@ -31,6 +30,7 @@ export default function LoginPage() {
       toast({ title: 'Login bem-sucedido!', description: 'Bem-vindo(a) de volta.' });
       router.replace('/');
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Erro no login com Google:', error);
       const firebaseError = error as FirebaseError;
       if (firebaseError.code === 'auth/popup-closed-by-user') {
