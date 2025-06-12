@@ -11,63 +11,28 @@
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const { genkit } = require('genkit');
-const { googleAI } = require('@genkit-ai/googleai');
 
-// Adjusted paths for shared modules
-const {
-  analyzeComplianceReportPromptConfig,
-} = require('../../lib/shared/ai/prompt-configs/analyze-compliance-report-prompt-config.js');
-const {
-  identifyAEEEResolutionsPromptConfig,
-} = require('../../lib/shared/ai/prompt-configs/identify-aneel-resolutions-prompt-config.js');
-const {
-  reviewComplianceReportPromptConfig,
-} = require('../../lib/shared/ai/prompt-configs/review-compliance-report-prompt-config.js');
-const {
-  summarizePowerQualityDataPromptConfig,
-} = require('../../lib/shared/ai/prompt-configs/summarize-power-quality-data-prompt-config.js');
+// Import modularized agent flows
+const { summarizeDataChunkFlow } = require('../ai/agents/summarizerAgent.js');
+const { identifyResolutionsFlow } = require('../ai/agents/regulationIdentifierAgent.js');
+const { analyzeReportFlow } = require('../ai/agents/complianceAnalyzerAgent.js');
+const { reviewReportFlow } = require('../ai/agents/reportReviewerAgent.js');
+
+// Adjusted paths for shared modules (reportUtils is not an agent config)
 const { convertStructuredReportToMdx } = require('../../lib/shared/lib/reportUtils.js');
-const { getAdminFileContentFromStorage } = require('../utils/storage.js'); // Adjusted path
+const { getAdminFileContentFromStorage } = require('../utils/storage.js');
 
 // Initialize Firebase Admin SDK if not already done.
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-// Retrieve Firebase runtime configuration for Gemini API Key.
-const firebaseRuntimeConfig = functions.config();
-const geminiApiKeyFromConfig =
-  firebaseRuntimeConfig && firebaseRuntimeConfig.gemini
-    ? firebaseRuntimeConfig.gemini.api_key
-    : undefined;
-
-// Determine Gemini API Key
-const geminiApiKey =
-  process.env.GEMINI_API_KEY || geminiApiKeyFromConfig || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-
-if (!geminiApiKey) {
-  console.error(
-    '[CoreAnalysis_OnUpdate] CRITICAL: GEMINI_API_KEY not found. Genkit AI calls WILL FAIL.'
-  );
-}
-
-// Initialize Genkit with the Google AI plugin.
-const ai = genkit({
-  plugins: [googleAI({ apiKey: geminiApiKey })],
-});
-
-// Define Genkit prompts using imported configurations.
-const summarizeDataChunkFlow = ai.definePrompt(summarizePowerQualityDataPromptConfig);
-const identifyResolutionsFlow = ai.definePrompt(identifyAEEEResolutionsPromptConfig);
-const analyzeReportFlow = ai.definePrompt(analyzeComplianceReportPromptConfig);
-const reviewReportFlow = ai.definePrompt(reviewComplianceReportPromptConfig);
-
 // Firestore, Storage, and RTDB admin instances.
 const db = admin.firestore();
 const storageAdmin = admin.storage();
 const rtdbAdmin = admin.database();
 
+// eslint-disable-next-line no-console
 console.info(
   '[CoreAnalysis_OnUpdate] Admin SDK for RTDB initialized, root URL (if configured for emulators/prod):',
   rtdbAdmin.ref().toString()
@@ -109,6 +74,7 @@ async function checkCancellation(analysisRef) {
   if (currentSnap.exists) {
     const data = currentSnap.data();
     if (data?.status === 'cancelling' || data?.status === 'cancelled') {
+      // eslint-disable-next-line no-console
       console.info(
         `[CoreAnalysis_CheckCancellation] Cancellation detected for ${analysisRef.id}. Status: ${data.status}.`
       );
@@ -144,12 +110,15 @@ exports.processAnalysisOnUpdate = functions
     const userId = context.params.userId;
     const analysisRef = db.doc(`users/${userId}/analyses/${analysisId}`);
 
+    // eslint-disable-next-line no-console
     console.info(
       `[CoreAnalysis_OnUpdate] Triggered for analysisId: ${analysisId}, userId: ${userId}`
     );
+    // eslint-disable-next-line no-console
     console.debug(
       `[CoreAnalysis_OnUpdate] Status Before: ${analysisDataBefore?.status}, Status After: ${analysisDataAfter?.status}`
     );
+    // eslint-disable-next-line no-console
     console.debug(
       `[CoreAnalysis_OnUpdate] Progress Before: ${analysisDataBefore?.progress}, Progress After: ${analysisDataAfter?.progress}`
     );
@@ -166,6 +135,7 @@ exports.processAnalysisOnUpdate = functions
       ) {
         // Allow if progress is being made within summarizing_data (e.g., if function was restarted by Firebase)
       } else {
+        // eslint-disable-next-line no-console
         console.info(
           `[CoreAnalysis_OnUpdate] No action needed for status change from ${analysisDataBefore?.status} to ${analysisDataAfter?.status}. Exiting.`
         );
@@ -178,10 +148,12 @@ exports.processAnalysisOnUpdate = functions
       analysisDataBefore?.status === 'completed' &&
       analysisDataAfter?.status === 'summarizing_data'
     ) {
+      // eslint-disable-next-line no-console
       console.info(
         `[CoreAnalysis_OnUpdate] Analysis ${analysisId} was 'completed' but reset to 'summarizing_data'. Reprocessing allowed.`
       );
     } else if (analysisDataBefore?.status === 'completed') {
+      // eslint-disable-next-line no-console
       console.info(`[CoreAnalysis_OnUpdate] Analysis ${analysisId} already completed. Exiting.`);
       return null;
     }
@@ -193,6 +165,7 @@ exports.processAnalysisOnUpdate = functions
           analysisDataBefore?.status === 'error' && analysisDataAfter?.status === 'summarizing_data'
         )
       ) {
+        // eslint-disable-next-line no-console
         console.info(
           `[CoreAnalysis_OnUpdate] Analysis ${analysisId} was in a terminal state '${analysisDataBefore?.status}' and not reset from error. Exiting.`
         );
@@ -216,9 +189,11 @@ exports.processAnalysisOnUpdate = functions
 
       if (await checkCancellation(analysisRef)) return null;
 
+      // eslint-disable-next-line no-console
       console.debug(`[CoreAnalysis_OnUpdate] Reading file: ${filePath}`);
       await analysisRef.update({ progress: 5 }); // Initial progress update
       const powerQualityDataCsv = await getAdminFileContentFromStorage(filePath); // Use renamed utility
+      // eslint-disable-next-line no-console
       console.debug(
         `[CoreAnalysis_OnUpdate] File content read. Size: ${powerQualityDataCsv.length}.`
       );
@@ -247,11 +222,13 @@ exports.processAnalysisOnUpdate = functions
       for (let i = 0; i < chunks.length; i++) {
         if (await checkCancellation(analysisRef)) return null;
         const chunk = chunks[i];
+        // eslint-disable-next-line no-console
         console.debug(
           `[CoreAnalysis_OnUpdate] Summarizing ${analysisId}, chunk ${i + 1}/${chunks.length}.`
         );
 
         if (chunk.trim() === '') {
+          // eslint-disable-next-line no-console
           console.warn(
             `[CoreAnalysis_OnUpdate] Chunk ${i + 1} for ${analysisId} is empty. Skipping.`
           );
@@ -274,11 +251,13 @@ exports.processAnalysisOnUpdate = functions
         status: 'identifying_regulations',
         progress: PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE + PROGRESS_SUMMARIZATION_TOTAL_SPAN,
       });
+      // eslint-disable-next-line no-console
       console.info(`[CoreAnalysis_OnUpdate] Summarization complete for ${analysisId}.`);
 
       if (await checkCancellation(analysisRef)) return null;
 
       // Identify relevant regulations
+      // eslint-disable-next-line no-console
       console.debug(`[CoreAnalysis_OnUpdate] Identifying regulations for ${analysisId}.`);
       const identifyInput = { powerQualityDataSummary: finalPowerQualityDataSummary, languageCode };
       const { output: resolutionsOutput } = await identifyResolutionsFlow(identifyInput);
@@ -290,11 +269,13 @@ exports.processAnalysisOnUpdate = functions
         status: 'assessing_compliance',
         progress: PROGRESS_IDENTIFY_REGULATIONS_COMPLETE,
       });
+      // eslint-disable-next-line no-console
       console.info(`[CoreAnalysis_OnUpdate] Regulations identified for ${analysisId}.`);
 
       if (await checkCancellation(analysisRef)) return null;
 
       // Generate initial compliance report
+      // eslint-disable-next-line no-console
       console.debug(`[CoreAnalysis_OnUpdate] Analyzing compliance for ${analysisId}.`);
       const reportInput = {
         powerQualityDataSummary: finalPowerQualityDataSummary,
@@ -310,6 +291,7 @@ exports.processAnalysisOnUpdate = functions
         status: 'reviewing_report',
         progress: PROGRESS_ANALYZE_COMPLIANCE_COMPLETE,
       });
+      // eslint-disable-next-line no-console
       console.info(
         `[CoreAnalysis_OnUpdate] Initial compliance analysis complete for ${analysisId}. Report ready for review.`
       );
@@ -317,6 +299,7 @@ exports.processAnalysisOnUpdate = functions
       if (await checkCancellation(analysisRef)) return null;
 
       // Review the structured report
+      // eslint-disable-next-line no-console
       console.debug(`[CoreAnalysis_OnUpdate] Reviewing structured report for ${analysisId}.`);
       const reviewInput = {
         structuredReportToReview: initialStructuredReport,
@@ -324,6 +307,7 @@ exports.processAnalysisOnUpdate = functions
       };
       const { output: reviewedStructuredReport } = await reviewReportFlow(reviewInput);
       if (!reviewedStructuredReport) {
+        // eslint-disable-next-line no-console
         console.warn(
           `[CoreAnalysis_OnUpdate] AI review failed. Using pre-review report for ${analysisId}.`
         );
@@ -339,6 +323,7 @@ exports.processAnalysisOnUpdate = functions
           progress: PROGRESS_REVIEW_REPORT_COMPLETE,
         });
       }
+      // eslint-disable-next-line no-console
       console.info(`[CoreAnalysis_OnUpdate] Report review complete for ${analysisId}.`);
 
       if (await checkCancellation(analysisRef)) return null;
@@ -361,8 +346,10 @@ exports.processAnalysisOnUpdate = functions
         completedAt: admin.firestore.FieldValue.serverTimestamp(),
         errorMessage: null,
       });
+      // eslint-disable-next-line no-console
       console.info(`[CoreAnalysis_OnUpdate] Analysis ${analysisId} completed successfully.`);
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error(`[CoreAnalysis_OnUpdate] Error processing analysis ${analysisId}:`, error);
       let errorMessage = 'Erro desconhecido no processamento em segundo plano.';
       // @ts-ignore - Check if error is a GenerativeAIError
@@ -401,6 +388,7 @@ exports.processAnalysisOnUpdate = functions
           }
         }
       } catch (updateError) {
+        // eslint-disable-next-line no-console
         console.error(
           `[CoreAnalysis_OnUpdate] CRITICAL: Failed to update Firestore with error state for ${analysisId}:`,
           updateError
