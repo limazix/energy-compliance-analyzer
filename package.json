@@ -19,6 +19,11 @@
     "test:watch": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest --watch",
     "prepare": "husky"
   },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",
     "@genkit-ai/next": "^1.8.0",
