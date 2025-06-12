@@ -1,5 +1,5 @@
 {
-  "name": "nextn",
+  "name": "electric-magnitudes-analizer",
   "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
@@ -16,8 +16,7 @@
     "emulators:start": "firebase emulators:start --import=./firebase-emulator-data --export-on-exit",
     "emulators:dev": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data 'npm run dev'",
     "test": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest",
-    "test:watch": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest --watch",
-    "prepare": "husky"
+    "test:watch": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest --watch"
   },
   "husky": {
     "hooks": {
