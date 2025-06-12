@@ -1,6 +1,14 @@
+// src/components/features/analysis/AnalysisView.tsx
 'use client';
 
-import { AlertTriangle, FileText as FileTextIcon, Info, Trash2, XCircle } from 'lucide-react';
+import {
+  AlertTriangle,
+  FileTextIcon,
+  Info,
+  RefreshCw, // Icon for Retry
+  Trash2,
+  XCircle,
+} from 'lucide-react';
 
 import {
   AlertDialog,
@@ -32,6 +40,7 @@ type AnalysisViewProps = {
   onRemoveTag: (analysisId: string, tag: string) => void;
   onDeleteAnalysis: (analysisId: string) => void;
   onCancelAnalysis: (analysisId: string) => void;
+  onRetryAnalysis: (analysisId: string) => void; // Added retry handler prop
 };
 
 export function AnalysisView({
@@ -44,6 +53,7 @@ export function AnalysisView({
   onRemoveTag,
   onDeleteAnalysis,
   onCancelAnalysis,
+  onRetryAnalysis, // Destructure retry handler
 }: AnalysisViewProps) {
   const isCompleted = analysis.status === 'completed';
   const isError = analysis.status === 'error';
@@ -128,7 +138,7 @@ export function AnalysisView({
             </p>
           )}
           {analysisSteps.find(
-            (s) => s.status === 'cancelled' || s.status === 'pending_deletion' // Treat pending_deletion steps visually
+            (s) => s.status === 'cancelled' || s.status === 'pending_deletion'
           ) && (
             <ul className="space-y-3 mt-4">
               {analysisSteps.map((step, index) => (
@@ -156,6 +166,15 @@ export function AnalysisView({
               ))}
             </ul>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onRetryAnalysis(analysis.id)}
+            className="mt-4"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Tentar Novamente
+          </Button>
         </div>
       )}
 

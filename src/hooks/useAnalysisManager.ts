@@ -10,7 +10,10 @@ import {
   cancelAnalysisAction,
   deleteAnalysisAction,
 } from '@/features/analysis-management/actions/analysisManagementActions';
-import { processAnalysisFile } from '@/features/analysis-processing/actions/analysisProcessingActions';
+import {
+  processAnalysisFile,
+  retryAnalysisAction, // Import the new retry action
+} from '@/features/analysis-processing/actions/analysisProcessingActions';
 import { calculateDisplayedAnalysisSteps } from '@/features/analysis-processing/utils/analysisStepsUtils';
 import { addTagToAction, removeTagAction } from '@/features/tag-management/actions/tagActions';
 import { useToast } from '@/hooks/use-toast';
@@ -34,8 +37,6 @@ export function useAnalysisManager(user: User | null) {
       user?.uid &&
       currentAnalysis?.id &&
       !currentAnalysis.id.startsWith('error-') &&
-      // Ensure the listener is only for the *current* analysis and not re-attached if its core details haven't changed.
-      // This part of the dependency array helps prevent re-subscription if only, say, `progress` changes.
       currentAnalysis.fileName &&
       currentAnalysis.title &&
       currentAnalysis.createdAt
@@ -147,7 +148,6 @@ export function useAnalysisManager(user: User | null) {
               setPastAnalyses((prev) =>
                 prev
                   .map((pa) => (pa.id === updatedAnalysis.id ? updatedAnalysis : pa))
-                  // Filter out 'deleted' here. Keep 'pending_deletion' to show its status.
                   .filter((a) => a.status !== 'deleted')
               );
             } else {
@@ -228,18 +228,7 @@ export function useAnalysisManager(user: User | null) {
         unsub();
       }
     };
-  }, [
-    user,
-    currentAnalysis, // Changed: Now depends on the whole currentAnalysis object
-    // currentAnalysis?.id, // No longer needed as currentAnalysis itself is a dependency
-    // currentAnalysis?.status, // No longer needed
-    // currentAnalysis?.fileName, // No longer needed
-    // currentAnalysis?.title, // No longer needed
-    // currentAnalysis?.createdAt, // No longer needed
-    // currentAnalysis?.description, // No longer needed
-    // currentAnalysis?.languageCode, // No longer needed
-    toast,
-  ]);
+  }, [user, currentAnalysis, toast]);
 
   const startAiProcessing = useCallback(
     async (analysisId: string, userIdFromCaller: string) => {
@@ -338,7 +327,6 @@ export function useAnalysisManager(user: User | null) {
     console.info(`[useAnalysisManager_fetchPastAnalyses] Fetching for user: ${currentUserId}`);
     try {
       const analyses = await getPastAnalysesAction(currentUserId);
-      // Filter out 'deleted' locally, 'pending_deletion' will be shown until confirmed by backend.
       setPastAnalyses(analyses.filter((a) => a.status !== 'deleted'));
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -423,15 +411,12 @@ export function useAnalysisManager(user: User | null) {
         return;
       }
       try {
-        // Server Action now publishes a Pub/Sub event.
         await deleteAnalysisAction(user.uid, analysisId);
         toast({
           title: 'Solicitação de Exclusão Enviada',
           description: 'A análise será excluída em breve. O status será atualizado.',
         });
-        onDeleted?.(); // Call optimistic UI update callback if provided
-        // The onSnapshot listener will handle the actual status change to 'pending_deletion'
-        // and then 'deleted', updating currentAnalysis and pastAnalyses.
+        onDeleted?.();
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error(
@@ -445,7 +430,7 @@ export function useAnalysisManager(user: User | null) {
         });
       }
     },
-    [user, toast] // Removed currentAnalysis?.id as it's not directly used for the action call itself
+    [user, toast]
   );
 
   const handleCancelAnalysis = useCallback(
@@ -484,6 +469,51 @@ export function useAnalysisManager(user: User | null) {
         );
         toast({
           title: 'Erro ao Cancelar',
+          description: String(error instanceof Error ? error.message : error),
+          variant: 'destructive',
+        });
+      }
+    },
+    [user, toast]
+  );
+
+  const handleRetryAnalysis = useCallback(
+    async (analysisId: string) => {
+      if (!user?.uid || !analysisId) {
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível tentar novamente: dados inválidos.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      // eslint-disable-next-line no-console
+      console.info(
+        `[useAnalysisManager_handleRetry] Requesting retry for analysis ID: ${analysisId}`
+      );
+      try {
+        const result = await retryAnalysisAction(user.uid, analysisId);
+        if (result.success) {
+          toast({
+            title: 'Nova Tentativa Solicitada',
+            description: 'A análise será reprocessada. O status será atualizado em breve.',
+          });
+          // The onSnapshot listener should pick up the status change and update currentAnalysis
+        } else {
+          toast({
+            title: 'Erro ao Tentar Novamente',
+            description: result.error || 'Não foi possível solicitar uma nova tentativa.',
+            variant: 'destructive',
+          });
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[useAnalysisManager_handleRetry] Error retrying analysis ${analysisId}:`,
+          error
+        );
+        toast({
+          title: 'Erro ao Tentar Novamente',
           description: String(error instanceof Error ? error.message : error),
           variant: 'destructive',
         });
@@ -547,6 +577,7 @@ export function useAnalysisManager(user: User | null) {
     handleRemoveTag,
     handleDeleteAnalysis,
     handleCancelAnalysis,
+    handleRetryAnalysis, // Expose the new handler
     downloadReportAsTxt,
     displayedAnalysisSteps,
   };
