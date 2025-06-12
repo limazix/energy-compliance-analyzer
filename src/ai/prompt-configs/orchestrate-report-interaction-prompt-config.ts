@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 import { AnalyzeComplianceReportOutputSchema } from './analyze-compliance-report-prompt-config';
 
+// Re-export to ensure it's available to dependent modules
+export type { AnalyzeComplianceReportOutput } from './analyze-compliance-report-prompt-config';
+
 export const OrchestrateReportInteractionInputSchema = z.object({
   userInputText: z
     .string()
@@ -41,9 +44,7 @@ export const OrchestrateReportInteractionOutputSchema = z.object({
     "If the 'callRevisorTool' was successfully used and made changes, this field will contain the entire new structured report object. Otherwise, it will be absent."
   ),
 });
-export type OrchestrateReportInteractionOutput = z.infer<
-  typeof OrchestrateReportInteractionOutputSchema
->;
+// Not actually used: export type OrchestrateReportInteractionOutput = z.infer<typeof OrchestrateReportInteractionOutputSchema>;
 
 export const orchestrateReportInteractionPromptConfig = {
   name: 'orchestrateReportInteractionShared',

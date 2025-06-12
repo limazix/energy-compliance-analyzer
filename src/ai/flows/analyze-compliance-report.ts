@@ -1,4 +1,3 @@
-'use server';
 /**
  * @fileOverview Analyzes a summary of power quality data against ANEEL regulations
  * and generates a structured compliance report suitable for eventual PDF generation.
@@ -7,11 +6,12 @@
  * - AnalyzeComplianceReportInput - The input type for the analyzeComplianceReport function.
  * - AnalyzeComplianceReportOutput - The return type for the analyzeComplianceReport function.
  */
+'use server';
 
 import { ai } from '@/ai/genkit';
 import {
-  AnalyzeComplianceReportInputSchema, // Import schema for flow definition
-  AnalyzeComplianceReportOutputSchema, // Import schema for flow definition
+  AnalyzeComplianceReportInputSchema,
+  AnalyzeComplianceReportOutputSchema,
   analyzeComplianceReportPromptConfig,
   type AnalyzeComplianceReportInput,
   type AnalyzeComplianceReportOutput,

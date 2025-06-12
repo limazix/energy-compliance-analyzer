@@ -1,7 +1,7 @@
 'use client';
 import { useEffect } from 'react';
 
-import { signInWithPopup, type FirebaseError } from 'firebase/auth';
+import { type FirebaseError, signInWithPopup } from 'firebase/auth';
 import { LogIn } from 'lucide-react';
 import Link from 'next/link'; // Import Link
 import { useRouter } from 'next/navigation';

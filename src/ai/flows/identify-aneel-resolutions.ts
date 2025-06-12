@@ -1,4 +1,3 @@
-'use server';
 /**
  * @fileOverview Identifies relevant ANEEL Normative Resolutions based on a summary of power quality data.
  *
@@ -6,11 +5,12 @@
  * - IdentifyAEEEResolutionsInput - The input type for the identifyAEEEResolutions function.
  * - IdentifyAEEEResolutionsOutput - The return type for the identifyAEEEResolutions function.
  */
+'use server';
 
 import { ai } from '@/ai/genkit';
 import {
-  IdentifyAEEEResolutionsInputSchema, // Import schema for flow definition
-  IdentifyAEEEResolutionsOutputSchema, // Import schema for flow definition
+  IdentifyAEEEResolutionsInputSchema,
+  IdentifyAEEEResolutionsOutputSchema,
   identifyAEEEResolutionsPromptConfig,
   type IdentifyAEEEResolutionsInput,
   type IdentifyAEEEResolutionsOutput,

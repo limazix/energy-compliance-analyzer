@@ -85,7 +85,7 @@ interface CreateInitialRecordActionResponse {
  * @returns {Promise<CreateInitialRecordActionResponse>} The analysis ID or an error message.
  */
 export async function createInitialAnalysisRecordAction(
-  _userId: string, // Kept for signature consistency with hook, but auth comes from context in Function
+  _userId: string, // Kept for signature consistency with hook, auth handled by Function context
   fileName: string,
   title?: string,
   description?: string,

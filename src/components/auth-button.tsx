@@ -1,7 +1,7 @@
 'use client';
 
 import { signInWithPopup, signOut } from 'firebase/auth';
-import { LogIn, LogOut, User as UserIcon, Settings } from 'lucide-react';
+import { LogIn, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';

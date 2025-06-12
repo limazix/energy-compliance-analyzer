@@ -6,7 +6,7 @@
  */
 import React from 'react'; // Import React for type definitions and JSX
 
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react'; // Correct import order
 import userEvent from '@testing-library/user-event';
 import { useParams as originalUseParams } from 'next/navigation';
 
@@ -17,7 +17,7 @@ import { getAnalysisReportAction as originalGetAnalysisReportAction } from '@/fe
 import ReportPage from './page';
 
 import type { User } from 'firebase/auth';
-import type { DatabaseReference } from 'firebase/database'; // For typing mocks
+import type { DataSnapshot, DatabaseReference, Unsubscribe } from 'firebase/database';
 
 // Mocks
 jest.mock('@/contexts/auth-context', () => ({
@@ -55,69 +55,54 @@ interface MockRTDBMessage {
 }
 
 // Define a type for the exported mock functions from the mocked module
-interface FirebaseDatabaseMockAccess {
+export interface FirebaseDatabaseMockAccess {
   getDatabase: jest.Mock<unknown, []>;
   ref: jest.Mock<DatabaseReference, [unknown, string?]>;
-  onValue: jest.Mock<
-    () => void,
-    [
-      DatabaseReference,
-      (snapshot: {
-        exists: () => boolean;
-        val: () => Record<string, MockRTDBMessage> | null;
-      }) => void,
-    ]
-  >;
-  push: jest.Mock<Promise<{ key: string | null }>, [DatabaseReference, Partial<MockRTDBMessage>]>;
+  onValue: jest.Mock<Unsubscribe, [DatabaseReference, (snapshot: DataSnapshot) => void]>;
+  push: jest.Mock<DatabaseReference, [DatabaseReference, Partial<MockRTDBMessage>]>;
   update: jest.Mock<Promise<void>, [DatabaseReference, Partial<MockRTDBMessage>]>;
   serverTimestamp: jest.Mock<object, []>;
-  off: jest.Mock<void, [DatabaseReference]>;
+  off: jest.Mock<void, [DatabaseReference, string?, ((a: DataSnapshot | null) => unknown)?]>;
   child: jest.Mock<DatabaseReference, [DatabaseReference, string]>;
+
   // Actual mock instances for manipulation
   __mockGetDatabase: jest.Mock<unknown, []>;
   __mockRef: jest.Mock<DatabaseReference, [unknown, string?]>;
-  __mockOnValue: jest.Mock<
-    () => void,
-    [
-      DatabaseReference,
-      (snapshot: {
-        exists: () => boolean;
-        val: () => Record<string, MockRTDBMessage> | null;
-      }) => void,
-    ]
-  >;
-  __mockPush: jest.Mock<
-    Promise<{ key: string | null }>,
-    [DatabaseReference, Partial<MockRTDBMessage>]
-  >;
+  __mockOnValue: jest.Mock<Unsubscribe, [DatabaseReference, (snapshot: DataSnapshot) => void]>;
+  __mockPush: jest.Mock<DatabaseReference, [DatabaseReference, Partial<MockRTDBMessage>]>;
   __mockUpdate: jest.Mock<Promise<void>, [DatabaseReference, Partial<MockRTDBMessage>]>;
   __mockServerTimestamp: jest.Mock<object, []>;
-  __mockOff: jest.Mock<void, [DatabaseReference]>;
+  __mockOff: jest.Mock<void, [DatabaseReference, string?, ((a: DataSnapshot | null) => unknown)?]>;
   __mockChild: jest.Mock<DatabaseReference, [DatabaseReference, string]>;
 }
 
-jest.mock('firebase/database', () => {
+jest.mock('firebase/database', (): FirebaseDatabaseMockAccess => {
   const actualFirebaseDatabase =
     jest.requireActual<typeof import('firebase/database')>('firebase/database');
 
   // Define mock functions *inside* the factory
-  const mockGetDatabaseFn = jest.fn(() => ({})); // Dummy DB object
+  const mockGetDatabaseFn = jest.fn(
+    () => ({}) as ReturnType<FirebaseDatabaseMockAccess['getDatabase']>
+  );
   const mockRefFn = jest.fn(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (_db: any, path?: string) =>
+    (db, path) =>
       ({
-        path,
         key: path?.split('/').pop() || null,
-        toString: () => path || '',
+        path,
+        toJSON: () => ({ path }), // Basic toJSON
+        toString: () => path || '', // Basic toString
+        parent: null, // Simplified
+        root: null, // Simplified
+        database: db, // Reference to the database instance
       }) as unknown as DatabaseReference
   );
-  const mockOnValueFn = jest.fn();
-  const mockPushFn = jest.fn();
-  const mockUpdateFn = jest.fn();
+  const mockOnValueFn = jest.fn() as FirebaseDatabaseMockAccess['onValue'];
+  const mockPushFn = jest.fn() as FirebaseDatabaseMockAccess['push'];
+  const mockUpdateFn = jest.fn() as FirebaseDatabaseMockAccess['update'];
   const mockServerTimestampFn = jest.fn(() => actualFirebaseDatabase.serverTimestamp());
-  const mockOffFn = jest.fn();
+  const mockOffFn = jest.fn() as FirebaseDatabaseMockAccess['off'];
   const mockChildFn = jest.fn(
-    (parentRef: DatabaseReference, childPath: string) =>
+    (parentRef: DatabaseReference, childPath: string): DatabaseReference =>
       ({
         ...parentRef,
         path: `${(parentRef as { path: string }).path}/${childPath}`,
@@ -138,7 +123,6 @@ jest.mock('firebase/database', () => {
     off: mockOffFn,
     child: mockChildFn,
     // Export these mock functions so tests can access them if needed
-    // using jest.requireMock('firebase/database').__mockGetDatabase etc.
     __mockGetDatabase: mockGetDatabaseFn,
     __mockRef: mockRefFn,
     __mockOnValue: mockOnValueFn,
@@ -214,20 +198,29 @@ const mockSeedStructuredReport = {
   ],
 };
 
-let onValueCallbackStore:
-  | ((snapshot: {
-      exists: () => boolean;
-      val: () => Record<string, MockRTDBMessage> | null;
-    }) => void)
-  | null = null;
+let onValueCallbackStore: ((snapshot: DataSnapshot) => void) | null = null;
+
 let mockRtdbMessagesStore: Record<string, MockRTDBMessage> = {};
 
 const simulateRtdbChangeAndNotify = () => {
   if (onValueCallbackStore) {
-    onValueCallbackStore({
+    // Simulate a DataSnapshot object
+    const mockSnapshot = {
       exists: () => Object.keys(mockRtdbMessagesStore).length > 0,
       val: () => mockRtdbMessagesStore,
-    });
+      // Add other DataSnapshot methods if needed by your component
+      key: 'mock-snapshot-key', // Example key
+      child: jest.fn(),
+      forEach: jest.fn(),
+      hasChild: jest.fn(),
+      hasChildren: jest.fn(),
+      numChildren: jest.fn(() => Object.keys(mockRtdbMessagesStore).length),
+      exportVal: jest.fn(),
+      getPriority: jest.fn(),
+      ref: {} as DatabaseReference, // Dummy ref
+      toJSON: jest.fn(() => mockRtdbMessagesStore),
+    } as DataSnapshot;
+    onValueCallbackStore(mockSnapshot);
   }
 };
 
@@ -289,12 +282,13 @@ describe('ReportPage', () => {
     mockRtdbMessagesStore = {};
     onValueCallbackStore = null;
 
-    __mockGetDatabase.mockImplementation(() => ({}));
+    __mockGetDatabase.mockImplementation(
+      () => ({}) as ReturnType<FirebaseDatabaseMockAccess['getDatabase']>
+    );
     __mockRef.mockImplementation(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (_db: any, path?: string) =>
+      (db, path) =>
         ({
-          db: _db,
+          db: db,
           path,
           key: path?.split('/').pop() || null,
           toString: () => path || '',
@@ -303,7 +297,7 @@ describe('ReportPage', () => {
     __mockOnValue.mockImplementation((_refPassedToOnValue, callback) => {
       onValueCallbackStore = callback;
       Promise.resolve().then(() => simulateRtdbChangeAndNotify());
-      return __mockOff;
+      return __mockOff as Unsubscribe;
     });
     __mockPush.mockImplementation(async (_refPassedToPush, payload) => {
       const key = `test-msg-${Date.now()}-${Object.keys(mockRtdbMessagesStore).length}`;
@@ -315,7 +309,7 @@ describe('ReportPage', () => {
         isError: payload.isError,
       };
       simulateRtdbChangeAndNotify();
-      return Promise.resolve({ key } as unknown as DatabaseReference); // Cast to DatabaseReference
+      return Promise.resolve({ key } as unknown as DatabaseReference);
     });
     __mockUpdate.mockImplementation(async (refPassedToUpdate, payload) => {
       const messageKey = (refPassedToUpdate as unknown as { key: string }).key;
@@ -326,7 +320,7 @@ describe('ReportPage', () => {
       return Promise.resolve();
     });
     __mockChild.mockImplementation(
-      (parentRef: DatabaseReference, childPath: string) =>
+      (parentRef: DatabaseReference, childPath: string): DatabaseReference =>
         ({
           ...parentRef,
           path: `${(parentRef as { path: string }).path}/${childPath}`,
@@ -368,8 +362,8 @@ describe('ReportPage', () => {
     it('should redirect to the login page', async () => {
       useAuth.mockReturnValue({ user: null, loading: false });
       (getAnalysisReportAction as jest.Mock).mockImplementationOnce(
-        () => new Promise(() => undefined)
-      ); // Prevent resolution
+        () => new Promise((_resolve) => undefined) // Prevent resolution
+      );
 
       render(<ReportPage />);
 

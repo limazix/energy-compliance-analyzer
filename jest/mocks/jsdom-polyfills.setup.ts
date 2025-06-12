@@ -4,27 +4,45 @@
 
 // JSDOM API Mocks
 global.ResizeObserver = jest.fn().mockImplementation(() => ({
-  observe: jest.fn(),
-  unobserve: jest.fn(),
-  disconnect: jest.fn(),
+  observe: jest.fn() as (target: Element) => void,
+  unobserve: jest.fn() as (target: Element) => void,
+  disconnect: jest.fn() as () => void,
 }));
 
-window.matchMedia = jest.fn().mockImplementation((query: string) => ({
-  matches: false,
-  media: query,
-  onchange: null,
-  addListener: jest.fn(), // deprecated
-  removeListener: jest.fn(), // deprecated
-  addEventListener: jest.fn(),
-  removeEventListener: jest.fn(),
-  dispatchEvent: jest.fn(),
-}));
+window.matchMedia = jest.fn().mockImplementation(
+  (query: string): MediaQueryList => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn() as (
+      this: MediaQueryList,
+      listener: (this: MediaQueryList, ev: MediaQueryListEvent) => unknown
+    ) => void, // deprecated
+    removeListener: jest.fn() as (
+      this: MediaQueryList,
+      listener: (this: MediaQueryList, ev: MediaQueryListEvent) => unknown
+    ) => void, // deprecated
+    addEventListener: jest.fn() as <K extends keyof MediaQueryListEventMap>(
+      type: K,
+      listener: (this: MediaQueryList, ev: MediaQueryListEventMap[K]) => unknown,
+      options?: boolean | AddEventListenerOptions
+    ) => void,
+    removeEventListener: jest.fn() as <K extends keyof MediaQueryListEventMap>(
+      type: K,
+      listener: (this: MediaQueryList, ev: MediaQueryListEventMap[K]) => unknown,
+      options?: boolean | EventListenerOptions
+    ) => void,
+    dispatchEvent: jest.fn() as (event: Event) => boolean,
+  })
+);
 
 global.requestAnimationFrame = jest.fn((cb: FrameRequestCallback): number => {
   if (typeof cb === 'function') cb(0);
   return 0;
 });
-global.cancelAnimationFrame = jest.fn();
+global.cancelAnimationFrame = jest.fn((_handle: number): void => {
+  /* no-op */
+});
 
 if (typeof window !== 'undefined' && !window.PointerEvent) {
   class PointerEventPolyfill extends MouseEvent {
@@ -58,7 +76,7 @@ if (typeof window !== 'undefined' && !window.PointerEvent) {
 
 if (typeof window !== 'undefined') {
   const originalGetComputedStyle = window.getComputedStyle;
-  window.getComputedStyle = (elt, pseudoElt) => {
+  window.getComputedStyle = (elt: Element, pseudoElt?: string | null): CSSStyleDeclaration => {
     try {
       return originalGetComputedStyle(elt, pseudoElt);
     } catch (e) {
@@ -82,44 +100,50 @@ if (typeof window !== 'undefined') {
         border: '0px none rgb(0, 0, 0)',
         overflow: 'visible',
       };
-      const mockStyle = {
-        ...properties,
+      const mockStyle: Partial<CSSStyleDeclaration> & {
+        getPropertyValue: (propertyName: string) => string;
+        setProperty: (propertyName: string, value: string | null, _priority?: string) => void;
+        removeProperty: (propertyName: string) => string;
+        item: (index: number) => string;
+        // length should be handled by Object.keys(properties).length
+      } = {
         getPropertyValue: (propertyName: string): string => {
           const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
           return properties[camelCaseProperty] || '';
         },
-        length: Object.keys(properties).length,
-        item: (index: number): string => Object.keys(properties)[index] || '',
         setProperty: (propertyName: string, value: string | null, _priority?: string) => {
-          // _priority marked unused
           const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
           if (value === null) {
-            // Handle null value for setProperty
             delete properties[camelCaseProperty];
           } else {
             properties[camelCaseProperty] = value;
           }
-          mockStyle.length = Object.keys(properties).length;
         },
         removeProperty: (propertyName: string): string => {
           const camelCaseProperty = propertyName.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
           const oldValue = properties[camelCaseProperty];
           delete properties[camelCaseProperty];
-          mockStyle.length = Object.keys(properties).length;
           return oldValue || '';
         },
-      } as unknown as CSSStyleDeclaration; // Cast to CSSStyleDeclaration
-      // Populate indexed properties
+        item: (index: number): string => Object.keys(properties)[index] || '',
+      };
       Object.keys(properties).forEach((key, index) => {
-        (mockStyle as unknown as Record<number, string>)[index] = key;
+        (mockStyle as Record<number, string>)[index] = key;
+        if (key in mockStyle) {
+          (mockStyle as Record<string, string>)[key] = properties[key];
+        }
       });
-      return mockStyle;
+      Object.defineProperty(mockStyle, 'length', {
+        get: () => Object.keys(properties).length,
+      });
+
+      return mockStyle as CSSStyleDeclaration;
     }
   };
 }
 
 if (typeof document.createRange === 'undefined') {
-  globalThis.document.createRange = () => {
+  globalThis.document.createRange = (): Range => {
     const range = new Range();
     range.getBoundingClientRect = jest.fn(
       (): DOMRect => ({
@@ -136,7 +160,7 @@ if (typeof document.createRange === 'undefined') {
     );
     range.getClientRects = jest.fn(
       (): DOMRectList => ({
-        item: (_index: number) => null, // _index marked unused
+        item: (_index: number) => null,
         length: 0,
         [Symbol.iterator]: jest.fn(),
       })
@@ -162,4 +186,116 @@ if (typeof window !== 'undefined') {
     ((id: number): void => {
       clearTimeout(id);
     });
+}
+
+// Polyfill for HTMLImageElement to simulate image loading in JSDOM
+interface HTMLImageElementWithPolyfill extends HTMLImageElement {
+  _jsdomError: boolean;
+  _jsdomSrcValue: string;
+}
+
+if (typeof window !== 'undefined' && typeof HTMLImageElement !== 'undefined') {
+  const originalImageSrcDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLImageElement.prototype,
+    'src'
+  );
+  const originalImageCompleteDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLImageElement.prototype,
+    'complete'
+  );
+  const originalImageNaturalWidthDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLImageElement.prototype,
+    'naturalWidth'
+  );
+  const originalImageNaturalHeightDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLImageElement.prototype,
+    'naturalHeight'
+  );
+
+  Object.defineProperties(HTMLImageElement.prototype, {
+    _jsdomError: {
+      writable: true,
+      value: false,
+    },
+    _jsdomSrcValue: {
+      writable: true,
+      value: '',
+    },
+    naturalHeight: {
+      configurable: true,
+      get(this: HTMLImageElementWithPolyfill) {
+        if (originalImageNaturalHeightDescriptor?.get) {
+          try {
+            return originalImageNaturalHeightDescriptor.get.call(this);
+          } catch (_e) {
+            /*ignore*/
+          }
+        }
+        return this._jsdomSrcValue && !this._jsdomError ? 100 : 0;
+      },
+    },
+    naturalWidth: {
+      configurable: true,
+      get(this: HTMLImageElementWithPolyfill) {
+        if (originalImageNaturalWidthDescriptor?.get) {
+          try {
+            return originalImageNaturalWidthDescriptor.get.call(this);
+          } catch (_e) {
+            /*ignore*/
+          }
+        }
+        return this._jsdomSrcValue && !this._jsdomError ? 100 : 0;
+      },
+    },
+    complete: {
+      configurable: true,
+      get(this: HTMLImageElementWithPolyfill) {
+        if (originalImageCompleteDescriptor?.get) {
+          try {
+            return originalImageCompleteDescriptor.get.call(this);
+          } catch (_e) {
+            /*ignore*/
+          }
+        }
+        return !!(this._jsdomSrcValue && !this._jsdomError);
+      },
+    },
+    src: {
+      configurable: true,
+      enumerable: true,
+      get(this: HTMLImageElementWithPolyfill) {
+        return this._jsdomSrcValue;
+      },
+      set(this: HTMLImageElementWithPolyfill, value: string) {
+        this._jsdomSrcValue = value;
+
+        if (originalImageSrcDescriptor?.set) {
+          originalImageSrcDescriptor.set.call(this, value);
+        }
+
+        this._jsdomError = false;
+
+        if (value && String(value).trim() !== '') {
+          queueMicrotask(() => {
+            if (typeof this.onload === 'function') {
+              (this.onload as EventListener)({
+                target: this,
+              } as unknown as Event);
+            }
+            this.dispatchEvent(new Event('load'));
+          });
+        } else {
+          this._jsdomError = true;
+          queueMicrotask(() => {
+            if (typeof this.onerror === 'function') {
+              (this.onerror as EventListener)({
+                target: this,
+              } as unknown as Event);
+            }
+            this.dispatchEvent(new Event('error'));
+          });
+        }
+      },
+    },
+  });
 }

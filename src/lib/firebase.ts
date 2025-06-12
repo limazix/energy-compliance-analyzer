@@ -5,11 +5,11 @@
  * such as Auth, Firestore, Storage, Realtime Database, and Functions. It also
  * handles connecting to Firebase emulators in a local development environment.
  */
-import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
+import { type FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 import { getFirestore } from 'firebase/firestore';
-import { getFunctions, type Functions as FirebaseFunctionsService } from 'firebase/functions';
+import { type Functions as FirebaseFunctionsService, getFunctions } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
 
 import { connectEmulators } from './emulators';

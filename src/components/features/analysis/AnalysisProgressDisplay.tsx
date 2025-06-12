@@ -1,4 +1,5 @@
 'use client';
+
 import type { AnalysisStep } from '@/types/analysis';
 
 import { AnalysisStepItem } from './AnalysisStepItem';

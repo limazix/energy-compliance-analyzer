@@ -1,30 +1,37 @@
 'use client';
 
-import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
-import { ref, onValue, push, serverTimestamp, off } from 'firebase/database';
 import {
+  type Unsubscribe as RTDBUnsubscribe,
+  off,
+  onValue,
+  push,
+  ref,
+  serverTimestamp,
+} from 'firebase/database';
+import {
+  type Unsubscribe as FirestoreUnsubscribe,
   doc,
   getDoc,
   onSnapshot as firestoreOnSnapshot,
-  type Unsubscribe as FirestoreUnsubscribe,
 } from 'firebase/firestore'; // Added for structuredReport listener
 import {
-  ArrowLeft,
   AlertTriangle,
+  ArrowLeft,
   Loader2,
-  Send,
-  UserCircle,
-  Sparkles,
   RefreshCw,
+  Send,
+  Sparkles,
+  UserCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { MDXRemote } from 'next-mdx-remote/rsc';
 import remarkGfm from 'remark-gfm';
 import remarkMermaid from 'remark-mermaidjs';
 
-import type { AnalyzeComplianceReportOutput } from '@/ai/flows/analyze-compliance-report';
+import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
 import { AppHeader } from '@/components/app-header';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -34,7 +41,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { askReportOrchestratorAction } from '@/features/report-chat/actions/reportChatActions';
 import { getAnalysisReportAction } from '@/features/report-viewing/actions/reportViewingActions';
 import { useToast } from '@/hooks/use-toast';
-import { rtdb, db } from '@/lib/firebase'; // Added db for structuredReport listener
+import { db, rtdb } from '@/lib/firebase'; // Added db for structuredReport listener
 import { cn } from '@/lib/utils';
 import type { Analysis } from '@/types/analysis';
 
@@ -200,13 +207,15 @@ export default function ReportPage() {
     }
     setCurrentLanguageCode(navigator.language || 'pt-BR');
 
+    let unsubscribeRTDB: RTDBUnsubscribe | undefined;
+
     if (user && user.uid && analysisId) {
       if (reportData.isLoading && !reportData.error) {
         fetchReportAndInitialStructuredData(analysisId, user.uid);
       }
 
       const chatRef = ref(rtdb, `chats/${analysisId}`);
-      const unsubscribeRTDB = onValue(chatRef, (snapshot) => {
+      unsubscribeRTDB = onValue(chatRef, (snapshot) => {
         const data = snapshot.val();
         const loadedMessages: ChatMessage[] = [];
         if (data) {
@@ -230,17 +239,15 @@ export default function ReportPage() {
           if (!welcomeMessageExists) {
             const welcomeMessagePayload = {
               sender: 'ai' as const,
-              text: `Olá! Sou seu assistente para este relatório (${reportData.fileName || 'Relatório'}). Como posso ajudar você a entender ou refinar este documento?`,
+              text: `Olá! Sou seu assistente para este relatório (${
+                reportData.fileName || 'Relatório'
+              }). Como posso ajudar você a entender ou refinar este documento?`,
               timestamp: serverTimestamp(),
             };
             push(chatRef, welcomeMessagePayload);
           }
         }
       });
-      return () => {
-        off(chatRef);
-        unsubscribeRTDB();
-      };
     } else if (!analysisId && user && !authLoading) {
       setReportData({
         mdxContent: null,
@@ -251,16 +258,19 @@ export default function ReportPage() {
         structuredReport: null,
       });
     }
+    return () => {
+      if (unsubscribeRTDB) {
+        off(ref(rtdb, `chats/${analysisId}`)); // Detach the specific listener
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     analysisId,
     user,
     authLoading,
     router,
-    // reportData.isLoading, // Removed to prevent loop due to fetchReportAndInitialStructuredData
-    // reportData.error, // Removed
-    // reportData.fileName, // Removed
-    fetchReportAndInitialStructuredData, // Added fetchReportAndInitialStructuredData
+    fetchReportAndInitialStructuredData,
+    // reportData.isLoading, reportData.error, reportData.fileName were removed to prevent infinite loop if they change due to fetchReport
   ]);
 
   useEffect(() => {
@@ -584,6 +594,7 @@ export default function ReportPage() {
                 <Avatar className="h-8 w-8 border border-border/50">
                   <AvatarImage
                     src={msg.sender === 'user' ? (user?.photoURL ?? undefined) : undefined}
+                    alt={msg.sender === 'user' ? (user?.displayName ?? 'Usuário') : 'Assistente IA'}
                   />
                   <AvatarFallback
                     className={cn(

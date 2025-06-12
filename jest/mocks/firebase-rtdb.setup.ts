@@ -1,7 +1,13 @@
 /**
  * @fileoverview Firebase Realtime Database (RTDB) mock setup for Jest.
  */
-import type { Database, DatabaseReference, DataSnapshot, Unsubscribe } from 'firebase/database';
+import type {
+  Database,
+  DatabaseReference,
+  DataSnapshot,
+  Unsubscribe,
+  Query,
+} from 'firebase/database';
 
 interface MockRTDBMessage {
   id?: string;
@@ -12,27 +18,32 @@ interface MockRTDBMessage {
 }
 
 export interface FirebaseDatabaseMock {
-  getDatabase: jest.Mock<Database>;
+  getDatabase: jest.Mock<Database, []>; // Explicitly type as taking no arguments
   ref: jest.Mock<DatabaseReference, [Database, string?]>;
-  onValue: jest.Mock<Unsubscribe, [DatabaseReference, (snapshot: DataSnapshot) => void]>;
-  push: jest.Mock<Promise<DatabaseReference>, [DatabaseReference, Partial<MockRTDBMessage>]>;
+  onValue: jest.Mock<Unsubscribe, [Query, (snapshot: DataSnapshot) => void]>; // Query instead of DatabaseReference
+  push: jest.Mock<DatabaseReference, [DatabaseReference, Partial<MockRTDBMessage>]>; // Promise<DatabaseReference> not needed as per firebase v9+ push returns ref sync
   update: jest.Mock<Promise<void>, [DatabaseReference, Partial<MockRTDBMessage>]>;
-  serverTimestamp: jest.Mock<object>;
-  off: jest.Mock<void, [DatabaseReference, string?, ((a: DataSnapshot | null) => unknown)?]>;
+  serverTimestamp: jest.Mock<object, []>; // Explicitly type as taking no arguments
+  off: jest.Mock<
+    void,
+    [Query, string?, ((a: DataSnapshot | null) => unknown)?] // Query instead of DatabaseReference
+  >;
   child: jest.Mock<DatabaseReference, [DatabaseReference, string]>;
   // Expose mock instances for test manipulation
-  __mockGetDatabase: jest.Mock;
-  __mockRef: jest.Mock;
-  __mockOnValue: jest.Mock;
-  __mockPush: jest.Mock;
-  __mockUpdate: jest.Mock;
-  __mockServerTimestamp: jest.Mock;
-  __mockOff: jest.Mock;
-  __mockChild: jest.Mock;
+  __mockGetDatabase: jest.Mock<Database, []>;
+  __mockRef: jest.Mock<DatabaseReference, [Database, string?]>;
+  __mockOnValue: jest.Mock<Unsubscribe, [Query, (snapshot: DataSnapshot) => void]>;
+  __mockPush: jest.Mock<DatabaseReference, [DatabaseReference, Partial<MockRTDBMessage>]>;
+  __mockUpdate: jest.Mock<Promise<void>, [DatabaseReference, Partial<MockRTDBMessage>]>;
+  __mockServerTimestamp: jest.Mock<object, []>;
+  __mockOff: jest.Mock<void, [Query, string?, ((a: DataSnapshot | null) => unknown)?]>;
+  __mockChild: jest.Mock<DatabaseReference, [DatabaseReference, string]>;
 }
 
 // Define mock functions *within* the factory scope
-const mockGetDatabaseInternal = jest.fn(() => ({}) as Database);
+const mockGetDatabaseInternal = jest.fn(
+  () => ({}) as Database
+) as FirebaseDatabaseMock['getDatabase'];
 const mockRefInternal = jest.fn(
   (db: Database, path?: string): DatabaseReference =>
     ({
@@ -44,12 +55,13 @@ const mockRefInternal = jest.fn(
       root: null, // Simplified
       database: db, // Reference to the database instance
     }) as unknown as DatabaseReference
-);
-const mockOnValueInternal = jest.fn();
-const mockPushInternal = jest.fn();
-const mockUpdateInternal = jest.fn();
-const mockServerTimestampInternal = jest.fn();
-const mockOffInternal = jest.fn();
+) as FirebaseDatabaseMock['ref'];
+
+const mockOnValueInternal = jest.fn() as FirebaseDatabaseMock['onValue'];
+const mockPushInternal = jest.fn() as FirebaseDatabaseMock['push'];
+const mockUpdateInternal = jest.fn() as FirebaseDatabaseMock['update'];
+const mockServerTimestampInternal = jest.fn() as FirebaseDatabaseMock['serverTimestamp'];
+const mockOffInternal = jest.fn() as FirebaseDatabaseMock['off'];
 const mockChildInternal = jest.fn(
   (parentRef: DatabaseReference, childPath: string): DatabaseReference =>
     ({
@@ -58,7 +70,7 @@ const mockChildInternal = jest.fn(
       key: childPath,
       toString: () => `${(parentRef as { path: string }).path}/${childPath}`,
     }) as unknown as DatabaseReference
-);
+) as FirebaseDatabaseMock['child'];
 
 jest.mock('firebase/database', (): FirebaseDatabaseMock => {
   const actualFirebaseDatabase =

@@ -28,19 +28,20 @@ const Alert = React.forwardRef<
 ));
 Alert.displayName = 'Alert';
 
-const AlertTitle = React.forwardRef<
-  HTMLHeadingElement, // Changed from HTMLParagraphElement to HTMLHeadingElement
-  React.HTMLAttributes<HTMLHeadingElement> & { children?: React.ReactNode }
->(({ className, children, ...props }, ref) => (
-  // Changed from <div> to <h5> to satisfy jsx-a11y/heading-has-content if children are passed
-  <h5
-    ref={ref}
-    className={cn('mb-1 font-medium leading-none tracking-tight', className)}
-    {...props}
-  >
-    {children}
-  </h5>
-));
+const AlertTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
+  ({ className, children, ...props }, ref) => (
+    // Changed from <div> to <h5> to satisfy jsx-a11y/heading-has-content if children are passed
+    // Use <p> as per ShadCN standard, but ensure it has content or is self-closing if no children.
+    // The rule actually expects a heading role, so h5 is more appropriate.
+    <h5
+      ref={ref}
+      className={cn('mb-1 font-medium leading-none tracking-tight', className)}
+      {...props}
+    >
+      {children}
+    </h5>
+  )
+);
 AlertTitle.displayName = 'AlertTitle';
 
 const AlertDescription = React.forwardRef<

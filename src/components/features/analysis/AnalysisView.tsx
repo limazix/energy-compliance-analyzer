@@ -1,5 +1,6 @@
 'use client';
-import { AlertTriangle, Trash2, FileText as FileTextIcon, Info, XCircle } from 'lucide-react';
+
+import { AlertTriangle, FileText as FileTextIcon, Info, Trash2, XCircle } from 'lucide-react';
 
 import {
   AlertDialog,

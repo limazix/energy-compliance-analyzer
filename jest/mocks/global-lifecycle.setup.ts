@@ -3,15 +3,15 @@
  */
 import { act } from '@testing-library/react';
 
-// Import mock control functions/stores from their respective setup files
+import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
+import type { Analysis } from '@/types/analysis'; // Assuming Analysis type is correctly defined
+
 import { mockHttpsCallableStore, type FirebaseFunctionsMock } from './firebase-functions.setup';
-import { type FirebaseDatabaseMock } from './firebase-rtdb.setup';
-import { type FirebaseStorageMock } from './firebase-storage.setup';
 import {
   mockRouterPush,
   mockRouterReplace,
-  mockUsePathname,
   mockUseParams,
+  mockUsePathname,
   mockUseSearchParams,
 } from './next-navigation.setup';
 import { mockToastFn } from './ui-components.setup';
@@ -19,22 +19,23 @@ import { mockToastFn } from './ui-components.setup';
 import type {
   MockAnalysisManagerReturnValue,
   MockFileUploadManagerReturnValue,
-} from './custom-hooks.setup';
+} from './custom-hooks.setup'; // Ensure this is correctly typed
+import type { FirebaseDatabaseMock } from './firebase-rtdb.setup';
+import type { FirebaseStorageMock } from './firebase-storage.setup';
 import type { User } from 'firebase/auth';
+import type { HttpsCallableResult } from 'firebase/functions';
+
+// Import mock control functions/stores from their respective setup files
 
 // --- Global Console Mocking ---
 if (
   typeof globalThis.console.error !== 'function' ||
   !(globalThis.console.error as jest.Mock).mockClear
 ) {
-  // eslint-disable-next-line no-console
-  const originalConsoleError = console.error; // Keep if needed for some specific cases
+  const originalConsoleError = console.error;
   globalThis.console.error = jest.fn((...args: unknown[]) => {
-    // Optionally call original console.error if you want to see errors during tests
-    // originalConsoleError(...args);
-    // For now, we suppress to keep test output clean, but this can be changed for debugging.
-    const _suppress = originalConsoleError; // to use if needed without lint error
-    const _args = args; // to use if needed
+    const _suppress = originalConsoleError; // Variable is used to avoid lint error
+    const _args = args; // Variable is used to avoid lint error
   });
 }
 // --- End Global Console Mocking ---
@@ -66,10 +67,12 @@ beforeEach(() => {
       manager.startAiProcessing.mockClear().mockResolvedValue(undefined);
       manager.handleAddTag.mockClear().mockResolvedValue(undefined);
       manager.handleRemoveTag.mockClear().mockResolvedValue(undefined);
-      manager.handleDeleteAnalysis.mockClear().mockImplementation((_id, cb) => {
-        cb?.();
-        return Promise.resolve();
-      });
+      manager.handleDeleteAnalysis
+        .mockClear()
+        .mockImplementation((_id: string, cb?: () => void) => {
+          cb?.();
+          return Promise.resolve();
+        });
       manager.handleCancelAnalysis.mockClear().mockResolvedValue(undefined);
       manager.downloadReportAsTxt.mockClear();
     }
@@ -101,15 +104,23 @@ beforeEach(() => {
     }
     // Reset to default implementation for common functions
     if (key === 'httpsCreateInitialAnalysisRecord' && mockFn) {
-      mockFn.mockImplementation((data: { fileName: string }) =>
-        Promise.resolve({ data: { analysisId: `mock-analysis-id-for-${data.fileName}` } })
+      mockFn.mockImplementation((_data: { fileName: string }) =>
+        Promise.resolve({
+          data: { analysisId: `mock-analysis-id-for-${_data.fileName}` },
+        } as HttpsCallableResult<{ analysisId: string }>)
       );
     } else if (key === 'httpsUpdateAnalysisUploadProgress' && mockFn) {
-      mockFn.mockResolvedValue({ data: { success: true } });
+      mockFn.mockResolvedValue({
+        data: { success: true },
+      } as HttpsCallableResult<{ success: boolean }>);
     } else if (key === 'httpsFinalizeFileUploadRecord' && mockFn) {
-      mockFn.mockResolvedValue({ data: { success: true } });
+      mockFn.mockResolvedValue({
+        data: { success: true },
+      } as HttpsCallableResult<{ success: boolean }>);
     } else if (key === 'httpsMarkUploadAsFailed' && mockFn) {
-      mockFn.mockResolvedValue({ data: { success: true } });
+      mockFn.mockResolvedValue({
+        data: { success: true },
+      } as HttpsCallableResult<{ success: boolean }>);
     } else if (key === 'httpsCallableAskOrchestrator' && mockFn) {
       mockFn.mockResolvedValue({
         data: {
@@ -117,21 +128,35 @@ beforeEach(() => {
           aiMessageRtdbKey: 'mock-ai-key-default-callable-cleared',
           reportModified: false,
         },
-      });
+      } as HttpsCallableResult<{
+        success: boolean;
+        aiMessageRtdbKey: string;
+        reportModified: boolean;
+      }>);
     } else if (key === 'httpsCallableAddTag' && mockFn) {
-      mockFn.mockResolvedValue({ data: { success: true, message: 'Tag added (mock callable)' } });
+      mockFn.mockResolvedValue({
+        data: { success: true, message: 'Tag added (mock callable)' },
+      } as HttpsCallableResult<{ success: boolean; message: string }>);
     } else if (key === 'httpsCallableRemoveTag' && mockFn) {
-      mockFn.mockResolvedValue({ data: { success: true, message: 'Tag removed (mock callable)' } });
+      mockFn.mockResolvedValue({
+        data: { success: true, message: 'Tag removed (mock callable)' },
+      } as HttpsCallableResult<{ success: boolean; message: string }>);
     } else if (key === 'httpsCallableGetPastAnalyses' && mockFn) {
-      mockFn.mockResolvedValue({ data: { analyses: [] } });
+      mockFn.mockResolvedValue({
+        data: { analyses: [] },
+      } as HttpsCallableResult<{ analyses: Analysis[] }>);
     } else if (key === 'httpsCallableDeleteAnalysis' && mockFn) {
-      mockFn.mockResolvedValue({ data: { success: true, message: 'Deleted (mock callable)' } });
+      mockFn.mockResolvedValue({
+        data: { success: true, message: 'Deleted (mock callable)' },
+      } as HttpsCallableResult<{ success: boolean; message: string }>);
     } else if (key === 'httpsCallableCancelAnalysis' && mockFn) {
-      mockFn.mockResolvedValue({ data: { success: true, message: 'Cancelled (mock callable)' } });
+      mockFn.mockResolvedValue({
+        data: { success: true, message: 'Cancelled (mock callable)' },
+      } as HttpsCallableResult<{ success: boolean; message: string }>);
     } else if (key === 'httpsCallableTriggerProcessing' && mockFn) {
       mockFn.mockResolvedValue({
         data: { success: true, analysisId: 'mock-analysis-id-triggered' },
-      });
+      } as HttpsCallableResult<{ success: boolean; analysisId: string }>);
     } else if (key === 'httpsCallableGetAnalysisReport' && mockFn) {
       mockFn.mockResolvedValue({
         data: {
@@ -144,20 +169,31 @@ beforeEach(() => {
               title: 'Mock Default Title Callable',
               author: 'Test',
               generatedDate: '2023-01-01',
+              subtitle: 'Mock Subtitle',
             },
             tableOfContents: [],
-            introduction: { objective: '', overallResultsSummary: '', usedNormsOverview: '' },
+            introduction: {
+              objective: 'Mock Objective',
+              overallResultsSummary: 'Mock Summary',
+              usedNormsOverview: 'Mock Norms',
+            },
             analysisSections: [],
-            finalConsiderations: '',
+            finalConsiderations: 'Mock Considerations',
             bibliography: [],
           },
         },
-      });
+      } as HttpsCallableResult<{
+        mdxContent: string;
+        fileName: string;
+        analysisId: string;
+        error: null;
+        structuredReport: AnalyzeComplianceReportOutput;
+      }>);
     } else if (mockFn) {
       // Default for other functions if not specifically handled
       mockFn.mockResolvedValue({
         data: { success: true, message: `Default mock for ${key} cleared` },
-      });
+      } as HttpsCallableResult<{ success: boolean; message: string }>);
     }
   });
 
@@ -211,12 +247,16 @@ afterEach(() => {
 });
 
 // Helper to mock useAuth for specific tests if needed, though global mock is primary
+interface UseAuthMockReturnValue {
+  user: User | null;
+  loading: boolean;
+}
 export const mockAuthContext = (
   user: User | null,
   loading = false
 ): typeof import('@/contexts/auth-context') => {
   const useAuthActual =
     jest.requireActual<typeof import('@/contexts/auth-context')>('@/contexts/auth-context');
-  jest.spyOn(useAuthActual, 'useAuth').mockReturnValue({ user, loading });
+  jest.spyOn(useAuthActual, 'useAuth').mockReturnValue({ user, loading } as UseAuthMockReturnValue);
   return useAuthActual;
 };

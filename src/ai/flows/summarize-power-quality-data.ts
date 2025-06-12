@@ -1,4 +1,3 @@
-'use server';
 /**
  * @fileOverview Summarizes a chunk of power quality data to reduce token load for subsequent AI analysis.
  *
@@ -6,11 +5,12 @@
  * - SummarizePowerQualityDataInput - The input type for the summarizePowerQualityData function.
  * - SummarizePowerQualityDataOutput - The return type for the summarizePowerQualityData function.
  */
+'use server';
 
 import { ai } from '@/ai/genkit';
 import {
-  SummarizePowerQualityDataInputSchema, // Import schema for flow definition
-  SummarizePowerQualityDataOutputSchema, // Import schema for flow definition
+  SummarizePowerQualityDataInputSchema,
+  SummarizePowerQualityDataOutputSchema,
   summarizePowerQualityDataPromptConfig,
   type SummarizePowerQualityDataInput,
   type SummarizePowerQualityDataOutput,

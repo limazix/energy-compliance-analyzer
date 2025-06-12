@@ -16,7 +16,7 @@ export interface MockAnalysisManagerReturnValue {
   isLoadingPastAnalyses: boolean;
   tagInput: string;
   setTagInput: jest.Mock<void, [string]>;
-  fetchPastAnalyses: jest.Mock<Promise<void>>;
+  fetchPastAnalyses: jest.Mock<Promise<void>, []>; // Explicitly type as taking no arguments
   startAiProcessing: jest.Mock<Promise<void>, [string, string]>;
   handleAddTag: jest.Mock<Promise<void>, [string, string]>;
   handleRemoveTag: jest.Mock<Promise<void>, [string, string]>;
@@ -45,6 +45,7 @@ export interface MockFileUploadManagerReturnValue {
   >;
 }
 
+// Augment globalThis to declare these properties
 declare global {
   // eslint-disable-next-line no-var
   var mockUseAnalysisManagerReturnValue: MockAnalysisManagerReturnValue;
@@ -95,10 +96,14 @@ globalThis.mockUseFileUploadManagerReturnValue = {
 
 // Mock useAnalysisManager
 jest.mock('@/hooks/useAnalysisManager', () => ({
-  useAnalysisManager: jest.fn(() => globalThis.mockUseAnalysisManagerReturnValue),
+  useAnalysisManager: jest.fn(
+    (): MockAnalysisManagerReturnValue => globalThis.mockUseAnalysisManagerReturnValue
+  ),
 }));
 
 // Mock useFileUploadManager
 jest.mock('@/features/file-upload/hooks/useFileUploadManager', () => ({
-  useFileUploadManager: jest.fn(() => globalThis.mockUseFileUploadManagerReturnValue),
+  useFileUploadManager: jest.fn(
+    (): MockFileUploadManagerReturnValue => globalThis.mockUseFileUploadManagerReturnValue
+  ),
 }));

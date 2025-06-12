@@ -3,7 +3,7 @@
  */
 import { act } from '@testing-library/react';
 
-import type { Auth, User } from 'firebase/auth';
+import type { Auth, User, AuthProvider, UserCredential } from 'firebase/auth';
 
 // --- TypeScript Global Augmentation for custom properties on globalThis ---
 declare global {
@@ -19,11 +19,11 @@ globalThis.authStateListenerCallback = null;
 
 // --- Firebase Auth Mock ---
 export interface FirebaseAuthMock {
-  GoogleAuthProvider: typeof import('firebase/auth').GoogleAuthProvider;
+  GoogleAuthProvider: new () => AuthProvider; // Constructor type
   __setMockUserForAuthStateChangedListener: (user: User | null) => void;
-  getAuth: jest.Mock<Auth>;
+  getAuth: jest.Mock<Auth, []>; // Explicitly type as taking no arguments
   onAuthStateChanged: jest.Mock<() => void, [Auth, (user: User | null) => void]>;
-  signInWithPopup: jest.Mock<Promise<{ user: User }>, [Auth, unknown]>;
+  signInWithPopup: jest.Mock<Promise<UserCredential>, [Auth, AuthProvider]>; // Updated type
   signOut: jest.Mock<Promise<void>, [Auth]>;
 }
 
@@ -52,11 +52,11 @@ jest.mock('firebase/auth', (): FirebaseAuthMock => {
             globalThis.authStateListenerCallback(globalThis.mockFirebaseAuthUserForListener);
           }
         });
-        return jest.fn();
+        return jest.fn(); // Returns the unsubscribe function
       }
     ),
-    signInWithPopup: jest.fn(),
-    signOut: jest.fn(),
+    signInWithPopup: jest.fn() as jest.Mock<Promise<UserCredential>, [Auth, AuthProvider]>, // Cast to specific mock type
+    signOut: jest.fn() as jest.Mock<Promise<void>, [Auth]>, // Cast to specific mock type
     __setMockUserForAuthStateChangedListener,
   };
 });

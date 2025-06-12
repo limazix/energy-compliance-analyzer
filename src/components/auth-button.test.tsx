@@ -7,7 +7,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { signInWithPopup, signOut as firebaseSignOutModule } from 'firebase/auth';
-// import { useRouter as originalUseRouter } from 'next/navigation'; // Renamed to avoid conflict
 
 import { useAuth as originalUseAuth } from '@/contexts/auth-context'; // Renamed
 import { auth, googleProvider } from '@/lib/firebase';
@@ -105,7 +104,7 @@ describe('AuthButton component', () => {
      * @it It should handle login errors gracefully (e.g., popup closed by user).
      */
     it('should handle login errors gracefully (e.g., popup closed by user)', async () => {
-      const userEvt = userEvent.setup(); // Renamed to avoid conflict
+      const userEvt = userEvent.setup(); // Renamed
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined); // Suppress console.error for this test
       mockSignInWithPopup.mockRejectedValueOnce(new Error('Popup closed by user')); // Simulate login failure
       render(<AuthButton />);
@@ -145,12 +144,11 @@ describe('AuthButton component', () => {
     /**
      * @it It should render a dropdown trigger with user avatar and name.
      */
-    it('should render a dropdown trigger with user avatar and name', () => {
+    it('should render a dropdown trigger with user avatar and name', async () => {
       render(<AuthButton />);
-      // Check for the first name or part of the display name as the trigger
       expect(screen.getByText(mockUser.displayName!.split(' ')[0])).toBeInTheDocument();
       // Check for avatar presence by its alt text
-      const avatar = screen.getByRole('img', { name: mockUser.displayName ?? /User Avatar/i });
+      const avatar = await screen.findByRole('img', { name: mockUser.displayName as string });
       expect(avatar).toBeInTheDocument();
       expect(avatar).toHaveAttribute('src', mockUser.photoURL);
     });
@@ -253,7 +251,8 @@ describe('AuthButton component', () => {
 
       // The item is found, now click it
       await userEvt.click(settingsButton);
-      // No assertion needed here as the test is just to confirm no crash.
+      // No assertion needed here after the click if it doesn't navigate or cause other side effects
+      // The test already confirms the button can be found and clicked without error.
     });
   });
 });

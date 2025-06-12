@@ -1,13 +1,13 @@
 'use client';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { doc, onSnapshot, Timestamp, type FirestoreError } from 'firebase/firestore';
+import { type FirestoreError, Timestamp, doc, onSnapshot } from 'firebase/firestore';
 
 import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
 import { getPastAnalysesAction } from '@/features/analysis-listing/actions/analysisListingActions';
 import {
-  deleteAnalysisAction,
   cancelAnalysisAction,
+  deleteAnalysisAction,
 } from '@/features/analysis-management/actions/analysisManagementActions';
 import { processAnalysisFile } from '@/features/analysis-processing/actions/analysisProcessingActions';
 import { calculateDisplayedAnalysisSteps } from '@/features/analysis-processing/utils/analysisStepsUtils';
@@ -27,6 +27,12 @@ export function useAnalysisManager(user: User | null) {
   const [tagInput, setTagInput] = useState('');
 
   const currentAnalysisId = currentAnalysis?.id; // Stable reference for useEffect dependency
+  const currentAnalysisStatus = currentAnalysis?.status; // For exhaustive-deps
+  const currentAnalysisFileName = currentAnalysis?.fileName;
+  const currentAnalysisTitle = currentAnalysis?.title;
+  const currentAnalysisDescription = currentAnalysis?.description;
+  const currentAnalysisLanguageCode = currentAnalysis?.languageCode;
+  const currentAnalysisCreatedAt = currentAnalysis?.createdAt;
 
   useEffect(() => {
     let unsub: (() => void) | undefined;
@@ -35,7 +41,7 @@ export function useAnalysisManager(user: User | null) {
       const validUserId = user.uid; // Ensure it's a string before using
       // eslint-disable-next-line no-console
       console.debug(
-        `[useAnalysisManager_onSnapshot] Subscribing to analysis ID: ${currentAnalysisId} for user UID: ${validUserId}. Current local status: ${currentAnalysis?.status}`
+        `[useAnalysisManager_onSnapshot] Subscribing to analysis ID: ${currentAnalysisId} for user UID: ${validUserId}. Current local status: ${currentAnalysisStatus}`
       );
       const analysisDocumentRef = doc(db, 'users', validUserId, 'analyses', currentAnalysisId);
 
@@ -71,16 +77,16 @@ export function useAnalysisManager(user: User | null) {
                 fileName:
                   typeof data.fileName === 'string'
                     ? data.fileName
-                    : currentAnalysis?.fileName || 'Nome de arquivo desconhecido',
-                title: typeof data.title === 'string' ? data.title : currentAnalysis?.title,
+                    : currentAnalysisFileName || 'Nome de arquivo desconhecido',
+                title: typeof data.title === 'string' ? data.title : currentAnalysisTitle,
                 description:
                   typeof data.description === 'string'
                     ? data.description
-                    : currentAnalysis?.description,
+                    : currentAnalysisDescription,
                 languageCode:
                   typeof data.languageCode === 'string'
                     ? data.languageCode
-                    : currentAnalysis?.languageCode,
+                    : currentAnalysisLanguageCode,
                 status: statusIsValid ? (data.status as Analysis['status']) : 'error',
                 progress: typeof data.progress === 'number' ? data.progress : 0,
                 uploadProgress:
@@ -121,7 +127,7 @@ export function useAnalysisManager(user: User | null) {
                 createdAt:
                   data.createdAt instanceof Timestamp
                     ? data.createdAt.toDate().toISOString()
-                    : currentAnalysis?.createdAt || new Date().toISOString(),
+                    : currentAnalysisCreatedAt || new Date().toISOString(),
                 completedAt:
                   data.completedAt instanceof Timestamp
                     ? data.completedAt.toDate().toISOString()
@@ -138,14 +144,14 @@ export function useAnalysisManager(user: User | null) {
             } else {
               // eslint-disable-next-line no-console
               console.warn(
-                `[useAnalysisManager_onSnapshot] Document ${currentAnalysisId} not found. Current local status: ${currentAnalysis?.status}.`
+                `[useAnalysisManager_onSnapshot] Document ${currentAnalysisId} not found. Current local status: ${currentAnalysisStatus}.`
               );
               if (
                 currentAnalysisId &&
                 !currentAnalysisId.startsWith('error-') &&
-                currentAnalysis?.status !== 'deleted' &&
-                currentAnalysis?.status !== 'error' &&
-                currentAnalysis?.status !== 'cancelled'
+                currentAnalysisStatus !== 'deleted' &&
+                currentAnalysisStatus !== 'error' &&
+                currentAnalysisStatus !== 'cancelled'
               ) {
                 setCurrentAnalysis((prev) => {
                   if (
@@ -213,14 +219,14 @@ export function useAnalysisManager(user: User | null) {
   }, [
     user,
     currentAnalysisId,
+    currentAnalysisStatus,
+    currentAnalysisFileName,
+    currentAnalysisTitle,
+    currentAnalysisDescription,
+    currentAnalysisLanguageCode,
+    currentAnalysisCreatedAt,
     toast,
-    currentAnalysis?.status,
-    currentAnalysis?.createdAt,
-    currentAnalysis?.description,
-    currentAnalysis?.fileName,
-    currentAnalysis?.languageCode,
-    currentAnalysis?.title,
-  ]); // Added currentAnalysis.status and other fields for exhaustive-deps
+  ]);
 
   const startAiProcessing = useCallback(
     async (analysisId: string, userIdFromCaller: string) => {

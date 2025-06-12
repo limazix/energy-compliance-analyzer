@@ -1,4 +1,3 @@
-'use server';
 /**
  * @fileOverview Defines the Genkit prompt and schemas for orchestrating user interaction with a compliance report.
  *
@@ -8,17 +7,17 @@
  * - interactionPrompt: The Genkit prompt object for report interaction.
  * - callRevisorTool: A Genkit tool that can be used by the orchestrator.
  */
+'use server';
 
 import { z } from 'genkit/zod';
 
 import { reviewComplianceReport } from '@/ai/flows/review-compliance-report';
 import { ai } from '@/ai/genkit';
-import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
 import {
   AnalyzeComplianceReportOutputSchema,
   OrchestrateReportInteractionInputSchema,
-  // OrchestrateReportInteractionOutputSchema, // This was unused so removed to fix lint
   orchestrateReportInteractionPromptConfig,
+  type AnalyzeComplianceReportOutput,
   type OrchestrateReportInteractionInput,
   type OrchestrateReportInteractionOutput,
 } from '@/ai/prompt-configs/orchestrate-report-interaction-prompt-config';

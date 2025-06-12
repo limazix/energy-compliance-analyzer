@@ -107,9 +107,11 @@ describe('AppHeader component', () => {
     /**
      * @it It should display the AuthButton with user information (avatar/name).
      */
-    it('should display the AuthButton with user information (avatar/name)', () => {
+    it('should display the AuthButton with user information (avatar/name)', async () => {
       render(<AppHeader />);
       expect(screen.getByText(mockUser.displayName.split(' ')[0])).toBeInTheDocument(); // Assuming AuthButton shows first name
+      const avatar = await screen.findByRole('img', { name: mockUser.displayName });
+      expect(avatar).toBeInTheDocument();
     });
 
     /**

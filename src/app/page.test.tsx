@@ -4,14 +4,13 @@
  * covering navigation, analysis listing, new analysis creation,
  * file upload simulation, and analysis management features like deletion, structured in BDD style.
  */
-
-// Correct import for App Router
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react'; // Correct import order
 import userEvent from '@testing-library/user-event';
 
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
 // Import the actual calculateDisplayedAnalysisSteps function
 import { calculateDisplayedAnalysisSteps } from '@/features/analysis-processing/utils/analysisStepsUtils';
+import { getAnalysisReportAction as originalGetAnalysisReportAction } from '@/features/report-viewing/actions/reportViewingActions'; // Corrected: Moved to top-level group
 import type { Analysis } from '@/types/analysis';
 
 import HomePage from './page';
@@ -50,6 +49,10 @@ jest.mock('next/navigation', () => ({
   useSearchParams: jest.fn(() => new URLSearchParams()),
   useParams: jest.fn(() => ({})),
 }));
+
+// Mock server actions
+jest.mock('@/features/report-viewing/actions/reportViewingActions');
+const getAnalysisReportAction = originalGetAnalysisReportAction as jest.Mock;
 
 const mockUser: User = {
   uid: 'test-user-001',
@@ -259,9 +262,6 @@ describe('HomePage', () => {
       });
     });
 
-    const { getAnalysisReportAction } = jest.requireMock(
-      '@/features/report-viewing/actions/reportViewingActions'
-    ) as { getAnalysisReportAction: jest.Mock };
     getAnalysisReportAction.mockResolvedValue({
       mdxContent: `# Test Report for an analysis`,
       fileName: 'default_mock_file.csv',
@@ -385,14 +385,15 @@ describe('HomePage', () => {
      * @describe Context: When past analyses exist.
      */
     describe('when past analyses exist', () => {
+      let fetchPromise: jest.Mock;
       beforeEach(async () => {
-        const fetchPromise = (
+        fetchPromise = (
           global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock
         ).mockImplementation(async () => {
           await act(async () => {
             global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = true;
           });
-          await new Promise((resolve) => setTimeout(resolve, 10));
+          await new Promise((resolve) => setTimeout(resolve, 10)); // Simulate network delay
           await act(async () => {
             global.mockUseAnalysisManagerReturnValue.pastAnalyses = [
               mockAnalysisItemCompleted,
@@ -404,9 +405,10 @@ describe('HomePage', () => {
 
         render(<HomePage />);
         await act(async () => {
-          await fetchPromise();
+          await fetchPromise(); // Await the completion of the mock
         });
 
+        // Wait for an element that *only* appears when pastAnalyses is populated.
         await screen.findByText(mockAnalysisItemCompleted.title!);
         await screen.findByText(mockAnalysisItemInProgress.title!);
       });
@@ -513,6 +515,7 @@ describe('HomePage', () => {
             fileToSet = (eventOrFile as React.ChangeEvent<HTMLInputElement>).target.files![0];
           }
           act(() => {
+            // Ensure state update for the mock is within act
             global.mockUseFileUploadManagerReturnValue.fileToUpload = fileToSet;
           });
         });
@@ -529,6 +532,7 @@ describe('HomePage', () => {
         const fileInput = screen.getByLabelText(/Arquivo CSV de Dados/i);
         await userEvent.upload(fileInput, mockFile);
 
+        // Wait for the title input to become enabled and its value to be set
         const titleInput = await screen.findByLabelText(/Título da Análise/i);
         await waitFor(() => {
           expect(titleInput).toBeEnabled();
@@ -559,16 +563,18 @@ describe('HomePage', () => {
        * @it It should start AI processing for the new analysis.
        */
       it('should start AI processing for the new analysis', async () => {
+        // Ensure the currentAnalysis is updated in the mock store before this assertion
         await act(async () => {
           global.mockUseAnalysisManagerReturnValue.currentAnalysis = {
             id: newAnalysisId,
             title: newAnalysisTitle,
-            status: 'summarizing_data',
+            status: 'summarizing_data', // Or whatever status indicates processing can start
             progress: 10,
             fileName: newFileName,
             userId: mockUser.uid,
             createdAt: new Date().toISOString(),
             tags: [],
+            // ... other necessary fields for Analysis type
           } as Analysis;
           global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps =
             calculateDisplayedAnalysisSteps(
@@ -617,8 +623,9 @@ describe('HomePage', () => {
      * @describe Context: When managing an existing analysis via AnalysisView.
      */
     describe('when managing an existing analysis via AnalysisView', () => {
+      let fetchPromise: jest.Mock;
       beforeEach(async () => {
-        const fetchPromise = (
+        fetchPromise = (
           global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock
         ).mockImplementation(async () => {
           await act(async () => {

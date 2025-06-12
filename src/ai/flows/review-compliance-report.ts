@@ -1,4 +1,3 @@
-'use server';
 /**
  * @fileOverview Reviews and refines a structured compliance report.
  *
@@ -6,6 +5,7 @@
  * - ReviewComplianceReportInput - The input type for the reviewComplianceReport function.
  * - ReviewComplianceReportOutput - The return type for the reviewComplianceReport function.
  */
+'use server';
 
 import { ai } from '@/ai/genkit';
 import {
