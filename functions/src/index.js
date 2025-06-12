@@ -18,9 +18,13 @@ if (admin.apps.length === 0) {
 const coreAnalysisTriggers = require('./core-analysis/onUpdateTrigger');
 exports.processAnalysisOnUpdate = coreAnalysisTriggers.processAnalysisOnUpdate;
 
-// New event-triggered function for handling deletion requests
+// Firestore-triggered function for handling actual deletion steps
 const analysisDeletionTrigger = require('./analysis-management/onDeleteTrigger');
 exports.handleAnalysisDeletionRequest = analysisDeletionTrigger.handleAnalysisDeletionRequest;
+
+// New Pub/Sub-triggered function for initiating deletion requests
+const analysisDeletionPubSubTrigger = require('./analysis-management/onDeletionRequestPublish');
+exports.onAnalysisDeletionRequested = analysisDeletionPubSubTrigger.onAnalysisDeletionRequested;
 
 // --- Import and Export HTTPS Callable Functions ---
 
@@ -51,7 +55,7 @@ const analysisReportRetrievalHttp = require('./analysis-management/reportRetriev
 const coreAnalysisTriggerHttp = require('./core-analysis/triggerProcessingHttp');
 
 exports.httpsCallableGetPastAnalyses = analysisCrudHttp.httpsCallableGetPastAnalyses;
-// exports.httpsCallableDeleteAnalysis = analysisCrudHttp.httpsCallableDeleteAnalysis; // Removed
+// httpsCallableDeleteAnalysis was removed as deletion is now event-driven
 exports.httpsCallableCancelAnalysis = analysisCrudHttp.httpsCallableCancelAnalysis;
 exports.httpsCallableGetAnalysisReport = analysisReportRetrievalHttp.httpsCallableGetAnalysisReport;
 exports.httpsCallableTriggerProcessing = coreAnalysisTriggerHttp.httpsCallableTriggerProcessing;

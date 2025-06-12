@@ -1,7 +1,8 @@
+// src/hooks/useAnalysisManager.ts
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { type FirestoreError, Timestamp, doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, type FirestoreError, type Timestamp } from 'firebase/firestore';
 
 import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
 import { getPastAnalysesAction } from '@/features/analysis-listing/actions/analysisListingActions';
@@ -29,7 +30,16 @@ export function useAnalysisManager(user: User | null) {
   useEffect(() => {
     let unsub: (() => void) | undefined;
 
-    if (user?.uid && currentAnalysis?.id && !currentAnalysis.id.startsWith('error-')) {
+    if (
+      user?.uid &&
+      currentAnalysis?.id &&
+      !currentAnalysis.id.startsWith('error-') &&
+      // Ensure the listener is only for the *current* analysis and not re-attached if its core details haven't changed.
+      // This part of the dependency array helps prevent re-subscription if only, say, `progress` changes.
+      currentAnalysis.fileName &&
+      currentAnalysis.title &&
+      currentAnalysis.createdAt
+    ) {
       const validUserId = user.uid;
       const analysisIdToListen = currentAnalysis.id;
 
@@ -119,26 +129,26 @@ export function useAnalysisManager(user: User | null) {
                     : undefined
                   : data.errorMessage || 'Status inválido recebido do Firestore.',
                 tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
-                createdAt:
-                  data.createdAt instanceof Timestamp
-                    ? data.createdAt.toDate().toISOString()
-                    : currentAnalysis.createdAt || new Date().toISOString(),
-                completedAt:
-                  data.completedAt instanceof Timestamp
-                    ? data.completedAt.toDate().toISOString()
-                    : undefined,
-                deletionRequestedAt:
-                  data.deletionRequestedAt instanceof Timestamp
-                    ? data.deletionRequestedAt.toDate().toISOString()
-                    : undefined,
+                createdAt: (data.createdAt as Timestamp)?.toDate
+                  ? (data.createdAt as Timestamp).toDate().toISOString()
+                  : currentAnalysis.createdAt || new Date().toISOString(),
+                completedAt: (data.completedAt as Timestamp)?.toDate
+                  ? (data.completedAt as Timestamp).toDate().toISOString()
+                  : undefined,
+                deletionRequestedAt: (data.deletionRequestedAt as Timestamp)?.toDate
+                  ? (data.deletionRequestedAt as Timestamp).toDate().toISOString()
+                  : undefined,
+                reportLastModifiedAt: (data.reportLastModifiedAt as Timestamp)?.toDate
+                  ? (data.reportLastModifiedAt as Timestamp).toDate().toISOString()
+                  : undefined,
               };
               setCurrentAnalysis(updatedAnalysis);
 
-              setPastAnalyses(
-                (prev) =>
-                  prev
-                    .map((pa) => (pa.id === updatedAnalysis.id ? updatedAnalysis : pa))
-                    .filter((a) => a.status !== 'deleted') // Keep pending_deletion for now
+              setPastAnalyses((prev) =>
+                prev
+                  .map((pa) => (pa.id === updatedAnalysis.id ? updatedAnalysis : pa))
+                  // Filter out 'deleted' here. Keep 'pending_deletion' to show its status.
+                  .filter((a) => a.status !== 'deleted')
               );
             } else {
               // eslint-disable-next-line no-console
@@ -218,7 +228,18 @@ export function useAnalysisManager(user: User | null) {
         unsub();
       }
     };
-  }, [user, currentAnalysis, toast]); // Added currentAnalysis to deps
+  }, [
+    user,
+    currentAnalysis, // Changed: Now depends on the whole currentAnalysis object
+    // currentAnalysis?.id, // No longer needed as currentAnalysis itself is a dependency
+    // currentAnalysis?.status, // No longer needed
+    // currentAnalysis?.fileName, // No longer needed
+    // currentAnalysis?.title, // No longer needed
+    // currentAnalysis?.createdAt, // No longer needed
+    // currentAnalysis?.description, // No longer needed
+    // currentAnalysis?.languageCode, // No longer needed
+    toast,
+  ]);
 
   const startAiProcessing = useCallback(
     async (analysisId: string, userIdFromCaller: string) => {
@@ -317,6 +338,7 @@ export function useAnalysisManager(user: User | null) {
     console.info(`[useAnalysisManager_fetchPastAnalyses] Fetching for user: ${currentUserId}`);
     try {
       const analyses = await getPastAnalysesAction(currentUserId);
+      // Filter out 'deleted' locally, 'pending_deletion' will be shown until confirmed by backend.
       setPastAnalyses(analyses.filter((a) => a.status !== 'deleted'));
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -401,22 +423,15 @@ export function useAnalysisManager(user: User | null) {
         return;
       }
       try {
-        // Server Action now sets status to 'pending_deletion'
+        // Server Action now publishes a Pub/Sub event.
         await deleteAnalysisAction(user.uid, analysisId);
         toast({
-          title: 'Exclusão Solicitada',
-          description: 'A análise será excluída em breve.',
+          title: 'Solicitação de Exclusão Enviada',
+          description: 'A análise será excluída em breve. O status será atualizado.',
         });
-        onDeleted?.();
-        if (currentAnalysis?.id === analysisId) {
-          // Optimistically update local state or wait for onSnapshot
-          setCurrentAnalysis((prev) =>
-            prev && prev.id === analysisId ? { ...prev, status: 'pending_deletion' } : prev
-          );
-        }
-        // onSnapshot should handle the final 'deleted' state and list update.
-        // Optionally, refetch here if immediate list update is critical and onSnapshot is slow.
-        // fetchPastAnalyses();
+        onDeleted?.(); // Call optimistic UI update callback if provided
+        // The onSnapshot listener will handle the actual status change to 'pending_deletion'
+        // and then 'deleted', updating currentAnalysis and pastAnalyses.
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error(
@@ -430,7 +445,7 @@ export function useAnalysisManager(user: User | null) {
         });
       }
     },
-    [user, toast, currentAnalysis?.id]
+    [user, toast] // Removed currentAnalysis?.id as it's not directly used for the action call itself
   );
 
   const handleCancelAnalysis = useCallback(
