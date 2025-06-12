@@ -26,24 +26,18 @@ export function useAnalysisManager(user: User | null) {
   const [isLoadingPastAnalyses, setIsLoadingPastAnalyses] = useState(false);
   const [tagInput, setTagInput] = useState('');
 
-  const currentAnalysisId = currentAnalysis?.id; // Stable reference for useEffect dependency
-  const currentAnalysisStatus = currentAnalysis?.status; // For exhaustive-deps
-  const currentAnalysisFileName = currentAnalysis?.fileName;
-  const currentAnalysisTitle = currentAnalysis?.title;
-  const currentAnalysisDescription = currentAnalysis?.description;
-  const currentAnalysisLanguageCode = currentAnalysis?.languageCode;
-  const currentAnalysisCreatedAt = currentAnalysis?.createdAt;
-
   useEffect(() => {
     let unsub: (() => void) | undefined;
 
-    if (user?.uid && currentAnalysisId && !currentAnalysisId.startsWith('error-')) {
-      const validUserId = user.uid; // Ensure it's a string before using
+    if (user?.uid && currentAnalysis?.id && !currentAnalysis.id.startsWith('error-')) {
+      const validUserId = user.uid;
+      const analysisIdToListen = currentAnalysis.id;
+
       // eslint-disable-next-line no-console
       console.debug(
-        `[useAnalysisManager_onSnapshot] Subscribing to analysis ID: ${currentAnalysisId} for user UID: ${validUserId}. Current local status: ${currentAnalysisStatus}`
+        `[useAnalysisManager_onSnapshot] Subscribing to analysis ID: ${analysisIdToListen} for user UID: ${validUserId}. Current local status: ${currentAnalysis.status}`
       );
-      const analysisDocumentRef = doc(db, 'users', validUserId, 'analyses', currentAnalysisId);
+      const analysisDocumentRef = doc(db, 'users', validUserId, 'analyses', analysisIdToListen);
 
       try {
         unsub = onSnapshot(
@@ -53,7 +47,7 @@ export function useAnalysisManager(user: User | null) {
               const data = docSnap.data();
               // eslint-disable-next-line no-console
               console.debug(
-                `[useAnalysisManager_onSnapshot] Snapshot for ${currentAnalysisId}: Status: ${data.status}, Progress: ${data.progress}, ErrMsg: ${data.errorMessage?.substring(0, 100)}`
+                `[useAnalysisManager_onSnapshot] Snapshot for ${analysisIdToListen}: Status: ${data.status}, Progress: ${data.progress}, ErrMsg: ${data.errorMessage?.substring(0, 100)}`
               );
 
               const validStatuses: Analysis['status'][] = [
@@ -61,12 +55,13 @@ export function useAnalysisManager(user: User | null) {
                 'summarizing_data',
                 'identifying_regulations',
                 'assessing_compliance',
+                'reviewing_report',
                 'completed',
                 'error',
                 'deleted',
                 'cancelling',
                 'cancelled',
-                'reviewing_report',
+                'pending_deletion',
               ];
               const statusIsValid =
                 data.status && validStatuses.includes(data.status as Analysis['status']);
@@ -77,16 +72,16 @@ export function useAnalysisManager(user: User | null) {
                 fileName:
                   typeof data.fileName === 'string'
                     ? data.fileName
-                    : currentAnalysisFileName || 'Nome de arquivo desconhecido',
-                title: typeof data.title === 'string' ? data.title : currentAnalysisTitle,
+                    : currentAnalysis.fileName || 'Nome de arquivo desconhecido',
+                title: typeof data.title === 'string' ? data.title : currentAnalysis.title,
                 description:
                   typeof data.description === 'string'
                     ? data.description
-                    : currentAnalysisDescription,
+                    : currentAnalysis.description,
                 languageCode:
                   typeof data.languageCode === 'string'
                     ? data.languageCode
-                    : currentAnalysisLanguageCode,
+                    : currentAnalysis.languageCode,
                 status: statusIsValid ? (data.status as Analysis['status']) : 'error',
                 progress: typeof data.progress === 'number' ? data.progress : 0,
                 uploadProgress:
@@ -127,44 +122,50 @@ export function useAnalysisManager(user: User | null) {
                 createdAt:
                   data.createdAt instanceof Timestamp
                     ? data.createdAt.toDate().toISOString()
-                    : currentAnalysisCreatedAt || new Date().toISOString(),
+                    : currentAnalysis.createdAt || new Date().toISOString(),
                 completedAt:
                   data.completedAt instanceof Timestamp
                     ? data.completedAt.toDate().toISOString()
                     : undefined,
+                deletionRequestedAt:
+                  data.deletionRequestedAt instanceof Timestamp
+                    ? data.deletionRequestedAt.toDate().toISOString()
+                    : undefined,
               };
               setCurrentAnalysis(updatedAnalysis);
 
-              // Update pastAnalyses list if the current one changed significantly (e.g. status)
-              setPastAnalyses((prev) =>
-                prev
-                  .map((pa) => (pa.id === updatedAnalysis.id ? updatedAnalysis : pa))
-                  .filter((a) => a.status !== 'deleted')
+              setPastAnalyses(
+                (prev) =>
+                  prev
+                    .map((pa) => (pa.id === updatedAnalysis.id ? updatedAnalysis : pa))
+                    .filter((a) => a.status !== 'deleted') // Keep pending_deletion for now
               );
             } else {
               // eslint-disable-next-line no-console
               console.warn(
-                `[useAnalysisManager_onSnapshot] Document ${currentAnalysisId} not found. Current local status: ${currentAnalysisStatus}.`
+                `[useAnalysisManager_onSnapshot] Document ${analysisIdToListen} not found. Current local status: ${currentAnalysis?.status}.`
               );
               if (
-                currentAnalysisId &&
-                !currentAnalysisId.startsWith('error-') &&
-                currentAnalysisStatus !== 'deleted' &&
-                currentAnalysisStatus !== 'error' &&
-                currentAnalysisStatus !== 'cancelled'
+                analysisIdToListen &&
+                !analysisIdToListen.startsWith('error-') &&
+                currentAnalysis?.status !== 'deleted' &&
+                currentAnalysis?.status !== 'error' &&
+                currentAnalysis?.status !== 'cancelled' &&
+                currentAnalysis?.status !== 'pending_deletion'
               ) {
                 setCurrentAnalysis((prev) => {
                   if (
                     prev &&
-                    prev.id === currentAnalysisId &&
+                    prev.id === analysisIdToListen &&
                     prev.status !== 'error' &&
                     prev.status !== 'deleted' &&
-                    prev.status !== 'cancelled'
+                    prev.status !== 'cancelled' &&
+                    prev.status !== 'pending_deletion'
                   ) {
                     return {
                       ...prev,
                       status: 'error',
-                      errorMessage: `Documento da análise (ID: ${currentAnalysisId}) não foi encontrado ou foi removido inesperadamente.`,
+                      errorMessage: `Documento da análise (ID: ${analysisIdToListen}) não foi encontrado ou foi removido inesperadamente.`,
                     };
                   }
                   return prev;
@@ -175,7 +176,7 @@ export function useAnalysisManager(user: User | null) {
           (error: FirestoreError) => {
             // eslint-disable-next-line no-console
             console.error(
-              `[useAnalysisManager_onSnapshot] Firestore onSnapshot error for ${currentAnalysisId}: Code: ${error.code}, Message: ${error.message}`,
+              `[useAnalysisManager_onSnapshot] Firestore onSnapshot error for ${analysisIdToListen}: Code: ${error.code}, Message: ${error.message}`,
               error
             );
             toast({
@@ -186,11 +187,12 @@ export function useAnalysisManager(user: User | null) {
             setCurrentAnalysis((prev) => {
               if (
                 prev &&
-                currentAnalysisId &&
-                prev.id === currentAnalysisId &&
+                analysisIdToListen &&
+                prev.id === analysisIdToListen &&
                 !prev.id.startsWith('error-') &&
                 prev.status !== 'error' &&
-                prev.status !== 'cancelled'
+                prev.status !== 'cancelled' &&
+                prev.status !== 'pending_deletion'
               ) {
                 return {
                   ...prev,
@@ -211,22 +213,12 @@ export function useAnalysisManager(user: User | null) {
       if (unsub) {
         // eslint-disable-next-line no-console
         console.debug(
-          `[useAnalysisManager_onSnapshot] Unsubscribing from analysis ID: ${currentAnalysisId}`
+          `[useAnalysisManager_onSnapshot] Unsubscribing from analysis ID: ${currentAnalysis?.id}`
         );
         unsub();
       }
     };
-  }, [
-    user,
-    currentAnalysisId,
-    currentAnalysisStatus,
-    currentAnalysisFileName,
-    currentAnalysisTitle,
-    currentAnalysisDescription,
-    currentAnalysisLanguageCode,
-    currentAnalysisCreatedAt,
-    toast,
-  ]);
+  }, [user, currentAnalysis, toast]); // Added currentAnalysis to deps
 
   const startAiProcessing = useCallback(
     async (analysisId: string, userIdFromCaller: string) => {
@@ -250,7 +242,6 @@ export function useAnalysisManager(user: User | null) {
       }
 
       try {
-        // This action now just queues the analysis for background processing by the Firebase Function
         const result = await processAnalysisFile(analysisId, userIdFromCaller);
         // eslint-disable-next-line no-console
         console.info(
@@ -263,7 +254,6 @@ export function useAnalysisManager(user: User | null) {
             description:
               'A análise está sendo processada em segundo plano. O progresso será atualizado automaticamente.',
           });
-          // The onSnapshot listener will handle UI updates based on Firestore changes made by the Firebase Function.
         } else {
           const errorMsg = `Falha ao iniciar processamento: ${result.error || 'Erro desconhecido'}`;
           setCurrentAnalysis((prev) => {
@@ -353,7 +343,6 @@ export function useAnalysisManager(user: User | null) {
       }
       try {
         await addTagToAction(user.uid, analysisId, tag.trim());
-        // Optimistic update handled by onSnapshot or fetchPastAnalyses re-fetch
         setTagInput('');
         toast({ title: 'Tag adicionada', description: `Tag "${tag.trim()}" adicionada.` });
       } catch (error) {
@@ -384,7 +373,6 @@ export function useAnalysisManager(user: User | null) {
       }
       try {
         await removeTagAction(user.uid, analysisId, tagToRemove);
-        // Optimistic update handled by onSnapshot or fetchPastAnalyses re-fetch
         toast({ title: 'Tag removida', description: `Tag "${tagToRemove}" removida.` });
       } catch (error) {
         // eslint-disable-next-line no-console
@@ -413,29 +401,36 @@ export function useAnalysisManager(user: User | null) {
         return;
       }
       try {
+        // Server Action now sets status to 'pending_deletion'
         await deleteAnalysisAction(user.uid, analysisId);
-        // UI update will be handled by onSnapshot seeing the 'deleted' status and fetchPastAnalyses filtering it out
-        toast({ title: 'Análise excluída', description: 'A análise foi marcada como excluída.' });
-        onDeleted?.(); // Callback for UI actions like closing accordion
+        toast({
+          title: 'Exclusão Solicitada',
+          description: 'A análise será excluída em breve.',
+        });
+        onDeleted?.();
         if (currentAnalysis?.id === analysisId) {
-          setCurrentAnalysis(null); // Clear current if it was the one deleted
+          // Optimistically update local state or wait for onSnapshot
+          setCurrentAnalysis((prev) =>
+            prev && prev.id === analysisId ? { ...prev, status: 'pending_deletion' } : prev
+          );
         }
-        // Refetch past analyses to update the list immediately
-        fetchPastAnalyses();
+        // onSnapshot should handle the final 'deleted' state and list update.
+        // Optionally, refetch here if immediate list update is critical and onSnapshot is slow.
+        // fetchPastAnalyses();
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error(
-          `[useAnalysisManager_handleDeleteAnalysis] Error deleting analysis ${analysisId}:`,
+          `[useAnalysisManager_handleDeleteAnalysis] Error requesting deletion for analysis ${analysisId}:`,
           error
         );
         toast({
-          title: 'Erro ao excluir',
+          title: 'Erro ao Solicitar Exclusão',
           description: String(error instanceof Error ? error.message : error),
           variant: 'destructive',
         });
       }
     },
-    [user, toast, currentAnalysis?.id, fetchPastAnalyses]
+    [user, toast, currentAnalysis?.id]
   );
 
   const handleCancelAnalysis = useCallback(
@@ -459,7 +454,6 @@ export function useAnalysisManager(user: User | null) {
             title: 'Cancelamento Solicitado',
             description: 'A análise será interrompida em breve.',
           });
-          // onSnapshot will update the UI when status changes to 'cancelling' and then 'cancelled'
         } else {
           toast({
             title: 'Erro ao Cancelar',
@@ -533,7 +527,7 @@ export function useAnalysisManager(user: User | null) {
     tagInput,
     setTagInput,
     fetchPastAnalyses,
-    startAiProcessing, // This now just queues for Firebase Function
+    startAiProcessing,
     handleAddTag,
     handleRemoveTag,
     handleDeleteAnalysis,

@@ -18,6 +18,10 @@ if (admin.apps.length === 0) {
 const coreAnalysisTriggers = require('./core-analysis/onUpdateTrigger');
 exports.processAnalysisOnUpdate = coreAnalysisTriggers.processAnalysisOnUpdate;
 
+// New event-triggered function for handling deletion requests
+const analysisDeletionTrigger = require('./analysis-management/onDeleteTrigger');
+exports.handleAnalysisDeletionRequest = analysisDeletionTrigger.handleAnalysisDeletionRequest;
+
 // --- Import and Export HTTPS Callable Functions ---
 
 // File Upload HTTP Functions
@@ -47,7 +51,7 @@ const analysisReportRetrievalHttp = require('./analysis-management/reportRetriev
 const coreAnalysisTriggerHttp = require('./core-analysis/triggerProcessingHttp');
 
 exports.httpsCallableGetPastAnalyses = analysisCrudHttp.httpsCallableGetPastAnalyses;
-exports.httpsCallableDeleteAnalysis = analysisCrudHttp.httpsCallableDeleteAnalysis;
+// exports.httpsCallableDeleteAnalysis = analysisCrudHttp.httpsCallableDeleteAnalysis; // Removed
 exports.httpsCallableCancelAnalysis = analysisCrudHttp.httpsCallableCancelAnalysis;
 exports.httpsCallableGetAnalysisReport = analysisReportRetrievalHttp.httpsCallableGetAnalysisReport;
 exports.httpsCallableTriggerProcessing = coreAnalysisTriggerHttp.httpsCallableTriggerProcessing;

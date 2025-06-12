@@ -26,7 +26,8 @@ export interface Analysis {
     | 'error'
     | 'deleted'
     | 'cancelling'
-    | 'cancelled'; // Added reviewing_report & new statuses
+    | 'cancelled'
+    | 'pending_deletion'; // Added new status
   progress: number; // Progresso geral da análise (0-100)
   uploadProgress?: number; // Progresso específico do upload do arquivo (0-100)
   powerQualityDataUrl?: string;
@@ -47,6 +48,7 @@ export interface Analysis {
   createdAt: string | Timestamp; // ISO string on client, Timestamp from Firestore
   completedAt?: string | Timestamp; // ISO string on client, Timestamp from Firestore
   reportLastModifiedAt?: string | Timestamp; // For chat revisions
+  deletionRequestedAt?: string | Timestamp; // For event-driven deletion
 }
 
 // Define the return type for the getAnalysisReportAction (and its HTTPS Function counterpart)

@@ -37,6 +37,7 @@ const getStatusBadgeVariant = (status: Analysis['status']) => {
       return 'destructive';
     case 'cancelled':
     case 'cancelling':
+    case 'pending_deletion': // Added
       return 'outline'; // Will be styled yellow by custom CSS
     case 'reviewing_report':
       return 'default'; // Will be styled blue by custom CSS
@@ -67,6 +68,8 @@ const getStatusLabel = (status: Analysis['status']) => {
       return 'Cancelando...';
     case 'cancelled':
       return 'Cancelada';
+    case 'pending_deletion': // Added
+      return 'Excluindo...';
     default:
       return status;
   }
@@ -354,7 +357,7 @@ export default function HomePage() {
                               className={`
                                 ${analysisItem.status === 'completed' ? 'bg-green-600 text-white' : ''}
                                 ${analysisItem.status === 'error' ? 'bg-red-600 text-white' : ''}
-                                ${analysisItem.status === 'cancelled' || analysisItem.status === 'cancelling' ? 'bg-yellow-500 text-white' : ''}
+                                ${analysisItem.status === 'cancelled' || analysisItem.status === 'cancelling' || analysisItem.status === 'pending_deletion' ? 'bg-yellow-500 text-white' : ''}
                                 ${analysisItem.status === 'reviewing_report' ? 'bg-blue-500 text-white' : ''}
                               `}
                             >

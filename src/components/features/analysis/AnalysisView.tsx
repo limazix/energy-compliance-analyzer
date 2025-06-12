@@ -31,7 +31,7 @@ type AnalysisViewProps = {
   onAddTag: (analysisId: string, tag: string) => void;
   onRemoveTag: (analysisId: string, tag: string) => void;
   onDeleteAnalysis: (analysisId: string) => void;
-  onCancelAnalysis: (analysisId: string) => void; // New prop
+  onCancelAnalysis: (analysisId: string) => void;
 };
 
 export function AnalysisView({
@@ -43,12 +43,20 @@ export function AnalysisView({
   onAddTag,
   onRemoveTag,
   onDeleteAnalysis,
-  onCancelAnalysis, // New prop
+  onCancelAnalysis,
 }: AnalysisViewProps) {
   const isCompleted = analysis.status === 'completed';
   const isError = analysis.status === 'error';
-  const isCancelled = analysis.status === 'cancelled' || analysis.status === 'cancelling';
-  const isInProgress = !isCompleted && !isError && !isCancelled;
+  const isTerminalState =
+    analysis.status === 'cancelled' ||
+    analysis.status === 'cancelling' ||
+    analysis.status === 'deleted' ||
+    analysis.status === 'pending_deletion';
+
+  const isInProgress = !isCompleted && !isError && !isTerminalState;
+
+  const isDeletionPending = analysis.status === 'pending_deletion';
+  const isBeingCancelled = analysis.status === 'cancelling';
 
   return (
     <div className="space-y-6">
@@ -73,7 +81,12 @@ export function AnalysisView({
         <>
           <AnalysisProgressDisplay analysisSteps={analysisSteps} />
           <div className="mt-4">
-            <Button variant="outline" size="sm" onClick={() => onCancelAnalysis(analysis.id)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onCancelAnalysis(analysis.id)}
+              disabled={isBeingCancelled || isDeletionPending}
+            >
               <XCircle className="mr-2 h-4 w-4" />
               Cancelar Análise
             </Button>
@@ -92,23 +105,31 @@ export function AnalysisView({
         />
       )}
 
-      {isCancelled && (
+      {(isBeingCancelled || analysis.status === 'cancelled' || isDeletionPending) && (
         <div className="p-4 bg-yellow-500/10 rounded-md border border-yellow-500">
           <h3 className="text-xl font-semibold mb-2 text-yellow-600 flex items-center">
             <Info className="mr-2" />
-            Análise Cancelada
+            {isDeletionPending
+              ? 'Exclusão em Andamento'
+              : isBeingCancelled
+                ? 'Cancelamento em Andamento'
+                : 'Análise Cancelada'}
           </h3>
           <p className="text-yellow-700">
-            {analysis.status === 'cancelling'
-              ? 'O cancelamento desta análise está em andamento...'
-              : 'Esta análise foi cancelada pelo usuário.'}
+            {isDeletionPending
+              ? 'A solicitação de exclusão desta análise está sendo processada.'
+              : isBeingCancelled
+                ? 'O cancelamento desta análise está em andamento...'
+                : 'Esta análise foi cancelada pelo usuário.'}
           </p>
           {analysis.errorMessage && analysis.status === 'cancelled' && (
             <p className="text-sm mt-1">
               <strong>Motivo:</strong> {analysis.errorMessage}
             </p>
           )}
-          {analysisSteps.find((s) => s.status === 'cancelled') && (
+          {analysisSteps.find(
+            (s) => s.status === 'cancelled' || s.status === 'pending_deletion' // Treat pending_deletion steps visually
+          ) && (
             <ul className="space-y-3 mt-4">
               {analysisSteps.map((step, index) => (
                 <AnalysisStepItem key={index} step={step} />
@@ -153,7 +174,7 @@ export function AnalysisView({
             <Button
               variant="destructive"
               size="sm"
-              disabled={isInProgress || analysis.status === 'cancelling'}
+              disabled={isInProgress || isBeingCancelled || isDeletionPending}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Excluir Análise
@@ -177,7 +198,7 @@ export function AnalysisView({
           </AlertDialogContent>
         </AlertDialog>
         <p className="text-xs text-muted-foreground mt-2">
-          A exclusão removerá o registro do Firestore e os arquivos do Storage.
+          A exclusão removerá os arquivos associados e marcará o registro como excluído.
         </p>
       </div>
     </div>
