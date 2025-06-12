@@ -4,29 +4,29 @@
 !include <tupadr3/font-awesome-5/user_cog>
 !include <tupadr3/font-awesome-5/mobile_alt>
 !include <tupadr3/font-awesome-5/server>
-!include <tupadr3/font-awesome-5/key> ! For Firebase Auth
+!include <tupadr3/font-awesome-5/key>
 !include <tupadr3/font-awesome-5/database>
-!include <tupadr3/material/cloud_storage> ! For Firebase Storage
-!include <tupadr3/material/share_nodes>
+!include <tupadr3/font-awesome-5/comments>
+!include <tupadr3/material/storage>
 !include <tupadr3/font-awesome-5/envelope>
 !include <tupadr3/material/cloud_upload>
 !include <tupadr3/font-awesome-5/trash_alt>
 !include <tupadr3/font-awesome-5/cogs>
 !include <tupadr3/font-awesome-5/brain>
 
-
 title High-Level Architecture - Energy Compliance Analyzer
 
-actor "Usuário" as User FA5_USER_COG #SteelBlue
+actor "User" as User FA5_USER_COG #SteelBlue
+
 package "Frontend Web App (Next.js)" as FrontendApp FA5_MOBILE_ALT #LightSkyBlue {
-  component "Interface do Usuário (React, ShadCN)" as UI
+  component "User Interface (React, ShadCN)" as UI
   component "Next.js Server Actions" as ServerActions FA5_SERVER #LightSteelBlue
 }
 
 package "Firebase" as Firebase #Orange {
   database "Firestore" as Firestore FA5_DATABASE #Tomato
-  database "Realtime DB (Chat)" as RTDB MATERIAL_SHARE_NODES #LightSalmon
-  storage "Cloud Storage" as Storage MATERIAL_CLOUD_STORAGE #OrangeRed
+  database "Realtime DB (Chat)" as RTDB FA5_COMMENTS #LightSalmon
+  storage "Cloud Storage" as Storage MATERIAL_STORAGE #OrangeRed
   cloud "Authentication" as Auth FA5_KEY #IndianRed
   cloud "Pub/Sub" as PubSubService FA5_ENVELOPE #DarkOrange
 
@@ -48,32 +48,32 @@ package "Google AI" as GoogleAI #LightGreen {
   component "Genkit (Gemini Models)" as GenkitAI FA5_BRAIN
 }
 
-User --> UI : Interage com
-UI --> ServerActions : Chama (Upload, Tags, Chat)
+User --> UI : Interacts with
+UI --> ServerActions : Calls (Upload, Tags, Chat)
 
-ServerActions --> Firestore : Cria/Atualiza registros iniciais
-ServerActions --> Auth : Verifica usuário (implícito)
-ServerActions --> RTDB : Gerencia histórico de chat
-ServerActions --> PubSubService : Publica eventos (Upload Completo, Solicitação de Exclusão)
+ServerActions --> Firestore : Creates/Updates initial records
+ServerActions --> Auth : Verifies user (implicit)
+ServerActions --> RTDB : Manages chat history
+ServerActions --> PubSubService : Publishes events (Upload Complete, Deletion Request)
 
 PubSubService --> UploadTopic
 PubSubService --> DeletionTopic
 
-UploadTopic --> FnUploadComplete : Aciona
-DeletionTopic --> FnDeletionRequested : Aciona
+UploadTopic --> FnUploadComplete : Triggers
+DeletionTopic --> FnDeletionRequested : Triggers
 
-FnUploadComplete --> Firestore : Atualiza status/URL do arquivo
-FnProcessAnalysis --> Storage : Lê CSV, Salva MDX
-FnProcessAnalysis --> Firestore : Atualiza progresso/resultados
-FnProcessAnalysis --> GenkitAI : Processa dados
+FnUploadComplete --> Firestore : Updates status/file URL
+FnProcessAnalysis --> Storage : Reads CSV, Saves MDX
+FnProcessAnalysis --> Firestore : Updates progress/results
+FnProcessAnalysis --> GenkitAI : Processes data
 
-FnDeletionRequested --> Firestore : Atualiza status para 'pending_deletion'
-FnHandleDeletion --> Storage : Remove arquivos (CSV, MDX)
-FnHandleDeletion --> Firestore : Atualiza status para 'deleted'
+FnDeletionRequested --> Firestore : Updates status to 'pending_deletion'
+FnHandleDeletion --> Storage : Removes files (CSV, MDX)
+FnHandleDeletion --> Firestore : Updates status to 'deleted'
 
-FnHttp --> Firestore : Lê/Escreve dados
-FnHttp --> RTDB : Lê/Escreve dados de chat
-FnHttp --> GenkitAI : Orquestra chat com IA
+FnHttp --> Firestore : Reads/Writes data
+FnHttp --> RTDB : Reads/Writes chat data
+FnHttp --> GenkitAI : Orchestrates chat with AI
 
 Firestore -[hidden]-> Storage
 Storage -[hidden]-> RTDB
@@ -81,13 +81,13 @@ RTDB -[hidden]-> Auth
 Auth -[hidden]-> PubSubService
 
 note right of ServerActions
-  Lógica de negócios,
-  validação, orquestração
-  de chamadas de backend.
+  Business logic,
+  validation, orchestration
+  of backend calls.
 end note
 
 note right of FnProcessAnalysis
-  Pipeline de Agentes AI:
+  AI Agent Pipeline:
   - Data Analyst (Summarizer)
   - Regulation Identifier
   - Compliance Engineer
