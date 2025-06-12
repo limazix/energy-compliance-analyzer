@@ -40,7 +40,7 @@ type AnalysisViewProps = {
   onRemoveTag: (analysisId: string, tag: string) => void;
   onDeleteAnalysis: (analysisId: string) => void;
   onCancelAnalysis: (analysisId: string) => void;
-  onRetryAnalysis: (analysisId: string) => void; // Added retry handler prop
+  onRetryAnalysis: (analysisId: string) => void;
 };
 
 export function AnalysisView({
@@ -53,7 +53,7 @@ export function AnalysisView({
   onRemoveTag,
   onDeleteAnalysis,
   onCancelAnalysis,
-  onRetryAnalysis, // Destructure retry handler
+  onRetryAnalysis,
 }: AnalysisViewProps) {
   const isCompleted = analysis.status === 'completed';
   const isError = analysis.status === 'error';
@@ -91,15 +91,34 @@ export function AnalysisView({
         <>
           <AnalysisProgressDisplay analysisSteps={analysisSteps} />
           <div className="mt-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onCancelAnalysis(analysis.id)}
-              disabled={isBeingCancelled || isDeletionPending}
-            >
-              <XCircle className="mr-2 h-4 w-4" />
-              Cancelar Análise
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isBeingCancelled || isDeletionPending}
+                >
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Cancelar Análise
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar Cancelamento</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza de que deseja cancelar a análise &quot;
+                    {analysis.title || analysis.fileName}&quot;? O progresso atual será
+                    interrompido.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Manter Análise</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onCancelAnalysis(analysis.id)}>
+                    Confirmar Cancelamento
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <p className="text-xs text-muted-foreground mt-1">
               Solicitar o cancelamento da análise. O processo será interrompido o mais breve
               possível.
