@@ -637,7 +637,7 @@ describe('HomePage', () => {
         await act(async () => {
           await fetchPromise();
         });
-        await screen.findByText(mockAnalysisItemCompleted.title!);
+        expect(await screen.findByText(mockAnalysisItemCompleted.title!)).toBeInTheDocument();
 
         const accordionTrigger = screen.getByText(mockAnalysisItemCompleted.title!);
         await act(async () => {
@@ -696,6 +696,7 @@ describe('HomePage', () => {
           await fetchAfterDeletePromise();
         });
 
+        expect(await screen.queryByText(mockAnalysisItemCompleted.title!)).not.toBeInTheDocument();
         expect(
           await screen.findByText(/Nenhuma análise anterior encontrada./i)
         ).toBeInTheDocument();
