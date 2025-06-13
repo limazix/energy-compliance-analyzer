@@ -15,16 +15,11 @@ const customJestConfig = {
     // The entry for 'lucide-react' is handled by its mock in jest/mocks/ui-components.setup.ts
   },
   transformIgnorePatterns: [
-    // For root node_modules: ignore all except these specific packages.
-    // (styled-jsx and react-tweet are often included by next/jest's default, added others that might be ESM)
-    '/node_modules/(?!(next-mdx-remote|react-tweet|styled-jsx|next|@genkit-ai)/)',
-
-    // For functions/node_modules: ignore all except these specific packages.
-    // This is critical for 'jose', 'firebase-admin', etc., if they are ESM.
-    '/functions/node_modules/(?!(jose|jwks-rsa|firebase-admin|firebase-functions|@genkit-ai|zod)/)',
-
-    // Standard ignore for CSS modules
-    '^.+\\.module\\.(css|sass|scss)$',
+    // This single pattern attempts to whitelist specific packages from ANY node_modules directory for transformation.
+    // The negative lookahead (?!) ensures that if a path contains /node_modules/ AND is one of these packages,
+    // it will NOT match this ignore pattern, and thus WILL be transformed.
+    '/node_modules/(?!(next-mdx-remote|react-tweet|styled-jsx|next|jose|jwks-rsa|firebase-admin|firebase-functions|@genkit-ai|zod)/)',
+    '^.+\\.module\\.(css|sass|scss)$', // Keep this for CSS modules
   ],
   // Automatically clear mock calls, instances, contexts and results before every test
   clearMocks: true,
