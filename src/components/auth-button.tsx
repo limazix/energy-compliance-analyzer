@@ -1,7 +1,7 @@
 'use client';
 
 import { signInWithPopup, signOut } from 'firebase/auth';
-import { LogIn, LogOut, User as UserIcon } from 'lucide-react'; // Removed Settings icon
+import { LogIn, LogOut, User as UserIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -64,7 +64,7 @@ export function AuthButton() {
           </Avatar>
           {user.displayName && (
             <span className="text-sm font-medium text-foreground hidden sm:inline-block">
-              {user.displayName.split(' ')[0]}
+              {user.displayName}
             </span>
           )}
         </Button>
@@ -77,7 +77,6 @@ export function AuthButton() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {/* Removed Settings DropdownMenuItem and its Separator */}
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Sair</span>
