@@ -3,6 +3,8 @@
  * This file imports all individual mock setup modules and global configurations.
  */
 import '@testing-library/jest-dom';
+import { TextEncoder, TextDecoder } from 'util'; // Import TextEncoder and TextDecoder
+
 import { Timestamp } from 'firebase/firestore';
 
 // Import feature-specific mock setups
@@ -18,6 +20,9 @@ import './jest/mocks/ui-components.setup';
 
 // Global lifecycle hooks should be imported after other mocks if it depends on them for clearing, etc.
 import './jest/mocks/global-lifecycle.setup';
+
+// Assign TextEncoder and TextDecoder to global for Jest environment
+Object.assign(global, { TextEncoder, TextDecoder });
 
 // Global assignments that are not part of a specific mock module
 globalThis.Timestamp = Timestamp;
