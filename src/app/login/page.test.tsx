@@ -84,7 +84,7 @@ describe('LoginPage', () => {
       useAuth.mockReturnValue({ user: null, loading: false });
       render(<LoginPage />);
 
-      expect(screen.getByText(/EMA - Electric Magnitudes Analizer/i)).toBeInTheDocument();
+      expect(screen.getByAltText('EMA - Electric Magnitudes Analizer Logo')).toBeInTheDocument();
       expect(
         screen.getByText(/Acesse para analisar dados de qualidade de energia/i)
       ).toBeInTheDocument();
@@ -102,7 +102,9 @@ describe('LoginPage', () => {
     it('should display a loading state and not the login form', () => {
       useAuth.mockReturnValue({ user: null, loading: true });
       const { container } = render(<LoginPage />);
-      expect(screen.queryByText(/EMA - Electric Magnitudes Analizer/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByAltText('EMA - Electric Magnitudes Analizer Logo')
+      ).not.toBeInTheDocument();
       // Check for a general loading indicator presence, assuming it takes over the screen.
       // This might need adjustment based on actual loading UI.
       expect(container.firstChild).toHaveClass('bg-background'); // Or a more specific loader class/testid
