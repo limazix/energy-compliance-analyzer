@@ -12,26 +12,53 @@ const functionsTest = require('firebase-functions-test')();
 
 // Mock firebase-admin
 jest.mock('firebase-admin', () => {
-  const actualAdmin = jest.requireActual('firebase-admin');
-  const mockFirestore = {
+  const mockFirestoreInstance = {
     collection: jest.fn().mockReturnThis(),
     doc: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     get: jest.fn(),
     update: jest.fn(),
-    add: jest.fn(), // For other potential uses if APP_CONFIG pulls in more
+    add: jest.fn(),
   };
+  const mockApps = []; // Initialize apps as an empty array
+  const mockInitializeApp = jest.fn((_options, _appName) => {
+    // Simulate app initialization by adding a mock app object to the array
+    // This helps the `admin.apps.length` check in production code.
+    const appName = _appName || '[DEFAULT]';
+    if (!mockApps.find((app) => app.name === appName)) {
+      // @ts-ignore
+      mockApps.push({
+        name: appName,
+        firestore: () => mockFirestoreInstance /* add other services if needed */,
+      });
+    }
+    // Return a mock app object if your code uses it, otherwise undefined is fine
+    return { firestore: () => mockFirestoreInstance };
+  });
+
   return {
-    ...actualAdmin,
-    initializeApp: jest.fn(),
-    firestore: jest.fn(() => mockFirestore),
-    // Mock other admin services if they get pulled in
+    // Keep other services mocked as needed by your tests
+    initializeApp: mockInitializeApp,
+    // @ts-ignore
+    get apps() {
+      return mockApps;
+    }, // Use a getter to return the mockApps array
+    firestore: jest.fn(() => mockFirestoreInstance),
     storage: jest.fn().mockReturnValue({ bucket: jest.fn() }),
     database: jest.fn().mockReturnValue({ ref: jest.fn() }),
     auth: jest.fn().mockReturnValue({}),
     messaging: jest.fn().mockReturnValue({}),
     pubsub: jest.fn().mockReturnValue({ topic: jest.fn() }),
+    // @ts-ignore
+    firestore: {
+      Timestamp: {
+        fromDate: (date) => ({
+          toDate: () => date,
+          // Add other Timestamp properties if your tests use them
+        }),
+      },
+    },
   };
 });
 
@@ -63,6 +90,14 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
     if (jest.isMockFunction(mockAdminFirestore.collection().doc().update)) {
       mockAdminFirestore.collection().doc().update.mockClear();
     }
+    // Reset the apps array for each test if initializeApp is called in the module
+    // @ts-ignore
+    admin.apps.length = 0;
+    // @ts-ignore
+    if (admin.initializeApp.mockClear) {
+      // @ts-ignore
+      admin.initializeApp.mockClear();
+    }
   });
 
   afterAll(() => {
@@ -89,6 +124,7 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
             title: 'Analysis 1',
             status: 'completed',
             progress: 100,
+            // @ts-ignore
             createdAt: admin.firestore.Timestamp.fromDate(new Date('2023-01-01T10:00:00Z')),
             tags: ['tagA'],
           }),
@@ -101,6 +137,7 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
             title: 'Analysis 2',
             status: 'summarizing_data',
             progress: 30,
+            // @ts-ignore
             createdAt: admin.firestore.Timestamp.fromDate(new Date('2023-01-02T10:00:00Z')),
             tags: [],
           }),
@@ -113,6 +150,7 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
             title: 'Analysis 3 Deleted',
             status: 'deleted',
             progress: 100,
+            // @ts-ignore
             createdAt: admin.firestore.Timestamp.fromDate(new Date('2023-01-03T10:00:00Z')),
           }),
         },
@@ -124,6 +162,7 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
             title: 'Analysis 4 Pending Deletion',
             status: 'pending_deletion',
             progress: 100,
+            // @ts-ignore
             createdAt: admin.firestore.Timestamp.fromDate(new Date('2023-01-04T10:00:00Z')),
           }),
         },
@@ -155,6 +194,7 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
             title: 'Invalid Status Analysis',
             status: 'weird_status', // Invalid status
             progress: 50,
+            // @ts-ignore
             createdAt: admin.firestore.Timestamp.fromDate(new Date()),
           }),
         },

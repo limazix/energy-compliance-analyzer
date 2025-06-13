@@ -11,18 +11,51 @@ const functionsTest = require('firebase-functions-test')();
 
 // Mock firebase-admin
 jest.mock('firebase-admin', () => {
-  const actualAdmin = jest.requireActual('firebase-admin');
-  const mockFirestore = {
+  const mockFirestoreInstance = {
     doc: jest.fn().mockReturnThis(),
     update: jest.fn(),
-    // Add other Firestore methods if they get used, e.g., get for re-checking status
   };
+  // @ts-ignore
+  const mockAppsArray = []; // Initialize as an empty array
+
+  const mockInitializeApp = jest.fn((_config, appName) => {
+    const name = appName || '[DEFAULT]';
+    // @ts-ignore
+    if (!mockAppsArray.find((app) => app.name === name)) {
+      // @ts-ignore
+      mockAppsArray.push({ name, firestore: () => mockFirestoreInstance });
+    }
+    return { name, firestore: () => mockFirestoreInstance }; // Return a mock app object
+  });
+
+  const mockApp = jest.fn((appName) => {
+    const name = appName || '[DEFAULT]';
+    // @ts-ignore
+    const existingApp = mockAppsArray.find((app) => app.name === name);
+    if (existingApp) {
+      return existingApp;
+    }
+    // If app doesn't exist, simulate creating/returning one
+    const newApp = { name, firestore: () => mockFirestoreInstance };
+    // @ts-ignore
+    mockAppsArray.push(newApp);
+    return newApp;
+  });
+
   return {
-    ...actualAdmin,
-    initializeApp: jest.fn(),
-    firestore: jest.fn(() => mockFirestore),
-    // Storage is used by the utility, so we don't need to mock admin.storage() directly here
-    // if we are mocking the utility function itself.
+    initializeApp: mockInitializeApp,
+    // @ts-ignore
+    get apps() {
+      return mockAppsArray;
+    }, // Use a getter for apps
+    app: mockApp,
+    firestore: jest.fn(() => mockFirestoreInstance),
+    // storage: jest.fn().mockReturnValue({ bucket: jest.fn() }), // Mock if directly used by the SUT
+    credential: {
+      // Mock admin.credential if initializeApp uses it
+      cert: jest.fn(),
+      applicationDefault: jest.fn(),
+    },
   };
 });
 
@@ -51,6 +84,13 @@ describe('handleAnalysisDeletionRequest Firestore Trigger', () => {
     mockAdminFirestore.doc.mockClear();
     mockAdminFirestore.update.mockClear();
     mockDeleteAdminFileFromStorage.mockClear();
+    // @ts-ignore
+    admin.apps.length = 0; // Reset the apps array for each test
+    // @ts-ignore
+    if (admin.initializeApp.mockClear) {
+      // @ts-ignore
+      admin.initializeApp.mockClear();
+    }
 
     wrappedHandleAnalysisDeletionRequest = functionsTest.wrap(handleAnalysisDeletionRequest);
   });
@@ -227,19 +267,13 @@ describe('handleAnalysisDeletionRequest Firestore Trigger', () => {
     );
     mockDeleteAdminFileFromStorage.mockResolvedValue(undefined); // Files deleted
     const firestoreUpdateError = new Error('Firestore final update failed');
-    mockAdminFirestore.update.mockRejectedValueOnce(firestoreUpdateError); // First update (to 'deleted') fails
+    // mockAdminFirestore.update.mockRejectedValueOnce(firestoreUpdateError); // First update (to 'deleted') fails
 
-    // This test assumes the function tries to update to 'deleted', fails, then tries to update to 'error'
-    // Let's refine this: If the primary update to 'deleted' fails, it tries to update to 'error'.
-    // If *that* secondary update also fails, it logs.
-
-    // Simulate the first update (to 'deleted') failing
+    // Simulate the first update (to 'deleted') failing, then the second update (to 'error') also failing
     mockAdminFirestore.update.mockImplementation(async (payload) => {
       if (payload.status === 'deleted') {
         throw firestoreUpdateError; // Simulate fail on 'deleted' status update
       }
-      // For the subsequent update to 'error' status, simulate success or another failure
-      // For this test, let's say the update to 'error' also fails to test the critical log.
       if (payload.status === 'error') {
         throw new Error('Secondary Firestore update to error status also failed');
       }
