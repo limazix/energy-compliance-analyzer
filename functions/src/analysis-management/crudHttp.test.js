@@ -21,6 +21,7 @@ jest.mock('firebase-admin', () => {
     update: jest.fn(),
     add: jest.fn(),
   };
+
   const mockApps = []; // Initialize apps as an empty array
   const mockInitializeApp = jest.fn((_options, _appName) => {
     // Simulate app initialization by adding a mock app object to the array
@@ -37,27 +38,51 @@ jest.mock('firebase-admin', () => {
     return { firestore: () => mockFirestoreInstance };
   });
 
+  // Create the mock for the admin.firestore() function
+  const firestoreMockFn = jest.fn(() => mockFirestoreInstance);
+
+  // Attach static properties like Timestamp and FieldValue to the mock function
+  firestoreMockFn.Timestamp = {
+    fromDate: (date) => ({
+      toDate: () => date,
+      // Add other Timestamp properties if your tests use them (e.g., _seconds, _nanoseconds for direct comparison)
+      _seconds: Math.floor(new Date(date).getTime() / 1000),
+      _nanoseconds: (new Date(date).getTime() % 1000) * 1e6,
+    }),
+    now: () => {
+      const now = new Date();
+      return {
+        toDate: () => now,
+        _seconds: Math.floor(now.getTime() / 1000),
+        _nanoseconds: (now.getTime() % 1000) * 1e6,
+      };
+    },
+  };
+  firestoreMockFn.FieldValue = {
+    serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP_PLACEHOLDER'), // Or a more specific mock object
+    arrayUnion: jest.fn((...args) => ({ _kind: 'arrayUnion', elements: args })),
+    arrayRemove: jest.fn((...args) => ({ _kind: 'arrayRemove', elements: args })),
+    delete: jest.fn(() => ({ _kind: 'delete' })),
+    increment: jest.fn((n) => ({ _operand: n, _kind: 'increment' })),
+    // Add other FieldValue methods if used by the code under test or test setup
+  };
+
   return {
-    // Keep other services mocked as needed by your tests
     initializeApp: mockInitializeApp,
     // @ts-ignore
     get apps() {
       return mockApps;
     }, // Use a getter to return the mockApps array
-    firestore: jest.fn(() => mockFirestoreInstance),
+    firestore: firestoreMockFn, // Use the enhanced mock function
     storage: jest.fn().mockReturnValue({ bucket: jest.fn() }),
     database: jest.fn().mockReturnValue({ ref: jest.fn() }),
     auth: jest.fn().mockReturnValue({}),
     messaging: jest.fn().mockReturnValue({}),
     pubsub: jest.fn().mockReturnValue({ topic: jest.fn() }),
-    // @ts-ignore
-    firestore: {
-      Timestamp: {
-        fromDate: (date) => ({
-          toDate: () => date,
-          // Add other Timestamp properties if your tests use them
-        }),
-      },
+    credential: {
+      // If initializeApp needs admin.credential
+      cert: jest.fn(),
+      applicationDefault: jest.fn(),
     },
   };
 });
@@ -69,26 +94,28 @@ const MOCK_USER_ID = 'test-user-crud';
 const MOCK_ANALYSIS_ID = 'analysis-crud-id';
 
 describe('Analysis Management CRUD HTTPS Callables', () => {
-  let mockAdminFirestore;
+  let mockAdminFirestoreInstance; // Renamed to avoid confusion with the admin.firestore mock function
 
   beforeEach(() => {
     // @ts-ignore
-    mockAdminFirestore = admin.firestore();
-    // Clear all mocks on admin.firestore().<method>()
-    Object.values(mockAdminFirestore).forEach((mockFn) => {
+    mockAdminFirestoreInstance = admin.firestore(); // This now calls our firestoreMockFn and gets mockFirestoreInstance
+    // Clear all mocks on the *instance* of firestore that admin.firestore() returns
+    Object.values(mockAdminFirestoreInstance).forEach((mockFn) => {
       if (jest.isMockFunction(mockFn)) {
         mockFn.mockClear();
       }
     });
-    // Specifically clear chained methods if they were returned by 'this'
-    if (jest.isMockFunction(mockAdminFirestore.collection().doc().collection().orderBy().get)) {
-      mockAdminFirestore.collection().doc().collection().orderBy().get.mockClear();
+    // Specifically clear chained methods if they were returned by 'this' from the instance
+    if (
+      jest.isMockFunction(mockAdminFirestoreInstance.collection().doc().collection().orderBy().get)
+    ) {
+      mockAdminFirestoreInstance.collection().doc().collection().orderBy().get.mockClear();
     }
-    if (jest.isMockFunction(mockAdminFirestore.collection().doc().get)) {
-      mockAdminFirestore.collection().doc().get.mockClear();
+    if (jest.isMockFunction(mockAdminFirestoreInstance.collection().doc().get)) {
+      mockAdminFirestoreInstance.collection().doc().get.mockClear();
     }
-    if (jest.isMockFunction(mockAdminFirestore.collection().doc().update)) {
-      mockAdminFirestore.collection().doc().update.mockClear();
+    if (jest.isMockFunction(mockAdminFirestoreInstance.collection().doc().update)) {
+      mockAdminFirestoreInstance.collection().doc().update.mockClear();
     }
     // Reset the apps array for each test if initializeApp is called in the module
     // @ts-ignore
@@ -97,6 +124,12 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
     if (admin.initializeApp.mockClear) {
       // @ts-ignore
       admin.initializeApp.mockClear();
+    }
+    // Clear the admin.firestore() mock function itself (the one that returns the instance)
+    // @ts-ignore
+    if (admin.firestore.mockClear) {
+      // @ts-ignore
+      admin.firestore.mockClear();
     }
   });
 
@@ -168,14 +201,14 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
         },
       ];
       // @ts-ignore
-      mockAdminFirestore.get.mockResolvedValueOnce({ docs: mockAnalysesData });
+      mockAdminFirestoreInstance.get.mockResolvedValueOnce({ docs: mockAnalysesData });
 
       const result = await wrappedGetPastAnalyses({ userId: MOCK_USER_ID }, {});
 
-      expect(mockAdminFirestore.collection).toHaveBeenCalledWith('users');
-      expect(mockAdminFirestore.doc).toHaveBeenCalledWith(MOCK_USER_ID);
-      expect(mockAdminFirestore.collection).toHaveBeenCalledWith('analyses');
-      expect(mockAdminFirestore.orderBy).toHaveBeenCalledWith('createdAt', 'desc');
+      expect(mockAdminFirestoreInstance.collection).toHaveBeenCalledWith('users');
+      expect(mockAdminFirestoreInstance.doc).toHaveBeenCalledWith(MOCK_USER_ID);
+      expect(mockAdminFirestoreInstance.collection).toHaveBeenCalledWith('analyses');
+      expect(mockAdminFirestoreInstance.orderBy).toHaveBeenCalledWith('createdAt', 'desc');
       expect(result.analyses).toHaveLength(2); // Only non-deleted/pending items
       expect(result.analyses[0].id).toBe('analysis2'); // Sorted desc by createdAt
       expect(result.analyses[1].id).toBe('analysis1');
@@ -200,7 +233,9 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
         },
       ];
       // @ts-ignore
-      mockAdminFirestore.get.mockResolvedValueOnce({ docs: mockAnalysesDataWithInvalidStatus });
+      mockAdminFirestoreInstance.get.mockResolvedValueOnce({
+        docs: mockAnalysesDataWithInvalidStatus,
+      });
 
       const result = await wrappedGetPastAnalyses({ userId: MOCK_USER_ID }, {});
       expect(result.analyses).toHaveLength(1);
@@ -209,7 +244,7 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
     });
 
     it('should handle Firestore query errors', async () => {
-      mockAdminFirestore.get.mockRejectedValueOnce(new Error('Firestore query failed'));
+      mockAdminFirestoreInstance.get.mockRejectedValueOnce(new Error('Firestore query failed'));
       await expect(wrappedGetPastAnalyses({ userId: MOCK_USER_ID }, {})).rejects.toMatchObject({
         code: 'internal',
         message: expect.stringContaining('Falha ao buscar análises: Firestore query failed'),
@@ -238,28 +273,28 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
     });
 
     it('should throw "not-found" if analysis document does not exist', async () => {
-      mockAdminFirestore.get.mockResolvedValueOnce({ exists: false });
+      mockAdminFirestoreInstance.get.mockResolvedValueOnce({ exists: false });
       await expect(
         wrappedCancelAnalysis({ analysisId: MOCK_ANALYSIS_ID }, authContext)
       ).rejects.toMatchObject({
         code: 'not-found',
         message: `Análise ${MOCK_ANALYSIS_ID} não encontrada para cancelamento.`,
       });
-      expect(mockAdminFirestore.doc).toHaveBeenCalledWith(
+      expect(mockAdminFirestoreInstance.doc).toHaveBeenCalledWith(
         `users/${MOCK_USER_ID}/analyses/${MOCK_ANALYSIS_ID}`
       );
     });
 
     it('should set status to "cancelling" for a valid request', async () => {
-      mockAdminFirestore.get.mockResolvedValueOnce({
+      mockAdminFirestoreInstance.get.mockResolvedValueOnce({
         exists: true,
         data: () => ({ status: 'summarizing_data' }),
       });
-      mockAdminFirestore.update.mockResolvedValueOnce({});
+      mockAdminFirestoreInstance.update.mockResolvedValueOnce({});
 
       const result = await wrappedCancelAnalysis({ analysisId: MOCK_ANALYSIS_ID }, authContext);
 
-      expect(mockAdminFirestore.update).toHaveBeenCalledWith({
+      expect(mockAdminFirestoreInstance.update).toHaveBeenCalledWith({
         status: 'cancelling',
         errorMessage: 'Cancelamento solicitado pelo usuário...',
       });
@@ -267,12 +302,12 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
     });
 
     it('should return success if already cancelling', async () => {
-      mockAdminFirestore.get.mockResolvedValueOnce({
+      mockAdminFirestoreInstance.get.mockResolvedValueOnce({
         exists: true,
         data: () => ({ status: 'cancelling' }),
       });
       const result = await wrappedCancelAnalysis({ analysisId: MOCK_ANALYSIS_ID }, authContext);
-      expect(mockAdminFirestore.update).not.toHaveBeenCalled();
+      expect(mockAdminFirestoreInstance.update).not.toHaveBeenCalled();
       expect(result).toEqual({
         success: true,
         message: `Análise ${MOCK_ANALYSIS_ID} já está sendo cancelada.`,
@@ -281,23 +316,23 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
 
     ['completed', 'error', 'cancelled', 'deleted', 'pending_deletion'].forEach((terminalStatus) => {
       it(`should not cancel if status is already "${terminalStatus}"`, async () => {
-        mockAdminFirestore.get.mockResolvedValueOnce({
+        mockAdminFirestoreInstance.get.mockResolvedValueOnce({
           exists: true,
           data: () => ({ status: terminalStatus }),
         });
         const result = await wrappedCancelAnalysis({ analysisId: MOCK_ANALYSIS_ID }, authContext);
-        expect(mockAdminFirestore.update).not.toHaveBeenCalled();
+        expect(mockAdminFirestoreInstance.update).not.toHaveBeenCalled();
         expect(result.success).toBe(false);
         expect(result.message).toContain(`já está em um estado final (${terminalStatus})`);
       });
     });
 
     it('should handle Firestore update errors', async () => {
-      mockAdminFirestore.get.mockResolvedValueOnce({
+      mockAdminFirestoreInstance.get.mockResolvedValueOnce({
         exists: true,
         data: () => ({ status: 'identifying_regulations' }),
       });
-      mockAdminFirestore.update.mockRejectedValueOnce(new Error('Firestore update failed'));
+      mockAdminFirestoreInstance.update.mockRejectedValueOnce(new Error('Firestore update failed'));
 
       await expect(
         wrappedCancelAnalysis({ analysisId: MOCK_ANALYSIS_ID }, authContext)
