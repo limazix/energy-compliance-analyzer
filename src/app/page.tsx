@@ -269,8 +269,8 @@ export default function HomePage() {
     if (showNewAnalysisForm) setShowNewAnalysisForm(false);
   };
 
-  const afterDeleteAnalysis = () => {
-    fetchPastAnalyses();
+  const afterDeleteAnalysis = async () => {
+    await fetchPastAnalyses(); // Await the fetchPastAnalyses call
     setExpandedAnalysisId(null);
     setCurrentAnalysis(null);
   };

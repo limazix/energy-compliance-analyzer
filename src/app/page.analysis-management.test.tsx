@@ -145,7 +145,7 @@ describe('HomePage Analysis Management (Deletion)', () => {
   it('should allow deleting an analysis after confirmation', async () => {
     await userEvent.click(screen.getByRole('button', { name: /Excluir Análise/i }));
 
-    const confirmDialogTitle = await screen.findByText('Confirmar Exclusão');
+    const confirmDialogTitle = await screen.findByRole('heading', { name: 'Confirmar Exclusão' });
     expect(confirmDialogTitle).toBeInTheDocument();
 
     const confirmButton = screen.getByRole('button', { name: 'Confirmar Exclusão' });
@@ -165,10 +165,12 @@ describe('HomePage Analysis Management (Deletion)', () => {
     // Mock fetchPastAnalyses to simulate empty list after deletion
     // This specific mock will be called by afterDeleteAnalysis callback
     const fetchAfterDeleteMock = jest.fn(async () => {
+      // Simulate the loading sequence more explicitly
       await act(async () => {
         global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = true;
       });
-      await new Promise((resolve) => setTimeout(resolve, 10)); // simulate delay
+      // Short delay to ensure isLoadingPastAnalyses is true before setting to false
+      await new Promise((resolve) => setTimeout(resolve, 10));
       await act(async () => {
         global.mockUseAnalysisManagerReturnValue.pastAnalyses = []; // Simulate empty list
         global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
@@ -184,12 +186,13 @@ describe('HomePage Analysis Management (Deletion)', () => {
       await userEvent.click(confirmButton);
     });
 
-    // Wait for the fetchAfterDeleteMock to have been called
+    // Wait for the fetchAfterDeleteMock to have been called due to the onDeleted callback
     await waitFor(() => {
       expect(fetchAfterDeleteMock).toHaveBeenCalledTimes(1);
     });
 
-    // Now check the UI state
+    // Now check the UI state, waiting for "Nenhuma análise anterior encontrada."
+    // This ensures that the component has re-rendered based on the updated pastAnalyses.
     await waitFor(
       async () => {
         expect(
