@@ -5,7 +5,7 @@ This diagram details the main components that make up the "Backend API (Next.js 
 [<- Back to Component Overview (C3)](./index.md)
 [<- Back to Container Overview (C2)](../c2-containers/index.md)
 
-![uncached image](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/c3-server-actions-components.iuml)
+![C3: Next.js Server Actions Components Diagram](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/c3-server-actions-components.iuml)
 
 ## Server Actions Component Details
 

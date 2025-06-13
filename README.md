@@ -43,7 +43,7 @@ The Energy Compliance Analyzer simplifies compliance verification for the electr
 
 The diagram below illustrates the main components and interactions within the Energy Compliance Analyzer. It highlights the event-driven nature of backend processing, utilizing Firebase Pub/Sub and Firestore triggers to orchestrate Firebase Functions for tasks like file upload finalization, data analysis, and deletion management.
 
-![uncached image](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/readme-architecture.iuml)
+![High-Level Architecture - Energy Compliance Analyzer](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/readme-architecture.iuml)
 
 <p align="center" data-ai-hint="architecture diagram event-driven">Application Architecture Diagram</p>
 

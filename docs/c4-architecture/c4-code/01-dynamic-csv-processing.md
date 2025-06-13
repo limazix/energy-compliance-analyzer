@@ -4,7 +4,7 @@
 
 This diagram illustrates the sequence of interactions and data flow when a user uploads a CSV file and the compliance analysis is processed by the AI pipeline in Firebase Functions.
 
-![uncached image](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/c4-dynamic-csv-processing.iuml)
+![C4 Dynamic Diagram: CSV Analysis Processing](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/c4-dynamic-csv-processing.iuml)
 
 ## Flow Description
 

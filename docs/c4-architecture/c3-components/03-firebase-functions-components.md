@@ -5,7 +5,7 @@ This diagram details the main components that make up the "Background Processing
 [<- Back to Component Overview (C3)](./index.md)
 [<- Back to Container Overview (C2)](../c2-containers/index.md)
 
-![uncached image](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/c3-firebase-functions-components.iuml)
+![C3: Firebase Functions Components Diagram](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/limazix/energy-compliance-analyzer/main/docs/plantuml/c3-firebase-functions-components.iuml)
 
 ## Firebase Functions Component Details
 
