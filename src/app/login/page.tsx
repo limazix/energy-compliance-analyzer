@@ -61,7 +61,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background to-secondary p-4">
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="items-center text-center">
-          <Logo className="mb-4 h-auto" width={240} height={72} />
+          <Logo className="mb-4 w-full h-auto" width={240} height={72} />
           <CardTitle className="text-3xl font-bold font-headline">
             {/* Text removed as per request */}
           </CardTitle>
