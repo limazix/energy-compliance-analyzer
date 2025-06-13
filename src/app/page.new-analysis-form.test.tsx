@@ -147,7 +147,8 @@ describe('HomePage New Analysis Form', () => {
     });
 
     it('should display the NewAnalysisForm', () => {
-      expect(screen.getByText('Nova Análise de Conformidade')).toBeInTheDocument();
+      // The beforeEach already confirms "Nova Análise de Conformidade" is present.
+      // We only need to check for another distinct element of the form.
       expect(screen.getByRole('button', { name: /Enviar e Iniciar Análise/i })).toBeInTheDocument();
     });
 
@@ -256,17 +257,17 @@ describe('HomePage New Analysis Form', () => {
           );
       });
 
-      await waitFor(
-        async () => {
-          const analysisViewForNew = await screen.findByText(new RegExp(newAnalysisTitle, 'i'));
-          expect(analysisViewForNew).toBeInTheDocument();
-          expect(screen.getByText(/Upload do Arquivo e Preparação/i)).toBeInTheDocument();
-          expect(
-            screen.getByText(/Sumarizando Dados da Qualidade de Energia/i)
-          ).toBeInTheDocument();
-        },
+      // Wait for the title to appear, which should imply the component is rendered.
+      const analysisViewForNew = await screen.findByText(
+        new RegExp(newAnalysisTitle, 'i'),
+        {},
         { timeout: 5000 }
       );
+      expect(analysisViewForNew).toBeInTheDocument();
+
+      // Then assert the other elements which should now be present.
+      expect(screen.getByText(/Upload do Arquivo e Preparação/i)).toBeInTheDocument();
+      expect(screen.getByText(/Sumarizando Dados da Qualidade de Energia/i)).toBeInTheDocument();
     });
   });
 });
