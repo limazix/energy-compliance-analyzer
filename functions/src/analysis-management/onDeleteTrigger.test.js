@@ -14,47 +14,88 @@ jest.mock('firebase-admin', () => {
   const mockFirestoreInstance = {
     doc: jest.fn().mockReturnThis(),
     update: jest.fn(),
+    // Add snapshot_ method expected by firebase-functions-test
+    snapshot_: jest.fn((path, data) => {
+      // Return a basic mock of a snapshot object.
+      // firebase-functions-test's makeDocumentSnapshot will use this.
+      return {
+        ref: { path }, // Or more detailed mock if needed by SUT indirectly
+        data: () => data,
+        exists: true, // Assume it exists for the purpose of snapshot creation
+        id: path.split('/').pop() || 'mockId',
+        createTime: admin.firestore.Timestamp.now(), // Use actual Timestamp for type consistency
+        updateTime: admin.firestore.Timestamp.now(),
+        readTime: admin.firestore.Timestamp.now(),
+      };
+    }),
+    // Keep collection and other methods if your SUT or other parts of the test might need them
+    collection: jest.fn().mockReturnThis(),
   };
-  // @ts-ignore
-  const mockAppsArray = []; // Initialize as an empty array
+
+  const mockAppsArray = [];
 
   const mockInitializeApp = jest.fn((_config, appName) => {
     const name = appName || '[DEFAULT]';
-    // @ts-ignore
-    if (!mockAppsArray.find((app) => app.name === name)) {
-      // @ts-ignore
-      mockAppsArray.push({ name, firestore: () => mockFirestoreInstance });
+    let app = mockAppsArray.find((app) => app.name === name);
+    if (!app) {
+      app = {
+        name,
+        firestore: () => mockFirestoreInstance,
+        // Add other services if needed by SUT
+        storage: () => ({ bucket: jest.fn(() => ({ file: jest.fn() })) }), // Basic mock for storage
+      };
+      mockAppsArray.push(app);
     }
-    return { name, firestore: () => mockFirestoreInstance }; // Return a mock app object
+    return app;
   });
 
-  const mockApp = jest.fn((appName) => {
-    const name = appName || '[DEFAULT]';
-    // @ts-ignore
-    const existingApp = mockAppsArray.find((app) => app.name === name);
-    if (existingApp) {
-      return existingApp;
-    }
-    // If app doesn't exist, simulate creating/returning one
-    const newApp = { name, firestore: () => mockFirestoreInstance };
-    // @ts-ignore
-    mockAppsArray.push(newApp);
-    return newApp;
-  });
+  // Ensure admin.firestore itself is a function that returns the instance
+  const firestoreMockFn = jest.fn(() => mockFirestoreInstance);
+  // Attach static properties like Timestamp and FieldValue to the firestoreMockFn
+  firestoreMockFn.Timestamp = {
+    now: jest.fn(() => ({
+      toDate: () => new Date(),
+      toMillis: () => Date.now(),
+      isEqual: (other) => other instanceof firestoreMockFn.Timestamp, // Basic mock
+      valueOf: () => String(Date.now()),
+      nanoseconds: 0,
+      seconds: Math.floor(Date.now() / 1000),
+      toString: () => new Date().toISOString(),
+      toJSON: () => ({ seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }),
+      isEqual: (other) => false, // Simplified
+      toMillis: () => Date.now(),
+      valueOf: () => String(Date.now()),
+    })),
+    fromDate: (date) => ({
+      toDate: () => date,
+      // ... other Timestamp methods if needed
+    }),
+  };
+  firestoreMockFn.FieldValue = {
+    serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP_PLACEHOLDER'), // Placeholder
+    // ... other FieldValue methods if needed (arrayUnion, delete, etc.)
+  };
 
   return {
     initializeApp: mockInitializeApp,
-    // @ts-ignore
     get apps() {
       return mockAppsArray;
-    }, // Use a getter for apps
-    app: mockApp,
-    firestore: jest.fn(() => mockFirestoreInstance),
-    // storage: jest.fn().mockReturnValue({ bucket: jest.fn() }), // Mock if directly used by the SUT
+    },
+    app: jest.fn((appName) => {
+      const name = appName || '[DEFAULT]';
+      let app = mockAppsArray.find((app) => app.name === name);
+      if (!app) {
+        // If app doesn't exist, simulate creating/returning one
+        app = { name, firestore: firestoreMockFn }; // Use the function here
+        mockAppsArray.push(app);
+      }
+      return app;
+    }),
+    firestore: firestoreMockFn, // Use the function here
+    storage: jest.fn().mockReturnValue({ bucket: jest.fn() }),
     credential: {
-      // Mock admin.credential if initializeApp uses it
-      cert: jest.fn(),
       applicationDefault: jest.fn(),
+      cert: jest.fn(),
     },
   };
 });
@@ -63,7 +104,6 @@ jest.mock('firebase-admin', () => {
 const mockDeleteAdminFileFromStorage = jest.fn();
 jest.mock('../utils/storage.js', () => ({
   deleteAdminFileFromStorage: mockDeleteAdminFileFromStorage,
-  // getAdminFileContentFromStorage: jest.fn(), // Mock if it were also used
 }));
 
 // Import the function to be tested AFTER mocks are set up
@@ -79,16 +119,20 @@ describe('handleAnalysisDeletionRequest Firestore Trigger', () => {
   let wrappedHandleAnalysisDeletionRequest;
 
   beforeEach(() => {
-    // @ts-ignore
-    mockAdminFirestore = admin.firestore();
+    mockAdminFirestore = admin.firestore(); // This will now be our enhanced mock
     mockAdminFirestore.doc.mockClear();
     mockAdminFirestore.update.mockClear();
+    // Clear the snapshot_ mock if needed, though it's usually fine
+    if (mockAdminFirestore.snapshot_ && jest.isMockFunction(mockAdminFirestore.snapshot_)) {
+      mockAdminFirestore.snapshot_.mockClear();
+    }
+
     mockDeleteAdminFileFromStorage.mockClear();
-    // @ts-ignore
-    admin.apps.length = 0; // Reset the apps array for each test
-    // @ts-ignore
-    if (admin.initializeApp.mockClear) {
-      // @ts-ignore
+    // Reset admin.apps for each test
+    if (admin.apps && Array.isArray(admin.apps)) {
+      admin.apps.length = 0;
+    }
+    if (admin.initializeApp && jest.isMockFunction(admin.initializeApp)) {
       admin.initializeApp.mockClear();
     }
 
@@ -138,7 +182,7 @@ describe('handleAnalysisDeletionRequest Firestore Trigger', () => {
         mdxReportStoragePath: MOCK_MDX_PATH,
       }
     );
-    mockDeleteAdminFileFromStorage.mockResolvedValue(undefined); // Both calls succeed
+    mockDeleteAdminFileFromStorage.mockResolvedValue(undefined);
     mockAdminFirestore.update.mockResolvedValue(undefined);
 
     await wrappedHandleAnalysisDeletionRequest(change, context);
@@ -155,15 +199,15 @@ describe('handleAnalysisDeletionRequest Firestore Trigger', () => {
 
   it('should handle missing CSV path gracefully', async () => {
     const change = createChangeObject(
-      { status: 'error', mdxReportStoragePath: MOCK_MDX_PATH }, // No CSV path
+      { status: 'error', mdxReportStoragePath: MOCK_MDX_PATH },
       { status: 'pending_deletion', mdxReportStoragePath: MOCK_MDX_PATH }
     );
-    mockDeleteAdminFileFromStorage.mockResolvedValue(undefined); // MDX deletion succeeds
+    mockDeleteAdminFileFromStorage.mockResolvedValue(undefined);
     mockAdminFirestore.update.mockResolvedValue(undefined);
 
     await wrappedHandleAnalysisDeletionRequest(change, context);
 
-    expect(mockDeleteAdminFileFromStorage).not.toHaveBeenCalledWith(MOCK_CSV_PATH); // Or expect it to be called with undefined/null if the logic was different
+    expect(mockDeleteAdminFileFromStorage).not.toHaveBeenCalledWith(MOCK_CSV_PATH);
     expect(mockDeleteAdminFileFromStorage).toHaveBeenCalledWith(MOCK_MDX_PATH);
     expect(mockAdminFirestore.update).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'deleted' })
@@ -172,16 +216,17 @@ describe('handleAnalysisDeletionRequest Firestore Trigger', () => {
 
   it('should handle missing MDX path gracefully', async () => {
     const change = createChangeObject(
-      { status: 'error', powerQualityDataUrl: MOCK_CSV_PATH }, // No MDX path
+      { status: 'error', powerQualityDataUrl: MOCK_CSV_PATH },
       { status: 'pending_deletion', powerQualityDataUrl: MOCK_CSV_PATH }
     );
-    mockDeleteAdminFileFromStorage.mockResolvedValue(undefined); // CSV deletion succeeds
+    mockDeleteAdminFileFromStorage.mockResolvedValue(undefined);
     mockAdminFirestore.update.mockResolvedValue(undefined);
 
     await wrappedHandleAnalysisDeletionRequest(change, context);
 
     expect(mockDeleteAdminFileFromStorage).toHaveBeenCalledWith(MOCK_CSV_PATH);
-    expect(mockDeleteAdminFileFromStorage).not.toHaveBeenCalledWith(MOCK_MDX_PATH);
+    // Check it was called only once (for CSV, not for MDX)
+    expect(mockDeleteAdminFileFromStorage).toHaveBeenCalledTimes(1);
     expect(mockAdminFirestore.update).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'deleted' })
     );
@@ -203,14 +248,13 @@ describe('handleAnalysisDeletionRequest Firestore Trigger', () => {
     const deletionError = new Error('Storage CSV deletion failed');
     mockDeleteAdminFileFromStorage.mockImplementation(async (filePath) => {
       if (filePath === MOCK_CSV_PATH) throw deletionError;
-      return undefined; // MDX deletion would still "succeed" or not be called
+      return undefined;
     });
-    mockAdminFirestore.update.mockResolvedValue(undefined); // Update to error status
+    mockAdminFirestore.update.mockResolvedValue(undefined);
 
     await wrappedHandleAnalysisDeletionRequest(change, context);
 
     expect(mockDeleteAdminFileFromStorage).toHaveBeenCalledWith(MOCK_CSV_PATH);
-    // Depending on exact error handling, MDX might still be attempted or skipped
     expect(mockAdminFirestore.update).toHaveBeenCalledWith({
       status: 'error',
       errorMessage: expect.stringContaining(
@@ -234,8 +278,9 @@ describe('handleAnalysisDeletionRequest Firestore Trigger', () => {
     );
     const deletionError = new Error('Storage MDX deletion failed');
     mockDeleteAdminFileFromStorage.mockImplementation(async (filePath) => {
+      if (filePath === MOCK_CSV_PATH) return undefined; // CSV deletion succeeds
       if (filePath === MOCK_MDX_PATH) throw deletionError;
-      return undefined; // CSV deletion succeeds
+      return undefined;
     });
     mockAdminFirestore.update.mockResolvedValue(undefined);
 
@@ -265,14 +310,12 @@ describe('handleAnalysisDeletionRequest Firestore Trigger', () => {
         mdxReportStoragePath: MOCK_MDX_PATH,
       }
     );
-    mockDeleteAdminFileFromStorage.mockResolvedValue(undefined); // Files deleted
+    mockDeleteAdminFileFromStorage.mockResolvedValue(undefined);
     const firestoreUpdateError = new Error('Firestore final update failed');
-    // mockAdminFirestore.update.mockRejectedValueOnce(firestoreUpdateError); // First update (to 'deleted') fails
 
-    // Simulate the first update (to 'deleted') failing, then the second update (to 'error') also failing
     mockAdminFirestore.update.mockImplementation(async (payload) => {
       if (payload.status === 'deleted') {
-        throw firestoreUpdateError; // Simulate fail on 'deleted' status update
+        throw firestoreUpdateError;
       }
       if (payload.status === 'error') {
         throw new Error('Secondary Firestore update to error status also failed');
@@ -282,8 +325,8 @@ describe('handleAnalysisDeletionRequest Firestore Trigger', () => {
 
     await wrappedHandleAnalysisDeletionRequest(change, context);
 
-    expect(mockDeleteAdminFileFromStorage).toHaveBeenCalledTimes(2); // Both CSV and MDX
-    expect(mockAdminFirestore.update).toHaveBeenCalledTimes(2); // Attempt to set 'deleted', then attempt to set 'error'
+    expect(mockDeleteAdminFileFromStorage).toHaveBeenCalledTimes(2);
+    expect(mockAdminFirestore.update).toHaveBeenCalledTimes(2);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining(
         `[Func_handleDeletion] CRITICAL: Failed to update Firestore with error state for ${MOCK_ANALYSIS_ID} after deletion failure:`
