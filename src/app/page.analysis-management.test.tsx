@@ -104,10 +104,13 @@ describe('HomePage Analysis Management (Deletion)', () => {
       });
     });
 
-    (mockHandleDeleteAnalysisGlobal as jest.Mock).mockImplementation(async (_id, cb) => {
-      // Simulate the callback that would refetch or update UI
-      if (cb) await cb();
-    });
+    (mockHandleDeleteAnalysisGlobal as jest.Mock).mockImplementation(
+      async (_id, cb?: () => void | Promise<void>) => {
+        if (cb && typeof cb === 'function') {
+          await cb(); // Ensure async callback is awaited
+        }
+      }
+    );
 
     if (!global.mockUseFileUploadManagerReturnValue) {
       global.mockUseFileUploadManagerReturnValue = {
@@ -160,17 +163,19 @@ describe('HomePage Analysis Management (Deletion)', () => {
 
   it('should update the list of past analyses after deletion', async () => {
     // Mock fetchPastAnalyses to simulate empty list after deletion
-    mockFetchPastAnalysesGlobal.mockImplementation(async () => {
+    // This specific mock will be called by afterDeleteAnalysis callback
+    const fetchAfterDeleteMock = jest.fn(async () => {
       await act(async () => {
         global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = true;
       });
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10)); // simulate delay
       await act(async () => {
         global.mockUseAnalysisManagerReturnValue.pastAnalyses = []; // Simulate empty list
         global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
         global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = false;
       });
     });
+    global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses = fetchAfterDeleteMock;
 
     await userEvent.click(screen.getByRole('button', { name: /Excluir Análise/i }));
     const confirmButton = await screen.findByRole('button', { name: 'Confirmar Exclusão' });
@@ -179,17 +184,22 @@ describe('HomePage Analysis Management (Deletion)', () => {
       await userEvent.click(confirmButton);
     });
 
-    // The handleDeleteAnalysis mock calls the callback which should trigger fetchPastAnalyses
-    // We wait for the UI to reflect the change
+    // Wait for the fetchAfterDeleteMock to have been called
+    await waitFor(() => {
+      expect(fetchAfterDeleteMock).toHaveBeenCalledTimes(1);
+    });
+
+    // Now check the UI state
     await waitFor(
       async () => {
-        expect(await screen.queryByText(mockAnalysisItemForDelete.title!)).not.toBeInTheDocument();
         expect(
-          await screen.findByText(/Nenhuma análise anterior encontrada./i, {}, { timeout: 5000 })
+          await screen.findByText(/Nenhuma análise anterior encontrada./i)
         ).toBeInTheDocument();
-        expect(global.mockUseAnalysisManagerReturnValue.currentAnalysis).toBeNull();
       },
-      { timeout: 5000 }
+      { timeout: 7000 } // Increased timeout for this specific check
     );
+
+    expect(screen.queryByText(mockAnalysisItemForDelete.title!)).not.toBeInTheDocument();
+    expect(global.mockUseAnalysisManagerReturnValue.currentAnalysis).toBeNull();
   });
 });

@@ -69,8 +69,10 @@ beforeEach(() => {
       manager.handleRemoveTag.mockClear().mockResolvedValue(undefined);
       manager.handleDeleteAnalysis
         .mockClear()
-        .mockImplementation((_id: string, cb?: () => void) => {
-          cb?.();
+        .mockImplementation(async (_id: string, cb?: () => void | Promise<void>) => {
+          if (cb && typeof cb === 'function') {
+            await cb(); // Ensure async callback is awaited
+          }
           return Promise.resolve();
         });
       manager.handleCancelAnalysis.mockClear().mockResolvedValue(undefined);
@@ -115,6 +117,13 @@ beforeEach(() => {
         data: { success: true },
       } as HttpsCallableResult<{ success: boolean }>);
     } else if (key === 'httpsFinalizeFileUploadRecord' && mockFn) {
+      // This function is deprecated/removed, but keep for safety if old tests reference it
+      mockFn.mockResolvedValue({
+        data: { success: true },
+      } as HttpsCallableResult<{ success: boolean }>);
+    } else if (key === 'notifyFileUploadCompleteAction' && mockFn) {
+      // For the new Pub/Sub based finalization, if it were callable (it's not)
+      // This is a placeholder as the action calls Pub/Sub directly now.
       mockFn.mockResolvedValue({
         data: { success: true },
       } as HttpsCallableResult<{ success: boolean }>);
@@ -147,10 +156,9 @@ beforeEach(() => {
         data: { analyses: [] },
       } as HttpsCallableResult<{ analyses: Analysis[] }>);
     } else if (key === 'httpsCallableCancelAnalysis' && mockFn) {
-      // Adjusted this one based on actual usage in analysisManagementActions
       mockFn.mockResolvedValue({
         data: { success: true, message: 'Cancelled (mock callable)' },
-      } as HttpsCallableResult<unknown>); // Use unknown if specific type is not critical here
+      } as HttpsCallableResult<unknown>);
     } else if (key === 'httpsCallableTriggerProcessing' && mockFn) {
       mockFn.mockResolvedValue({
         data: { success: true, analysisId: 'mock-analysis-id-triggered' },
