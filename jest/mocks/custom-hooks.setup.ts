@@ -59,9 +59,8 @@ declare global {
 globalThis.mockUseAnalysisManagerReturnValue = {
   currentAnalysis: null,
   setCurrentAnalysis: jest.fn((newAnalysis: Analysis | null): void => {
-    act(() => {
-      globalThis.mockUseAnalysisManagerReturnValue.currentAnalysis = newAnalysis;
-    });
+    // Removed act() wrapper from here
+    globalThis.mockUseAnalysisManagerReturnValue.currentAnalysis = newAnalysis;
   }),
   pastAnalyses: [],
   isLoadingPastAnalyses: false,

@@ -98,12 +98,14 @@ describe('HomePage Past Analyses Display', () => {
     mockFetchPastAnalysesGlobal = (
       global.mockUseAnalysisManagerReturnValue.fetchPastAnalyses as jest.Mock
     ).mockClear();
+    // Clear the setCurrentAnalysis mock before each test in this suite too
+    (global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis as jest.Mock).mockClear();
 
     await act(async () => {
       global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
       global.mockUseAnalysisManagerReturnValue.pastAnalyses = [];
       global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = true;
-      (global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis as jest.Mock).mockClear();
+      // (global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis as jest.Mock).mockClear(); // Already cleared above
     });
 
     if (!global.mockUseFileUploadManagerReturnValue) {
@@ -149,15 +151,24 @@ describe('HomePage Past Analyses Display', () => {
 
     it('should expand an accordion item to show the AnalysisView for the selected analysis', async () => {
       const completedAnalysisAccordionTrigger = screen.getByText(mockAnalysisItemCompleted.title!);
+
       await act(async () => {
         await userEvent.click(completedAnalysisAccordionTrigger);
-      });
-      // Simulate currentAnalysis update by the hook
-      await act(async () => {
-        global.mockUseAnalysisManagerReturnValue.currentAnalysis = mockAnalysisItemCompleted;
+        // After the click, HomePage's handleAccordionChange should have called the mocked setCurrentAnalysis.
+        // This mocked setCurrentAnalysis (now without internal act) updates global.mockUseAnalysisManagerReturnValue.currentAnalysis.
+        // Now, we manually update the displayedAnalysisSteps on the mock based on the *new* currentAnalysis.
         global.mockUseAnalysisManagerReturnValue.displayedAnalysisSteps =
-          calculateDisplayedAnalysisSteps(mockAnalysisItemCompleted);
+          calculateDisplayedAnalysisSteps(global.mockUseAnalysisManagerReturnValue.currentAnalysis);
       });
+
+      // Verify that setCurrentAnalysis was indeed called correctly by the component's handler
+      expect(global.mockUseAnalysisManagerReturnValue.setCurrentAnalysis).toHaveBeenCalledWith(
+        mockAnalysisItemCompleted
+      );
+      // Verify currentAnalysis on the mock is as expected (it should be if setCurrentAnalysis mock did its job)
+      expect(global.mockUseAnalysisManagerReturnValue.currentAnalysis).toEqual(
+        mockAnalysisItemCompleted
+      );
 
       await waitFor(() => {
         const analysisViewTitle = screen.getByText(
