@@ -15,10 +15,20 @@ const customJestConfig = {
     // The entry for 'lucide-react' is handled by its mock in jest/mocks/ui-components.setup.ts
   },
   transformIgnorePatterns: [
-    // Whitelist specific ESM modules for transformation.
-    // Add other ESM modules from node_modules as needed.
-    '/node_modules/(?!(next-mdx-remote|react-tweet|styled-jsx|next|jose)/)',
-    // Standard pattern for CSS modules
+    // This pattern aims to ignore node_modules unless they are specific packages we need to transform (ESM).
+    // It now checks for node_modules at the root OR within functions/node_modules.
+    '/node_modules/(?!(next-mdx-remote|react-tweet|styled-jsx|next|jose|jwks-rsa|firebase-admin|firebase-functions)/)',
+    // A more specific pattern for functions/node_modules to ensure those packages are transformed.
+    // This might be redundant if the above pattern works correctly, but can provide extra certainty.
+    // However, to avoid conflicting patterns, we'll rely on the first one being general enough.
+    // The main idea is: if a path is in ANY node_modules, ignore it UNLESS it's one of the listed exceptions.
+    // The previous pattern `/node_modules/` might have been too restrictive if paths were like `functions/node_modules/...`
+    // Let's try a pattern that matches "node_modules" anywhere in the path for the general ignore,
+    // and then use the negative lookahead for our specific packages.
+    // A more robust pattern: ignore paths containing 'node_modules/' UNLESS they are one of the specified packages.
+    // This should cover both root node_modules and functions/node_modules.
+    // Match 'node_modules' or 'functions/node_modules' then apply the negative lookahead
+    '(node_modules|functions/node_modules)/(?!(next-mdx-remote|react-tweet|styled-jsx|next|jose|jwks-rsa|firebase-admin|firebase-functions)/)',
     '^.+\\.module\\.(css|sass|scss)$',
   ],
   // Automatically clear mock calls, instances, contexts and results before every test
