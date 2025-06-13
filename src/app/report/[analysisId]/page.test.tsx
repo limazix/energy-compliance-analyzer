@@ -381,20 +381,15 @@ describe('ReportPage', () => {
   describe('given the user is authenticated and navigates to a valid report', () => {
     beforeEach(async () => {
       render(<ReportPage />);
-      await waitFor(
-        () => expect(screen.getByText(`Relatório: ${mockFileName}`)).toBeInTheDocument(),
-        { timeout: 7000 }
+      const welcomeMsgPattern = new RegExp(
+        `Olá! Sou seu assistente para este relatório \\(${mockFileName}\\)`,
+        'i'
       );
-      await waitFor(
-        () => {
-          const welcomeMsgPattern = new RegExp(
-            `Olá! Sou seu assistente para este relatório \\(${mockFileName}\\)`,
-            'i'
-          );
-          expect(screen.getByText(welcomeMsgPattern)).toBeInTheDocument();
-        },
-        { timeout: 7000 }
-      );
+      // Use findByText which includes waitFor, and check for the welcome message as it indicates
+      // that reportData.fileName is loaded and the initial chat message is processed.
+      await screen.findByText(welcomeMsgPattern, undefined, { timeout: 7000 });
+      // After welcome message, report filename should also be present
+      expect(screen.getByText(`Relatório: ${mockFileName}`)).toBeInTheDocument();
     });
 
     /**
