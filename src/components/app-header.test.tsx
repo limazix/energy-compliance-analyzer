@@ -1,18 +1,21 @@
 /**
  * @fileoverview Test suite for the AppHeader component.
  * This file contains tests to ensure the AppHeader renders correctly based on user authentication status,
- * including the display of the logo, "Nova Análise" button, and the AuthButton.
- * It also tests interactions with these elements, such as click handlers, structured in BDD style.
+ * including the display of the logo, "Nova Análise" button, AuthButton (for user info or login),
+ * and the dedicated "Sair" (Logout) button.
+ * It also tests interactions with these elements, structured in BDD style.
  */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { signOut as firebaseSignOutModule } from 'firebase/auth'; // Import signOut from firebase/auth
 import {
   usePathname as originalUsePathname,
   useRouter as originalUseRouter,
 } from 'next/navigation';
 
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';
+import { auth as firebaseAuthInstance } from '@/lib/firebase'; // Import auth instance
 
 import { AppHeader } from './app-header';
 
@@ -31,6 +34,16 @@ jest.mock('next/navigation', () => ({
 const useRouter = originalUseRouter as jest.Mock;
 const usePathname = originalUsePathname as jest.Mock;
 
+// Mock firebase/auth for signOut
+jest.mock('firebase/auth', () => {
+  const actualFirebaseAuth = jest.requireActual('firebase/auth');
+  return {
+    ...actualFirebaseAuth,
+    signOut: jest.fn(), // Mock signOut
+  };
+});
+const mockSignOut = firebaseSignOutModule as jest.Mock;
+
 const mockRouterPush = jest.fn();
 const mockRouterReplace = jest.fn();
 
@@ -41,7 +54,7 @@ const mockRouterReplace = jest.fn();
 describe('AppHeader component', () => {
   const mockUser = {
     uid: 'test-user-id',
-    displayName: 'Test User',
+    displayName: 'Test User FullName',
     email: 'test@example.com',
     photoURL: 'http://example.com/avatar.jpg',
   };
@@ -52,6 +65,7 @@ describe('AppHeader component', () => {
     useAuth.mockClear();
     mockRouterPush.mockClear();
     mockRouterReplace.mockClear();
+    mockSignOut.mockClear(); // Clear signOut mock
     useRouter.mockReturnValue({
       push: mockRouterPush,
       replace: mockRouterReplace,
@@ -105,13 +119,38 @@ describe('AppHeader component', () => {
     });
 
     /**
-     * @it It should display the AuthButton with user information (avatar/name).
+     * @it It should display the AuthButton with user information.
      */
-    it('should display the AuthButton with user information (avatar/name)', async () => {
+    it('should display the AuthButton with user information', async () => {
       render(<AppHeader />);
-      expect(screen.getByText(mockUser.displayName.split(' ')[0])).toBeInTheDocument(); // Assuming AuthButton shows first name
+      // AuthButton now directly displays user info
+      expect(screen.getByText(mockUser.displayName)).toBeInTheDocument();
       const avatar = await screen.findByRole('img', { name: mockUser.displayName });
       expect(avatar).toBeInTheDocument();
+    });
+
+    /**
+     * @it It should display a "Sair" (Logout) button.
+     */
+    it('should display a "Sair" (Logout) button', () => {
+      render(<AppHeader />);
+      expect(screen.getByRole('button', { name: /Sair/i })).toBeInTheDocument();
+    });
+
+    /**
+     * @it It should call signOut and navigate to /login when "Sair" is clicked.
+     */
+    it('should call signOut and navigate to /login when "Sair" is clicked', async () => {
+      mockSignOut.mockResolvedValueOnce(undefined); // Simulate successful sign out
+      render(<AppHeader />);
+
+      const logoutButton = screen.getByRole('button', { name: /Sair/i });
+      await userEvent.click(logoutButton);
+
+      expect(mockSignOut).toHaveBeenCalledTimes(1);
+      expect(mockSignOut).toHaveBeenCalledWith(firebaseAuthInstance); // Ensure it's called with the auth instance
+
+      await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/login'));
     });
 
     /**
@@ -150,11 +189,20 @@ describe('AppHeader component', () => {
     });
 
     /**
+     * @it It should not display the "Sair" (Logout) button.
+     */
+    it('should not display the "Sair" (Logout) button', () => {
+      render(<AppHeader />);
+      expect(screen.queryByRole('button', { name: /Sair/i })).not.toBeInTheDocument();
+    });
+
+    /**
      * @it It should display the AuthButton prompting for login.
      */
     it('should display the AuthButton prompting for login', () => {
       render(<AppHeader />);
-      expect(screen.getByRole('button', { name: /Login com Google/i })).toBeInTheDocument(); // Assuming AuthButton shows this when logged out
+      // AuthButton (when user is null) renders the login button
+      expect(screen.getByRole('button', { name: /Login com Google/i })).toBeInTheDocument();
     });
   });
 });
