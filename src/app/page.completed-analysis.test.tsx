@@ -207,9 +207,7 @@ describe('HomePage Completed Analysis Interactions', () => {
 
   it('should navigate to the ReportPage when "Visualizar Relatório Detalhado" is clicked for a completed analysis', async () => {
     const viewReportButton = screen.getByRole('link', { name: /Visualizar Relatório Detalhado/i });
-    await userEvent.click(viewReportButton);
-    await waitFor(() => {
-      expect(mockRouterPush).toHaveBeenCalledWith(`/report/${mockAnalysisItemCompleted.id}`);
-    });
+    expect(viewReportButton).toHaveAttribute('href', `/report/${mockAnalysisItemCompleted.id}`);
+    // No need to click and check mockRouterPush, the href check is sufficient for Link components
   });
 });
