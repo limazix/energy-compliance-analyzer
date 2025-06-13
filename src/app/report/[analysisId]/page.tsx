@@ -37,6 +37,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { APP_CONFIG } from '@/config/appConfig';
 import { useAuth } from '@/contexts/auth-context';
 import { askReportOrchestratorAction } from '@/features/report-chat/actions/reportChatActions';
 import { getAnalysisReportAction } from '@/features/report-viewing/actions/reportViewingActions';
@@ -83,7 +84,7 @@ export default function ReportPage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [userInput, setUserInput] = useState('');
   const [isAiResponding, setIsAiResponding] = useState(false);
-  const [currentLanguageCode, setCurrentLanguageCode] = useState('pt-BR');
+  const [currentLanguageCode, setCurrentLanguageCode] = useState(APP_CONFIG.DEFAULT_LANGUAGE_CODE);
 
   const fetchReportAndInitialStructuredData = useCallback(
     async (currentAnalysisId: string, currentUserId: string) => {
@@ -205,7 +206,7 @@ export default function ReportPage() {
       router.replace('/login');
       return;
     }
-    setCurrentLanguageCode(navigator.language || 'pt-BR');
+    setCurrentLanguageCode(navigator.language || APP_CONFIG.DEFAULT_LANGUAGE_CODE);
 
     let unsubscribeRTDB: RTDBUnsubscribe | undefined;
 

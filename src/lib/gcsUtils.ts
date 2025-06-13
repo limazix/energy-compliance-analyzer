@@ -1,9 +1,10 @@
 'use server';
 import { getDownloadURL, ref as storageRef } from 'firebase/storage';
 
+import { APP_CONFIG } from '@/config/appConfig';
 import { storage } from '@/lib/firebase';
 
-const CLIENT_ERROR_MESSAGE_MAX_LENGTH = 250;
+const CLIENT_ERROR_MESSAGE_MAX_LENGTH = APP_CONFIG.MAX_CLIENT_SERVER_ACTION_ERROR_MESSAGE_LENGTH;
 
 export async function getFileContentFromStorage(filePath: string): Promise<string> {
   // eslint-disable-next-line no-console

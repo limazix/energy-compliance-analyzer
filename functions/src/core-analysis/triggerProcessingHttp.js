@@ -10,13 +10,15 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
+const { APP_CONFIG } = require('../../lib/shared/config/appConfig.js');
+
 // Initialize Firebase Admin SDK if not already initialized.
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 const db = admin.firestore();
-const MAX_ERROR_MESSAGE_LENGTH = 1500;
-const UPLOAD_COMPLETED_OVERALL_PROGRESS = 10;
+const MAX_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_SERVER_ERROR_MESSAGE_LENGTH;
+const UPLOAD_COMPLETED_OVERALL_PROGRESS = APP_CONFIG.PROGRESS_PERCENTAGE_UPLOAD_COMPLETE;
 
 /**
  * Prepares an analysis for background processing by setting its status.

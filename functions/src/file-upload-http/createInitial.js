@@ -10,11 +10,13 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
+const { APP_CONFIG } = require('../../lib/shared/config/appConfig.js');
+
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 const db = admin.firestore();
-const MAX_ERROR_MESSAGE_LENGTH = 1500;
+const MAX_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_SERVER_ERROR_MESSAGE_LENGTH;
 
 /**
  * Creates an initial record for an analysis in Firestore.
@@ -41,7 +43,7 @@ exports.httpsCreateInitialAnalysisRecord = functions.https.onCall(async (data, c
   const trimmedFileName = fileName?.trim() ?? '';
   const finalTitle = title?.trim() || trimmedFileName;
   const finalDescription = description?.trim() || '';
-  const finalLanguageCode = languageCode?.trim() || 'pt-BR';
+  const finalLanguageCode = languageCode?.trim() || APP_CONFIG.DEFAULT_LANGUAGE_CODE;
 
   if (!trimmedFileName) {
     throw new functions.https.HttpsError('invalid-argument', 'Nome do arquivo é obrigatório.');

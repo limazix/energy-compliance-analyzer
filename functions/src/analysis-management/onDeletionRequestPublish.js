@@ -13,13 +13,15 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
+const { APP_CONFIG } = require('../../lib/shared/config/appConfig.js');
+
 // Initialize Firebase Admin SDK if not already initialized.
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 const db = admin.firestore();
-const MAX_ERROR_MSG_LENGTH_FUNC = 1000;
-const ANALYSIS_DELETION_TOPIC_NAME = 'analysis-deletion-request-topic'; // Consistent topic name
+const MAX_ERROR_MSG_LENGTH_FUNC = APP_CONFIG.MAX_SERVER_ERROR_MESSAGE_LENGTH;
+const ANALYSIS_DELETION_TOPIC_NAME = APP_CONFIG.TOPIC_ANALYSIS_DELETION_REQUEST;
 
 /**
  * Handles messages published to the analysis deletion request topic.

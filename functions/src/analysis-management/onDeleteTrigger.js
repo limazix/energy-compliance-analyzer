@@ -11,6 +11,8 @@
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+
+const { APP_CONFIG } = require('../../lib/shared/config/appConfig.js');
 const { deleteAdminFileFromStorage } = require('../utils/storage.js');
 
 // Initialize Firebase Admin SDK if not already initialized.
@@ -18,7 +20,7 @@ if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 const db = admin.firestore();
-const MAX_ERROR_MSG_LENGTH_FUNC = 1000;
+const MAX_ERROR_MSG_LENGTH_FUNC = APP_CONFIG.MAX_SERVER_ERROR_MESSAGE_LENGTH;
 
 /**
  * Handles the actual deletion of analysis data when status is 'pending_deletion'.

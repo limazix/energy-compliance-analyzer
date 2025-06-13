@@ -10,11 +10,12 @@
 
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
+import { APP_CONFIG } from '@/config/appConfig';
 import { functionsInstance } from '@/lib/firebase'; // Firebase Functions instance for client SDK
 import { adminPubSub } from '@/lib/firebase-admin'; // For Pub/Sub
 
-const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
-const FILE_UPLOAD_COMPLETED_TOPIC = 'file-upload-completed-topic';
+const MAX_CLIENT_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_CLIENT_SERVER_ACTION_ERROR_MESSAGE_LENGTH;
+const FILE_UPLOAD_COMPLETED_TOPIC = APP_CONFIG.TOPIC_FILE_UPLOAD_COMPLETED;
 
 /**
  * Helper to call an HTTPS Firebase Function and handle its result or error.
@@ -95,7 +96,7 @@ export async function createInitialAnalysisRecordAction(
     fileName,
     title,
     description,
-    languageCode,
+    languageCode: languageCode || APP_CONFIG.DEFAULT_LANGUAGE_CODE,
   };
   try {
     const result = await callFirebaseFunction<

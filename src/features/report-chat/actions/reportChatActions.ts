@@ -10,9 +10,10 @@
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
 import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
+import { APP_CONFIG } from '@/config/appConfig';
 import { functionsInstance } from '@/lib/firebase'; // Firebase Functions instance for client SDK
 
-const CLIENT_ERROR_MESSAGE_MAX_LENGTH = 300;
+const CLIENT_ERROR_MESSAGE_MAX_LENGTH = APP_CONFIG.MAX_CLIENT_SERVER_ACTION_ERROR_MESSAGE_LENGTH;
 
 // --- Types for HTTPS Callable Function Request/Response ---
 interface HttpsCallableAskOrchestratorRequestData {
@@ -100,7 +101,7 @@ export async function askReportOrchestratorAction(
     currentReportMdx,
     currentStructuredReport,
     analysisFileName,
-    languageCode,
+    languageCode: languageCode || APP_CONFIG.DEFAULT_LANGUAGE_CODE,
   };
 
   try {

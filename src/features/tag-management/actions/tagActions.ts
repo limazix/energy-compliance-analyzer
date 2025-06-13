@@ -7,9 +7,10 @@
 
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
+import { APP_CONFIG } from '@/config/appConfig';
 import { functionsInstance } from '@/lib/firebase';
 
-const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
+const MAX_CLIENT_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_CLIENT_SERVER_ACTION_ERROR_MESSAGE_LENGTH;
 
 interface TagOperationData {
   // userId is not sent here, as the Function uses context.auth.uid

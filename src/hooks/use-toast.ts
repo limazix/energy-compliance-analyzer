@@ -3,8 +3,9 @@
 import * as React from 'react';
 
 import type { ToastActionElement, ToastProps } from '@/components/ui/toast';
+import { APP_CONFIG } from '@/config/appConfig';
 
-const TOAST_LIMIT = 1;
+const TOAST_LIMIT = APP_CONFIG.TOAST_DISPLAY_LIMIT;
 const TOAST_REMOVE_DELAY = 1000000; // Effectively infinite, toasts are dismissed manually or by duration prop
 
 /**

@@ -9,7 +9,9 @@ import path from 'path'; // To resolve the path
 
 import * as admin from 'firebase-admin';
 
-const APP_NAME = 'firebase-admin-app-rsc'; // Unique name for the app instance
+import { APP_CONFIG } from '@/config/appConfig';
+
+const APP_NAME = APP_CONFIG.FIREBASE_ADMIN_APP_NAME_RSC; // Unique name for the app instance
 let adminApp: admin.app.App;
 
 // Environment variables for credentials

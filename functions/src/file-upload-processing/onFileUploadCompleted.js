@@ -14,14 +14,16 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
+const { APP_CONFIG } = require('../../lib/shared/config/appConfig.js');
+
 // Initialize Firebase Admin SDK if not already initialized.
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 const db = admin.firestore();
-const FILE_UPLOAD_COMPLETED_TOPIC_NAME = 'file-upload-completed-topic';
-const UPLOAD_COMPLETED_OVERALL_PROGRESS = 10; // Progress after upload is complete
-const MAX_ERROR_MSG_LENGTH_FUNC = 1000;
+const FILE_UPLOAD_COMPLETED_TOPIC_NAME = APP_CONFIG.TOPIC_FILE_UPLOAD_COMPLETED;
+const UPLOAD_COMPLETED_OVERALL_PROGRESS = APP_CONFIG.PROGRESS_PERCENTAGE_UPLOAD_COMPLETE;
+const MAX_ERROR_MSG_LENGTH_FUNC = APP_CONFIG.MAX_SERVER_ERROR_MESSAGE_LENGTH;
 
 /**
  * Handles messages published to the file upload completion topic.

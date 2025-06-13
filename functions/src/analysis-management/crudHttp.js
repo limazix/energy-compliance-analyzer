@@ -11,14 +11,14 @@
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-// const { deleteAdminFileFromStorage } = require('../utils/storage.js'); // No longer needed here
+const { APP_CONFIG } = require('../../lib/shared/config/appConfig.js');
 
 // Initialize Firebase Admin SDK if not already initialized.
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 const db = admin.firestore();
-const MAX_ERROR_MESSAGE_LENGTH = 1500;
+const MAX_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_SERVER_ERROR_MESSAGE_LENGTH;
 
 /**
  * Validates if a given status string is a valid Analysis status.

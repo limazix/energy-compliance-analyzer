@@ -8,12 +8,13 @@
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
 import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
+import { APP_CONFIG } from '@/config/appConfig';
 import { functionsInstance } from '@/lib/firebase';
 // Ensure AnalysisReportData type definition is compatible or imported if it's more complex
 // For this refactor, the HTTPS function will return a structure matching AnalysisReportData.
 import type { AnalysisReportData as ClientAnalysisReportData } from '@/types/analysis';
 
-const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
+const MAX_CLIENT_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_CLIENT_SERVER_ACTION_ERROR_MESSAGE_LENGTH;
 
 interface GetAnalysisReportRequestData {
   analysisId: string;

@@ -8,14 +8,15 @@
 
 import { Timestamp } from 'firebase/firestore'; // No longer using doc/updateDoc here for delete
 
+import { APP_CONFIG } from '@/config/appConfig';
 import { functionsInstance } from '@/lib/firebase';
 // Import the initialized Firebase Admin SDK's PubSub instance
 import { adminDb, adminPubSub } from '@/lib/firebase-admin'; // Using adminDb for check before publish
 
 import type { HttpsCallableResult } from 'firebase/functions';
 
-const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
-const ANALYSIS_DELETION_TOPIC = 'analysis-deletion-request-topic'; // Define topic name
+const MAX_CLIENT_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_CLIENT_SERVER_ACTION_ERROR_MESSAGE_LENGTH;
+const ANALYSIS_DELETION_TOPIC = APP_CONFIG.TOPIC_ANALYSIS_DELETION_REQUEST;
 
 interface AnalysisIdData {
   analysisId: string;

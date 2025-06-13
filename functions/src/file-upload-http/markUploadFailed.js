@@ -10,11 +10,13 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
+const { APP_CONFIG } = require('../../lib/shared/config/appConfig.js');
+
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 const db = admin.firestore();
-const MAX_ERROR_MESSAGE_LENGTH = 1500;
+const MAX_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_SERVER_ERROR_MESSAGE_LENGTH;
 
 /**
  * Marks an analysis upload as failed in Firestore.

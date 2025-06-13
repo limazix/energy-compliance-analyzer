@@ -7,10 +7,11 @@
 
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
+import { APP_CONFIG } from '@/config/appConfig';
 import { functionsInstance } from '@/lib/firebase';
 import type { Analysis } from '@/types/analysis';
 
-const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 350; // Increased length for more detailed error
+const MAX_CLIENT_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_CLIENT_SERVER_ACTION_ERROR_MESSAGE_LENGTH;
 
 interface HttpsCallableGetPastAnalysesResponse {
   analyses: Analysis[];

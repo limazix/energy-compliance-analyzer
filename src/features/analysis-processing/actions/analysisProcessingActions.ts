@@ -9,11 +9,12 @@
 
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
+import { APP_CONFIG } from '@/config/appConfig';
 import { functionsInstance } from '@/lib/firebase';
 import { adminDb } from '@/lib/firebase-admin'; // Import adminDb for direct Firestore updates
 
-const MAX_CLIENT_ERROR_MESSAGE_LENGTH = 250;
-const UPLOAD_COMPLETED_OVERALL_PROGRESS = 10; // Progress after upload is complete
+const MAX_CLIENT_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_CLIENT_SERVER_ACTION_ERROR_MESSAGE_LENGTH;
+const UPLOAD_COMPLETED_OVERALL_PROGRESS = APP_CONFIG.PROGRESS_PERCENTAGE_UPLOAD_COMPLETE;
 
 interface TriggerProcessingRequestData {
   analysisId: string;

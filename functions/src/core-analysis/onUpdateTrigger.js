@@ -12,6 +12,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
+const { APP_CONFIG } = require('../../lib/shared/config/appConfig.js');
 // Import modularized agent flows
 const { summarizeDataChunkFlow } = require('../ai/agents/summarizerAgent.js');
 const { identifyResolutionsFlow } = require('../ai/agents/regulationIdentifierAgent.js');
@@ -38,29 +39,30 @@ console.info(
   rtdbAdmin.ref().toString()
 );
 
-/**
- * @constant {number} CHUNK_SIZE - Size of data chunks in bytes for processing large files.
- */
-const CHUNK_SIZE = 100000;
-/**
- * @constant {number} OVERLAP_SIZE - Size of overlap in bytes between data chunks.
- */
-const OVERLAP_SIZE = 10000;
+const CHUNK_SIZE = APP_CONFIG.ANALYSIS_CSV_CHUNK_SIZE_BYTES;
+const OVERLAP_SIZE = APP_CONFIG.ANALYSIS_CSV_OVERLAP_SIZE_BYTES;
 
-// Constants for tracking progress percentages at different stages of analysis.
-const PROGRESS_FILE_READ = 10;
-const PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE = 15;
-const PROGRESS_SUMMARIZATION_TOTAL_SPAN = 30; // 15 + 30 = 45
+// Progress constants using APP_CONFIG
+const PROGRESS_FILE_READ = APP_CONFIG.ANALYSIS_PROGRESS_STAGES.FILE_READ;
+const PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE =
+  APP_CONFIG.ANALYSIS_PROGRESS_STAGES.SUMMARIZATION_BASE;
+const PROGRESS_SUMMARIZATION_TOTAL_SPAN = APP_CONFIG.ANALYSIS_PROGRESS_STAGES.SUMMARIZATION_SPAN;
+
 const PROGRESS_IDENTIFY_REGULATIONS_COMPLETE =
-  PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE + PROGRESS_SUMMARIZATION_TOTAL_SPAN + 15; // 45 + 15 = 60
-const PROGRESS_ANALYZE_COMPLIANCE_COMPLETE = PROGRESS_IDENTIFY_REGULATIONS_COMPLETE + 15; // 60 + 15 = 75
-const PROGRESS_REVIEW_REPORT_COMPLETE = PROGRESS_ANALYZE_COMPLIANCE_COMPLETE + 15; // 75 + 15 = 90
-const PROGRESS_FINAL_COMPLETE = 100;
+  PROGRESS_SUMMARIZATION_CHUNK_COMPLETE_BASE +
+  PROGRESS_SUMMARIZATION_TOTAL_SPAN +
+  APP_CONFIG.ANALYSIS_PROGRESS_STAGES.IDENTIFY_REGULATIONS_INCREMENT;
 
-/**
- * @constant {number} MAX_ERROR_MSG_LENGTH - Maximum length for error messages stored in Firestore.
- */
-const MAX_ERROR_MSG_LENGTH = 1000;
+const PROGRESS_ANALYZE_COMPLIANCE_COMPLETE =
+  PROGRESS_IDENTIFY_REGULATIONS_COMPLETE +
+  APP_CONFIG.ANALYSIS_PROGRESS_STAGES.ANALYZE_COMPLIANCE_INCREMENT;
+
+const PROGRESS_REVIEW_REPORT_COMPLETE =
+  PROGRESS_ANALYZE_COMPLIANCE_COMPLETE +
+  APP_CONFIG.ANALYSIS_PROGRESS_STAGES.REVIEW_REPORT_INCREMENT;
+
+const PROGRESS_FINAL_COMPLETE = APP_CONFIG.PROGRESS_PERCENTAGE_FINAL_COMPLETE;
+const MAX_ERROR_MSG_LENGTH = APP_CONFIG.MAX_SERVER_ERROR_MESSAGE_LENGTH;
 
 /**
  * Checks if an analysis has been requested for cancellation.
@@ -176,7 +178,7 @@ exports.processAnalysisOnUpdate = functions
     try {
       const filePath = analysisDataAfter.powerQualityDataUrl;
       const originalFileName = analysisDataAfter.fileName;
-      const languageCode = analysisDataAfter.languageCode || 'pt-BR';
+      const languageCode = analysisDataAfter.languageCode || APP_CONFIG.DEFAULT_LANGUAGE_CODE;
 
       if (!filePath) {
         await analysisRef.update({
