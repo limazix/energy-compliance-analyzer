@@ -34,7 +34,7 @@ export default function PrivacyPolicyPage() {
 
             <h2>1. Introdução</h2>
             <p>
-              Bem-vindo ao EMA - Electric Magnitudes Analizer (&quot;Nós&quot;, &quot;Nosso&quot;).
+              Bem-vindo ao EMA - Electric Magnitudes Analyzer (&quot;Nós&quot;, &quot;Nosso&quot;).
               Esta Política de Privacidade explica como coletamos, usamos, divulgamos e protegemos
               suas informações quando você usa nosso aplicativo.
             </p>
@@ -138,7 +138,7 @@ export default function PrivacyPolicyPage() {
         </Card>
       </main>
       <footer className="py-6 text-center text-sm text-muted-foreground border-t border-border/50 bg-muted/20">
-        © {new Date().getFullYear()} EMA - Electric Magnitudes Analizer. Todos os direitos
+        © {new Date().getFullYear()} EMA - Electric Magnitudes Analyzer. Todos os direitos
         reservados.
         <div className="mt-1">
           <Link href="/privacy-policy" className="hover:underline">

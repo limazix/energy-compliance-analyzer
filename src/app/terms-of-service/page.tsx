@@ -32,14 +32,14 @@ export default function TermsOfServicePage() {
 
             <h2>1. Aceitação dos Termos</h2>
             <p>
-              Ao acessar e usar o aplicativo EMA - Electric Magnitudes Analizer
+              Ao acessar e usar o aplicativo EMA - Electric Magnitudes Analyzer
               (&quot;Serviço&quot;), você concorda em cumprir estes Termos de Serviço
               (&quot;Termos&quot;). Se você não concorda com estes Termos, não use o Serviço.
             </p>
 
             <h2>2. Descrição do Serviço</h2>
             <p>
-              EMA - Electric Magnitudes Analizer é uma ferramenta que permite aos usuários enviar
+              EMA - Electric Magnitudes Analyzer é uma ferramenta que permite aos usuários enviar
               arquivos CSV contendo dados de qualidade de energia elétrica. O Serviço usa
               inteligência artificial (Genkit e Google AI) para analisar esses dados em relação às
               resoluções normativas da ANEEL e gerar relatórios de conformidade. O serviço também
@@ -62,7 +62,7 @@ export default function TermsOfServicePage() {
                 processar esses dados.
               </li>
               <li>
-                Você concede ao EMA - Electric Magnitudes Analizer uma licença mundial, não
+                Você concede ao EMA - Electric Magnitudes Analyzer uma licença mundial, não
                 exclusiva, isenta de royalties e transferível para usar, reproduzir, modificar e
                 processar seus Dados do Usuário exclusivamente com o propósito de fornecer e
                 melhorar o Serviço para você.
@@ -112,7 +112,7 @@ export default function TermsOfServicePage() {
 
             <h2>8. Limitação de Responsabilidade</h2>
             <p>
-              EM NENHUMA CIRCUNSTÂNCIA O EMA - ELECTRIC MAGNITUDES ANALIZER SERÁ RESPONSÁVEL POR
+              EM NENHUMA CIRCUNSTÂNCIA O EMA - ELECTRIC MAGNITUDES ANALYZER SERÁ RESPONSÁVEL POR
               QUAISQUER DANOS INDIRETOS, INCIDENTAIS, ESPECIAIS, CONSEQUENCIAIS OU PUNITIVOS,
               INCLUINDO, SEM LIMITAÇÃO, PERDA DE LUCROS, DADOS, USO, FUNDO DE COMÉRCIO OU OUTRAS
               PERDAS INTANGÍVEIS, RESULTANTES DE (I) SEU ACESSO OU USO OU INCAPACIDADE DE ACESSAR OU
@@ -153,7 +153,7 @@ export default function TermsOfServicePage() {
         </Card>
       </main>
       <footer className="py-6 text-center text-sm text-muted-foreground border-t border-border/50 bg-muted/20">
-        © {new Date().getFullYear()} EMA - Electric Magnitudes Analizer. Todos os direitos
+        © {new Date().getFullYear()} EMA - Electric Magnitudes Analyzer. Todos os direitos
         reservados.
         <div className="mt-1">
           <Link href="/privacy-policy" className="hover:underline">

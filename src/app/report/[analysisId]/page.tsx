@@ -426,7 +426,7 @@ export default function ReportPage() {
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </main>
         <footer className="py-6 text-center text-sm text-muted-foreground border-t border-border/50 bg-muted/20">
-          © {new Date().getFullYear()} EMA - Electric Magnitudes Analizer. Todos os direitos
+          © {new Date().getFullYear()} EMA - Electric Magnitudes Analyzer. Todos os direitos
           reservados.
           <div className="mt-1">
             <Link href="/privacy-policy" className="hover:underline">
@@ -468,7 +468,7 @@ export default function ReportPage() {
           </div>
         </main>
         <footer className="py-6 text-center text-sm text-muted-foreground border-t border-border/50 bg-muted/20">
-          © {new Date().getFullYear()} EMA - Electric Magnitudes Analizer. Todos os direitos
+          © {new Date().getFullYear()} EMA - Electric Magnitudes Analyzer. Todos os direitos
           reservados.
           <div className="mt-1">
             <Link href="/privacy-policy" className="hover:underline">
@@ -511,7 +511,7 @@ export default function ReportPage() {
           </div>
         </main>
         <footer className="py-6 text-center text-sm text-muted-foreground border-t border-border/50 bg-muted/20">
-          © {new Date().getFullYear()} EMA - Electric Magnitudes Analizer. Todos os direitos
+          © {new Date().getFullYear()} EMA - Electric Magnitudes Analyzer. Todos os direitos
           reservados.
           <div className="mt-1">
             <Link href="/privacy-policy" className="hover:underline">
@@ -679,7 +679,7 @@ export default function ReportPage() {
         </section>
       </main>
       <footer className="py-6 text-center text-sm text-muted-foreground border-t border-border/50 bg-muted/20">
-        © {new Date().getFullYear()} EMA - Electric Magnitudes Analizer. Todos os direitos
+        © {new Date().getFullYear()} EMA - Electric Magnitudes Analyzer. Todos os direitos
         reservados.
         <div className="mt-1">
           <Link href="/privacy-policy" className="hover:underline">

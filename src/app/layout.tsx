@@ -15,7 +15,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'EMA - Electric Magnitudes Analizer',
+  title: 'EMA - Electric Magnitudes Analyzer',
   description: 'Analise a conformidade energética com base nas resoluções da ANEEL.',
 };
 

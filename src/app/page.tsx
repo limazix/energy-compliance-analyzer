@@ -412,7 +412,7 @@ export default function HomePage() {
         )}
       </main>
       <footer className="border-t border-border/50 bg-muted/20 py-6 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} EMA - Electric Magnitudes Analizer. Todos os direitos
+        © {new Date().getFullYear()} EMA - Electric Magnitudes Analyzer. Todos os direitos
         reservados.
         <div className="mt-1">
           <Link href="/privacy-policy" className="hover:underline">
