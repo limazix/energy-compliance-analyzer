@@ -12,13 +12,18 @@ const customJestConfig = {
   testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // Force 'jose' to resolve to its CommonJS variant for Node.js environment in tests.
+    // This path assumes 'jose' is installed within 'functions/node_modules'.
+    // Adjust if 'jose' is hoisted to the root 'node_modules' or has a different CJS path structure.
+    '^jose$': '<rootDir>/functions/node_modules/jose/dist/node/cjs/index.js',
     // The entry for 'lucide-react' is handled by its mock in jest/mocks/ui-components.setup.ts
   },
   transformIgnorePatterns: [
-    // This single pattern attempts to whitelist specific packages from ANY node_modules directory for transformation.
-    // The negative lookahead (?!) ensures that if a path contains /node_modules/ AND is one of these packages,
-    // it will NOT match this ignore pattern, and thus WILL be transformed.
-    '/node_modules/(?!(next-mdx-remote|react-tweet|styled-jsx|next|jose|jwks-rsa|firebase-admin|firebase-functions|@genkit-ai|zod)/)',
+    // This pattern tells Jest to NOT ignore (i.e., to transform) the listed packages if they are in node_modules.
+    // 'jose' is removed from this list because it's being handled by moduleNameMapper.
+    // This regex should match 'node_modules/' or 'functions/node_modules/' followed by packages NOT in the list.
+    // "/node_modules/(?!(" + packagesToTransform.join("|") + ")/)"
+    '[/\\\\]node_modules[/\\\\](?!(next-mdx-remote|react-tweet|styled-jsx|next|jwks-rsa|firebase-admin|firebase-functions|@genkit-ai|zod)/)',
     '^.+\\.module\\.(css|sass|scss)$', // Keep this for CSS modules
   ],
   // Automatically clear mock calls, instances, contexts and results before every test
