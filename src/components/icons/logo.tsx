@@ -6,7 +6,7 @@ import Image from 'next/image';
 export function Logo(props: HTMLAttributes<HTMLImageElement>) {
   return (
     <Image
-      src="/logo.png" // Path to the logo in the public directory
+      src="/assets/logo.png" // Updated path to public/assets/logo.png
       alt="EMA - Electric Magnitudes Analizer Logo"
       width={150} // Adjusted width for a wider logo
       height={45} // Adjusted height for a ~3.33:1 aspect ratio
