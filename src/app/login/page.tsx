@@ -61,9 +61,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background to-secondary p-4">
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="items-center text-center">
-          <Logo className="mb-4 h-12 w-auto" />
+          <Logo className="mb-4 h-auto" width={240} height={72} />
           <CardTitle className="text-3xl font-bold font-headline">
-            EMA - Electric Magnitudes Analizer
+            {/* Text removed as per request */}
           </CardTitle>
           <CardDescription className="text-md">
             Acesse para analisar dados de qualidade de energia e verificar conformidade com as
