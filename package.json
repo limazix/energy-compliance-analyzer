@@ -15,7 +15,7 @@
     "docs:generate": "typedoc",
     "emulators:start": "firebase emulators:start --import=./firebase-emulator-data --export-on-exit",
     "emulators:dev": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data 'npm run dev'",
-    "test": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest",
+    "test": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest -u",
     "test:watch": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest --watch",
     "prepare": "husky"
   },
