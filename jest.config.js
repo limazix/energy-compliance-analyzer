@@ -17,7 +17,7 @@ const customJestConfig = {
   transformIgnorePatterns: [
     // Whitelist specific ESM modules for transformation.
     // Add other ESM modules from node_modules as needed.
-    '/node_modules/(?!(next-mdx-remote|react-tweet|styled-jsx|next)/)',
+    '/node_modules/(?!(next-mdx-remote|react-tweet|styled-jsx|next|jose)/)',
     // Standard pattern for CSS modules
     '^.+\\.module\\.(css|sass|scss)$',
   ],
