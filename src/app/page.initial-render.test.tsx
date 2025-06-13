@@ -146,14 +146,16 @@ describe('HomePage Initial Render (Authenticated)', () => {
 
       it('should display the "Your Past Analyses" section title', async () => {
         expect(
+          // Using findByText which includes waitFor, though getByText might also work here
+          // if the rendering order guarantees the title is present after "Nenhuma análise".
           await screen.findByText(`Suas Análises Anteriores`, { exact: false }, { timeout: 5000 })
         ).toBeInTheDocument();
       });
 
-      it('should display "No past analyses found" if there are no analyses', async () => {
-        expect(
-          await screen.findByText(/Nenhuma análise anterior encontrada./i, {}, { timeout: 5000 })
-        ).toBeInTheDocument();
+      it('should display "No past analyses found" if there are no analyses', () => {
+        // Since findByText in beforeEach already confirmed this, we can use getByText.
+        // This test now primarily serves as a clear, human-readable statement of an expected condition.
+        expect(screen.getByText(/Nenhuma análise anterior encontrada./i)).toBeInTheDocument();
       });
     });
   });
