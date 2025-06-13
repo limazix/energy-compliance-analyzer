@@ -6,6 +6,8 @@
  * (httpsCallableGetPastAnalyses, httpsCallableCancelAnalysis)
  */
 
+process.env.GCLOUD_PROJECT = 'electric-magnitudes-analizer'; // Set for consistent logging
+
 const admin = require('firebase-admin');
 const functions = require('firebase-functions');
 const functionsTest = require('firebase-functions-test')();
@@ -24,28 +26,22 @@ jest.mock('firebase-admin', () => {
 
   const mockApps = []; // Initialize apps as an empty array
   const mockInitializeApp = jest.fn((_options, _appName) => {
-    // Simulate app initialization by adding a mock app object to the array
-    // This helps the `admin.apps.length` check in production code.
     const appName = _appName || '[DEFAULT]';
     if (!mockApps.find((app) => app.name === appName)) {
       // @ts-ignore
       mockApps.push({
         name: appName,
-        firestore: () => mockFirestoreInstance /* add other services if needed */,
+        firestore: () => mockFirestoreInstance,
       });
     }
-    // Return a mock app object if your code uses it, otherwise undefined is fine
     return { firestore: () => mockFirestoreInstance };
   });
 
-  // Create the mock for the admin.firestore() function
   const firestoreMockFn = jest.fn(() => mockFirestoreInstance);
 
-  // Attach static properties like Timestamp and FieldValue to the mock function
   firestoreMockFn.Timestamp = {
     fromDate: (date) => ({
       toDate: () => date,
-      // Add other Timestamp properties if your tests use them (e.g., _seconds, _nanoseconds for direct comparison)
       _seconds: Math.floor(new Date(date).getTime() / 1000),
       _nanoseconds: (new Date(date).getTime() % 1000) * 1e6,
     }),
@@ -59,12 +55,11 @@ jest.mock('firebase-admin', () => {
     },
   };
   firestoreMockFn.FieldValue = {
-    serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP_PLACEHOLDER'), // Or a more specific mock object
+    serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP_PLACEHOLDER'),
     arrayUnion: jest.fn((...args) => ({ _kind: 'arrayUnion', elements: args })),
     arrayRemove: jest.fn((...args) => ({ _kind: 'arrayRemove', elements: args })),
     delete: jest.fn(() => ({ _kind: 'delete' })),
     increment: jest.fn((n) => ({ _operand: n, _kind: 'increment' })),
-    // Add other FieldValue methods if used by the code under test or test setup
   };
 
   return {
@@ -72,15 +67,14 @@ jest.mock('firebase-admin', () => {
     // @ts-ignore
     get apps() {
       return mockApps;
-    }, // Use a getter to return the mockApps array
-    firestore: firestoreMockFn, // Use the enhanced mock function
+    },
+    firestore: firestoreMockFn,
     storage: jest.fn().mockReturnValue({ bucket: jest.fn() }),
     database: jest.fn().mockReturnValue({ ref: jest.fn() }),
     auth: jest.fn().mockReturnValue({}),
     messaging: jest.fn().mockReturnValue({}),
     pubsub: jest.fn().mockReturnValue({ topic: jest.fn() }),
     credential: {
-      // If initializeApp needs admin.credential
       cert: jest.fn(),
       applicationDefault: jest.fn(),
     },
@@ -94,18 +88,16 @@ const MOCK_USER_ID = 'test-user-crud';
 const MOCK_ANALYSIS_ID = 'analysis-crud-id';
 
 describe('Analysis Management CRUD HTTPS Callables', () => {
-  let mockAdminFirestoreInstance; // Renamed to avoid confusion with the admin.firestore mock function
+  let mockAdminFirestoreInstance;
 
   beforeEach(() => {
     // @ts-ignore
-    mockAdminFirestoreInstance = admin.firestore(); // This now calls our firestoreMockFn and gets mockFirestoreInstance
-    // Clear all mocks on the *instance* of firestore that admin.firestore() returns
+    mockAdminFirestoreInstance = admin.firestore();
     Object.values(mockAdminFirestoreInstance).forEach((mockFn) => {
       if (jest.isMockFunction(mockFn)) {
         mockFn.mockClear();
       }
     });
-    // Specifically clear chained methods if they were returned by 'this' from the instance
     if (
       jest.isMockFunction(mockAdminFirestoreInstance.collection().doc().collection().orderBy().get)
     ) {
@@ -117,7 +109,6 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
     if (jest.isMockFunction(mockAdminFirestoreInstance.collection().doc().update)) {
       mockAdminFirestoreInstance.collection().doc().update.mockClear();
     }
-    // Reset the apps array for each test if initializeApp is called in the module
     // @ts-ignore
     admin.apps.length = 0;
     // @ts-ignore
@@ -125,7 +116,6 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
       // @ts-ignore
       admin.initializeApp.mockClear();
     }
-    // Clear the admin.firestore() mock function itself (the one that returns the instance)
     // @ts-ignore
     if (admin.firestore.mockClear) {
       // @ts-ignore
@@ -150,19 +140,7 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
     it('should fetch and return analyses successfully', async () => {
       const mockAnalysesData = [
         {
-          id: 'analysis1',
-          data: () => ({
-            userId: MOCK_USER_ID,
-            fileName: 'file1.csv',
-            title: 'Analysis 1',
-            status: 'completed',
-            progress: 100,
-            // @ts-ignore
-            createdAt: admin.firestore.Timestamp.fromDate(new Date('2023-01-01T10:00:00Z')),
-            tags: ['tagA'],
-          }),
-        },
-        {
+          // More recent, should come first
           id: 'analysis2',
           data: () => ({
             userId: MOCK_USER_ID,
@@ -176,6 +154,21 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
           }),
         },
         {
+          // Older
+          id: 'analysis1',
+          data: () => ({
+            userId: MOCK_USER_ID,
+            fileName: 'file1.csv',
+            title: 'Analysis 1',
+            status: 'completed',
+            progress: 100,
+            // @ts-ignore
+            createdAt: admin.firestore.Timestamp.fromDate(new Date('2023-01-01T10:00:00Z')),
+            tags: ['tagA'],
+          }),
+        },
+        {
+          // Deleted, should be filtered out
           id: 'analysis3-deleted',
           data: () => ({
             userId: MOCK_USER_ID,
@@ -188,6 +181,7 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
           }),
         },
         {
+          // Pending deletion, should be filtered out
           id: 'analysis4-pending-deletion',
           data: () => ({
             userId: MOCK_USER_ID,
