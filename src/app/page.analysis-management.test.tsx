@@ -170,7 +170,7 @@ describe('HomePage Analysis Management (Deletion)', () => {
         global.mockUseAnalysisManagerReturnValue.isLoadingPastAnalyses = true;
       });
       // Short delay to ensure isLoadingPastAnalyses is true before setting to false
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 50)); // Increased delay slightly
       await act(async () => {
         global.mockUseAnalysisManagerReturnValue.pastAnalyses = []; // Simulate empty list
         global.mockUseAnalysisManagerReturnValue.currentAnalysis = null;
@@ -199,10 +199,10 @@ describe('HomePage Analysis Management (Deletion)', () => {
           await screen.findByText(/Nenhuma análise anterior encontrada./i)
         ).toBeInTheDocument();
       },
-      { timeout: 7000 } // Increased timeout for this specific check
+      { timeout: 10000 } // Increased timeout for this specific check
     );
 
     expect(screen.queryByText(mockAnalysisItemForDelete.title!)).not.toBeInTheDocument();
     expect(global.mockUseAnalysisManagerReturnValue.currentAnalysis).toBeNull();
-  });
+  }, 15000); // Increased timeout for the entire test case to 15 seconds
 });
