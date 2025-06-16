@@ -187,7 +187,8 @@ exports.httpsCallableCancelAnalysis = functions.https.onCall(async (data, contex
 
   try {
     const docSnap = await analysisRef.get();
-    if (!docSnap.exists()) {
+    if (!docSnap.exists) {
+      // Check exists as a boolean property
       throw new functions.https.HttpsError(
         'not-found',
         `Análise ${analysisId} não encontrada para cancelamento.`
@@ -224,17 +225,22 @@ exports.httpsCallableCancelAnalysis = functions.https.onCall(async (data, contex
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     // eslint-disable-next-line no-console
-    console.error(`[AnalysisMgmt_Cancel] Error for ${analysisDocPath}:`, errorMessage, error);
+    console.error(
+      `[AnalysisMgmt_Cancel] Error for ${analysisDocPath}:`,
+      errorMessage,
+      JSON.stringify(error, Object.getOwnPropertyNames(error))
+    );
 
-    // Duck-typing check for HttpsError
+    // Refined HttpsError check without TypeScript 'as'
     if (
       error &&
       typeof error === 'object' &&
       error !== null &&
       'code' in error &&
-      'httpErrorCode' in error && // This property is specific to HttpsError
       'message' in error &&
       typeof error.message === 'string'
+      // The 'name' check was removed as it might be less reliable.
+      // 'httpErrorCode' is also not directly on HttpsError instance, so removed that too.
     ) {
       throw error; // It's already an HttpsError (or shaped like one), re-throw it
     }
