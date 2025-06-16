@@ -24,17 +24,30 @@ jest.mock('firebase-admin', () => {
     add: jest.fn(),
   };
 
-  const mockApps = []; // Initialize apps as an empty array
-  const mockInitializeApp = jest.fn((_options, _appName) => {
-    const appName = _appName || '[DEFAULT]';
-    if (!mockApps.find((app) => app.name === appName)) {
+  const mockAppsArray = []; // Stores all initialized mock apps
+  const mockAppDelete = jest.fn(() => Promise.resolve()); // Mock for app.delete()
+
+  // Helper to create a mock app object
+  const createMockApp = (appName) => ({
+    name: appName,
+    firestore: () => mockFirestoreInstance,
+    storage: () => ({ bucket: jest.fn(() => ({ file: jest.fn() })) }),
+    auth: () => ({}),
+    database: () => ({ ref: jest.fn() }),
+    messaging: () => ({}),
+    pubsub: () => ({ topic: jest.fn() }),
+    delete: mockAppDelete, // Ensure delete returns a promise
+  });
+
+  const mockInitializeApp = jest.fn((_options, appNameParam) => {
+    const name = appNameParam || '[DEFAULT]';
+    let app = mockAppsArray.find((app) => app.name === name);
+    if (!app) {
+      app = createMockApp(name);
       // @ts-ignore
-      mockApps.push({
-        name: appName,
-        firestore: () => mockFirestoreInstance,
-      });
+      mockAppsArray.push(app);
     }
-    return { firestore: () => mockFirestoreInstance };
+    return app; // Return the app instance
   });
 
   const firestoreMockFn = jest.fn(() => mockFirestoreInstance);
@@ -64,10 +77,28 @@ jest.mock('firebase-admin', () => {
 
   return {
     initializeApp: mockInitializeApp,
-    // @ts-ignore
     get apps() {
-      return mockApps;
+      return mockAppsArray;
     },
+    app: jest.fn((appNameParam) => {
+      // Mock admin.app()
+      const name = appNameParam || '[DEFAULT]';
+      let appInstance = mockAppsArray.find((app) => app.name === name);
+      if (!appInstance) {
+        if (mockAppsArray.length === 0 && !appNameParam) {
+          // If default app is requested and no apps exist
+          appInstance = createMockApp(name);
+          // @ts-ignore
+          mockAppsArray.push(appInstance);
+        } else {
+          // Mimic real SDK behavior: throw if named app not found or default not init'd
+          throw new Error(
+            `Firebase app "${name}" does not exist. Initialize via admin.initializeApp().`
+          );
+        }
+      }
+      return appInstance;
+    }),
     firestore: firestoreMockFn,
     storage: jest.fn().mockReturnValue({ bucket: jest.fn() }),
     database: jest.fn().mockReturnValue({ ref: jest.fn() }),
@@ -93,33 +124,43 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
   beforeEach(() => {
     // @ts-ignore
     mockAdminFirestoreInstance = admin.firestore();
+    // Clear individual method mocks on the instance
     Object.values(mockAdminFirestoreInstance).forEach((mockFn) => {
       if (jest.isMockFunction(mockFn)) {
         mockFn.mockClear();
       }
     });
-    if (
-      jest.isMockFunction(mockAdminFirestoreInstance.collection().doc().collection().orderBy().get)
-    ) {
-      mockAdminFirestoreInstance.collection().doc().collection().orderBy().get.mockClear();
-    }
-    if (jest.isMockFunction(mockAdminFirestoreInstance.collection().doc().get)) {
-      mockAdminFirestoreInstance.collection().doc().get.mockClear();
-    }
-    if (jest.isMockFunction(mockAdminFirestoreInstance.collection().doc().update)) {
-      mockAdminFirestoreInstance.collection().doc().update.mockClear();
-    }
+    // Ensure the main admin.firestore function mock is cleared if it was used directly.
     // @ts-ignore
-    admin.apps.length = 0;
+    if (admin.firestore.mockClear) {
+      // @ts-ignore
+      admin.firestore.mockClear();
+    }
+    // Clear app-related mocks
     // @ts-ignore
     if (admin.initializeApp.mockClear) {
       // @ts-ignore
       admin.initializeApp.mockClear();
     }
     // @ts-ignore
-    if (admin.firestore.mockClear) {
+    if (admin.app.mockClear) {
       // @ts-ignore
-      admin.firestore.mockClear();
+      admin.app.mockClear();
+    }
+    // @ts-ignore
+    if (admin.app()?.delete?.mockClear) {
+      // Clear delete mock on the default app instance
+      // @ts-ignore
+      admin.app().delete.mockClear();
+    }
+    // @ts-ignore
+    admin.apps.length = 0; // Reset the apps array
+
+    // Re-initialize default app for functionsTest if it expects one to exist for cleanup
+    // @ts-ignore
+    if (admin.apps.length === 0) {
+      // @ts-ignore
+      admin.initializeApp();
     }
   });
 
@@ -140,7 +181,7 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
     it('should fetch and return analyses successfully', async () => {
       const mockAnalysesData = [
         {
-          // More recent, should come first
+          // More recent, should come first due to orderBy
           id: 'analysis2',
           data: () => ({
             userId: MOCK_USER_ID,

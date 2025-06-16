@@ -11,6 +11,7 @@
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+
 const { APP_CONFIG } = require('../../lib/shared/config/appConfig.js');
 
 // Initialize Firebase Admin SDK if not already initialized.
@@ -37,7 +38,7 @@ function statusIsValid(status) {
     'cancelling',
     'cancelled',
     'reviewing_report',
-    'pending_deletion', // Added new status
+    'pending_deletion',
   ];
   return typeof status === 'string' && validStatuses.includes(status);
 }
@@ -116,7 +117,7 @@ exports.httpsCallableGetPastAnalyses = functions.https.onCall(async (data, _cont
           createdAt: mapTimestampToISO(docData.createdAt) || new Date(0).toISOString(),
           completedAt: mapTimestampToISO(docData.completedAt),
           reportLastModifiedAt: mapTimestampToISO(docData.reportLastModifiedAt),
-          deletionRequestedAt: mapTimestampToISO(docData.deletionRequestedAt), // Added
+          deletionRequestedAt: mapTimestampToISO(docData.deletionRequestedAt),
         };
 
         if (!statusIsValid(analysisResult.status)) {
@@ -133,7 +134,7 @@ exports.httpsCallableGetPastAnalyses = functions.https.onCall(async (data, _cont
         }
         return analysisResult;
       })
-      .filter((a) => a.status !== 'deleted' && a.status !== 'pending_deletion'); // Filter out pending_deletion as well
+      .filter((a) => a.status !== 'deleted' && a.status !== 'pending_deletion');
 
     return {
       analyses: /** @type {import('../../lib/shared/types/analysis.js').Analysis[]} */ (analyses),
@@ -199,7 +200,7 @@ exports.httpsCallableCancelAnalysis = functions.https.onCall(async (data, contex
       currentStatus === 'error' ||
       currentStatus === 'cancelled' ||
       currentStatus === 'deleted' ||
-      currentStatus === 'pending_deletion' // Cannot cancel if pending deletion
+      currentStatus === 'pending_deletion'
     ) {
       const msg = `Análise ${analysisId} já está em um estado final (${currentStatus}) e não pode ser cancelada.`;
       // eslint-disable-next-line no-console
@@ -224,7 +225,20 @@ exports.httpsCallableCancelAnalysis = functions.https.onCall(async (data, contex
     const errorMessage = error instanceof Error ? error.message : String(error);
     // eslint-disable-next-line no-console
     console.error(`[AnalysisMgmt_Cancel] Error for ${analysisDocPath}:`, errorMessage, error);
-    if (error instanceof functions.https.HttpsError) throw error;
+
+    // Duck-typing check for HttpsError
+    if (
+      error &&
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      'httpErrorCode' in error && // This property is specific to HttpsError
+      'message' in error &&
+      typeof error.message === 'string'
+    ) {
+      throw error; // It's already an HttpsError (or shaped like one), re-throw it
+    }
+    // Otherwise, wrap it as an 'internal' HttpsError
     throw new functions.https.HttpsError(
       'internal',
       `Falha ao solicitar cancelamento: ${errorMessage.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`
