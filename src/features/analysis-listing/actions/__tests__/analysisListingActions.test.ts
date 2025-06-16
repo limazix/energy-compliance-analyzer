@@ -27,7 +27,7 @@ const MOCK_ANALYSES: Analysis[] = [
     progress: 100,
     createdAt: new Date().toISOString(),
     tags: ['tag1'],
-  } as Analysis,
+  } as Analysis, // Cast to Analysis to satisfy the type, add more fields if needed for full type
   {
     id: 'analysis-2',
     userId: MOCK_USER_ID,
@@ -96,7 +96,7 @@ describe('getPastAnalysesAction (Unit)', () => {
     await expect(getPastAnalysesAction('')).rejects.toThrow(
       expect.stringContaining("CRITICAL: userId is invalid (input: '')")
     );
-    // @ts-expect-error testing invalid input
+    // @ts-expect-error testing invalid input: userId is required
     await expect(getPastAnalysesAction(null)).rejects.toThrow(
       expect.stringContaining("CRITICAL: userId is invalid (input: 'null')")
     );

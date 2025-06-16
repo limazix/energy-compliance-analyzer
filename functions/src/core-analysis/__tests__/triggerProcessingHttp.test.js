@@ -4,8 +4,7 @@
 /**
  * @fileOverview Unit test suite for the httpsCallableTriggerProcessing Firebase Function.
  */
-
-import { APP_CONFIG } from '../../../../functions/lib/shared/config/appConfig.js';
+import { APP_CONFIG } from '../../../../src/config/appConfig.ts'; // Import from src
 import { httpsCallableTriggerProcessing } from '../../../../functions/src/core-analysis/triggerProcessingHttp.js';
 
 // Mock firebase-admin before importing the function
@@ -20,21 +19,20 @@ jest.mock('firebase-admin', () => ({
 }));
 
 const UPLOAD_COMPLETED_OVERALL_PROGRESS = APP_CONFIG.PROGRESS_PERCENTAGE_UPLOAD_COMPLETE;
-const MOCK_USER_ID = 'test-user-trigger';
-const MOCK_ANALYSIS_ID = 'analysis-id-trigger';
+const MOCK_USER_ID_TRIGGER = 'test-user-trigger';
+const MOCK_ANALYSIS_ID_TRIGGER = 'analysis-id-trigger';
 
 describe('httpsCallableTriggerProcessing (Unit)', () => {
   beforeEach(() => {
     mockDocGet.mockReset();
     mockDocUpdate.mockReset();
     if (jest.isMockFunction(mockFirestoreService.doc)) {
-      // Check if it's a mock before clearing
       mockFirestoreService.doc.mockClear();
     }
   });
 
-  const validAuthContext = { auth: { uid: MOCK_USER_ID } };
-  const validData = { analysisId: MOCK_ANALYSIS_ID };
+  const validAuthContext = { auth: { uid: MOCK_USER_ID_TRIGGER } };
+  const validData = { analysisId: MOCK_ANALYSIS_ID_TRIGGER };
 
   it('should throw "unauthenticated" if no auth context', async () => {
     await expect(httpsCallableTriggerProcessing(validData, {})).rejects.toMatchObject({
@@ -43,7 +41,7 @@ describe('httpsCallableTriggerProcessing (Unit)', () => {
   });
 
   it('should throw "invalid-argument" if analysisId is missing', async () => {
-    // @ts-expect-error - Testing invalid input: missing analysisId
+    // @ts-expect-error - Testing invalid input: analysisId missing
     await expect(httpsCallableTriggerProcessing({}, validAuthContext)).rejects.toMatchObject({
       code: 'invalid-argument',
       message: 'ID da análise é obrigatório.',
@@ -55,11 +53,11 @@ describe('httpsCallableTriggerProcessing (Unit)', () => {
     await expect(httpsCallableTriggerProcessing(validData, validAuthContext)).rejects.toMatchObject(
       {
         code: 'not-found',
-        message: `Documento da análise ${MOCK_ANALYSIS_ID} não encontrado.`,
+        message: `Documento da análise ${MOCK_ANALYSIS_ID_TRIGGER} não encontrado.`,
       }
     );
     expect(mockFirestoreService.doc).toHaveBeenCalledWith(
-      `users/${MOCK_USER_ID}/analyses/${MOCK_ANALYSIS_ID}`
+      `users/${MOCK_USER_ID_TRIGGER}/analyses/${MOCK_ANALYSIS_ID_TRIGGER}`
     );
   });
 
@@ -96,7 +94,7 @@ describe('httpsCallableTriggerProcessing (Unit)', () => {
       const result = await httpsCallableTriggerProcessing(validData, validAuthContext);
       expect(result.success).toBe(true);
       expect(result.message).toContain(
-        `Análise ${MOCK_ANALYSIS_ID} está em status '${terminalStatus}'`
+        `Análise ${MOCK_ANALYSIS_ID_TRIGGER} está em status '${terminalStatus}'`
       );
       expect(mockDocUpdate).not.toHaveBeenCalled();
     });
@@ -130,9 +128,9 @@ describe('httpsCallableTriggerProcessing (Unit)', () => {
     };
     const firestoreUpdateError = new Error('Firestore update failed');
 
-    mockDocGet.mockResolvedValueOnce({ exists: true, data: () => initialDocData });
+    mockDocGet.mockResolvedValueOnce({ exists: true, data: () => initialDocData }); // For main logic
     mockDocUpdate.mockRejectedValueOnce(firestoreUpdateError); // First update fails
-    mockDocGet.mockResolvedValueOnce({ exists: true, data: () => initialDocData }); // For error update
+    mockDocGet.mockResolvedValueOnce({ exists: true, data: () => initialDocData }); // For error update attempt
     mockDocUpdate.mockResolvedValueOnce({}); // Error update succeeds
 
     await expect(httpsCallableTriggerProcessing(validData, validAuthContext)).rejects.toMatchObject(
@@ -143,7 +141,7 @@ describe('httpsCallableTriggerProcessing (Unit)', () => {
         ),
       }
     );
-    expect(mockDocUpdate).toHaveBeenCalledTimes(2);
+    expect(mockDocUpdate).toHaveBeenCalledTimes(2); // One for trigger, one for error update
     expect(mockDocUpdate).toHaveBeenLastCalledWith({
       status: 'error',
       errorMessage: expect.stringContaining(

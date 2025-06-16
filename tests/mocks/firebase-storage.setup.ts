@@ -5,11 +5,11 @@ import { act } from '@testing-library/react';
 
 import type {
   FirebaseStorage,
-  StorageReference,
-  UploadTaskSnapshot,
-  UploadTask,
   StorageError,
+  StorageReference,
   UploadMetadata,
+  UploadTask,
+  UploadTaskSnapshot,
 } from 'firebase/storage';
 
 export interface MockUploadTask extends UploadTask {

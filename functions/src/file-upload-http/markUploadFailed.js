@@ -10,7 +10,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
-const { APP_CONFIG } = require('../../lib/shared/config/appConfig.js');
+const { APP_CONFIG } = require('../../../src/config/appConfig.js');
 
 if (admin.apps.length === 0) {
   admin.initializeApp();

@@ -8,14 +8,14 @@
 import admin from 'firebase-admin';
 
 import { httpsCreateInitialAnalysisRecord } from '../../../../functions/src/file-upload-http/createInitial.js';
+import { APP_CONFIG } from '../../../../src/config/appConfig.ts'; // Import from src
 
 // Mock firebase-admin
 const mockFirestoreAdd = jest.fn();
 const mockFirestoreCollectionRef = { add: mockFirestoreAdd };
 const mockFirestoreDocRef = { collection: jest.fn(() => mockFirestoreCollectionRef) };
 const mockFirestoreService = {
-  collection: jest.fn(() => mockFirestoreCollectionRef), // Default to collection returning collectionRef
-  doc: jest.fn(() => mockFirestoreDocRef), // Default to doc returning docRef
+  collection: jest.fn(() => ({ doc: jest.fn(() => mockFirestoreDocRef) })), // Ensure it correctly mocks the path user/userId/analyses
 };
 jest.mock('firebase-admin', () => {
   const actualAdmin = jest.requireActual('firebase-admin');
@@ -33,15 +33,22 @@ const MOCK_USER_ID = 'test-user-create-initial';
 describe('httpsCreateInitialAnalysisRecord (Unit)', () => {
   beforeEach(() => {
     mockFirestoreAdd.mockReset();
-    if (jest.isMockFunction(mockFirestoreService.collection))
+    if (jest.isMockFunction(mockFirestoreService.collection)) {
       mockFirestoreService.collection.mockClear();
-    if (jest.isMockFunction(mockFirestoreService.doc)) mockFirestoreService.doc.mockClear();
-    if (jest.isMockFunction(mockFirestoreDocRef.collection))
+    }
+    if (
+      mockFirestoreService.collection() &&
+      jest.isMockFunction(mockFirestoreService.collection().doc)
+    ) {
+      mockFirestoreService.collection().doc.mockClear();
+    }
+    if (mockFirestoreDocRef && jest.isMockFunction(mockFirestoreDocRef.collection)) {
       mockFirestoreDocRef.collection.mockClear();
+    }
   });
 
   it('should throw "unauthenticated" if no auth context', async () => {
-    // @ts-expect-error - Testing invalid context to ensure it throws for unauthenticated user
+    // @ts-expect-error - Testing invalid context: unauthenticated
     await expect(
       httpsCreateInitialAnalysisRecord({ fileName: 'test.csv' }, {})
     ).rejects.toMatchObject({
@@ -51,7 +58,7 @@ describe('httpsCreateInitialAnalysisRecord (Unit)', () => {
 
   it('should throw "invalid-argument" if fileName is missing', async () => {
     const context = { auth: { uid: MOCK_USER_ID } };
-    // @ts-expect-error - Testing invalid input for fileName, missing required field
+    // @ts-expect-error - Testing invalid input: fileName is missing
     await expect(httpsCreateInitialAnalysisRecord({}, context)).rejects.toMatchObject({
       code: 'invalid-argument',
       message: 'Nome do arquivo é obrigatório.',
@@ -73,7 +80,7 @@ describe('httpsCreateInitialAnalysisRecord (Unit)', () => {
     const result = await httpsCreateInitialAnalysisRecord(data, context);
 
     expect(mockFirestoreService.collection).toHaveBeenCalledWith('users');
-    expect(mockFirestoreService.doc).toHaveBeenCalledWith(MOCK_USER_ID);
+    expect(mockFirestoreService.collection().doc).toHaveBeenCalledWith(MOCK_USER_ID);
     expect(mockFirestoreDocRef.collection).toHaveBeenCalledWith('analyses');
     expect(mockFirestoreAdd).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -85,6 +92,24 @@ describe('httpsCreateInitialAnalysisRecord (Unit)', () => {
       })
     );
     expect(result).toEqual({ analysisId: mockAnalysisId });
+  });
+
+  it('should use default language code if not provided', async () => {
+    const mockAnalysisId = 'new-analysis-doc-id-default-lang';
+    mockFirestoreAdd.mockResolvedValueOnce({ id: mockAnalysisId });
+
+    const data = {
+      fileName: 'data_default_lang.csv',
+      title: 'Test Title Default Lang',
+      // description and languageCode omitted
+    };
+    const context = { auth: { uid: MOCK_USER_ID } };
+    await httpsCreateInitialAnalysisRecord(data, context);
+    expect(mockFirestoreAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        languageCode: APP_CONFIG.DEFAULT_LANGUAGE_CODE,
+      })
+    );
   });
 
   it('should handle Firestore "add" error', async () => {

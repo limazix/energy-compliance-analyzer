@@ -4,11 +4,10 @@
 /**
  * @fileOverview Unit test suite for the onAnalysisDeletionRequested Pub/Sub triggered Firebase Function.
  */
+import adminActual from 'firebase-admin';
 
-import admin from 'firebase-admin';
-
-import { APP_CONFIG } from '../../../../functions/lib/shared/config/appConfig.js';
 import { onAnalysisDeletionRequested } from '../../../../functions/src/analysis-management/onDeletionRequestPublish.js';
+import { APP_CONFIG } from '../../../../src/config/appConfig.ts'; // Import from src
 
 // Mock firebase-admin
 const mockDocGet = jest.fn();
@@ -17,18 +16,18 @@ const mockFirestoreService = {
   doc: jest.fn(() => ({ get: mockDocGet, update: mockDocUpdate })),
 };
 jest.mock('firebase-admin', () => {
-  const actualAdmin = jest.requireActual('firebase-admin');
+  const actualAdminInternal = jest.requireActual('firebase-admin');
   return {
     initializeApp: jest.fn(),
     firestore: jest.fn(() => mockFirestoreService),
-    // Static properties needed by SUT
-    'firestore.Timestamp': actualAdmin.firestore.Timestamp,
-    'firestore.FieldValue': actualAdmin.firestore.FieldValue,
+    // Use actualAdminInternal for static properties if they don't need mocking
+    'firestore.Timestamp': actualAdminInternal.firestore.Timestamp,
+    'firestore.FieldValue': actualAdminInternal.firestore.FieldValue,
   };
 });
 
-const MOCK_USER_ID = 'test-user-delete-pubsub';
-const MOCK_ANALYSIS_ID = 'analysis-id-delete-pubsub';
+const MOCK_USER_ID_DEL_PUBSUB = 'test-user-delete-pubsub';
+const MOCK_ANALYSIS_ID_DEL_PUBSUB = 'analysis-id-delete-pubsub';
 const TOPIC_NAME = APP_CONFIG.TOPIC_ANALYSIS_DELETION_REQUEST;
 
 describe('onAnalysisDeletionRequested Pub/Sub Function (Unit)', () => {
@@ -36,7 +35,6 @@ describe('onAnalysisDeletionRequested Pub/Sub Function (Unit)', () => {
     mockDocGet.mockReset();
     mockDocUpdate.mockReset();
     if (jest.isMockFunction(mockFirestoreService.doc)) {
-      // Check if it's a mock before clearing
       mockFirestoreService.doc.mockClear();
     }
   });
@@ -60,8 +58,8 @@ describe('onAnalysisDeletionRequested Pub/Sub Function (Unit)', () => {
 
   it('should update status to "pending_deletion" for a valid request', async () => {
     const payload = {
-      userId: MOCK_USER_ID,
-      analysisId: MOCK_ANALYSIS_ID,
+      userId: MOCK_USER_ID_DEL_PUBSUB,
+      analysisId: MOCK_ANALYSIS_ID_DEL_PUBSUB,
       requestedAt: Date.now(),
     };
     const message = createPubSubMessage(payload);
@@ -76,17 +74,17 @@ describe('onAnalysisDeletionRequested Pub/Sub Function (Unit)', () => {
     await onAnalysisDeletionRequested(message, context);
 
     expect(mockFirestoreService.doc).toHaveBeenCalledWith(
-      `users/${MOCK_USER_ID}/analyses/${MOCK_ANALYSIS_ID}`
+      `users/${MOCK_USER_ID_DEL_PUBSUB}/analyses/${MOCK_ANALYSIS_ID_DEL_PUBSUB}`
     );
     expect(mockDocUpdate).toHaveBeenCalledWith({
       status: 'pending_deletion',
       errorMessage: 'Exclusão solicitada via Pub/Sub e em processamento...',
-      deletionRequestedAt: admin.firestore.Timestamp.fromMillis(payload.requestedAt),
+      deletionRequestedAt: adminActual.firestore.Timestamp.fromMillis(payload.requestedAt),
     });
   });
 
   it('should use serverTimestamp if requestedAt is not in payload', async () => {
-    const payload = { userId: MOCK_USER_ID, analysisId: MOCK_ANALYSIS_ID };
+    const payload = { userId: MOCK_USER_ID_DEL_PUBSUB, analysisId: MOCK_ANALYSIS_ID_DEL_PUBSUB };
     const message = createPubSubMessage(payload);
     const context = createContext();
 
@@ -100,7 +98,7 @@ describe('onAnalysisDeletionRequested Pub/Sub Function (Unit)', () => {
 
     expect(mockDocUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        deletionRequestedAt: admin.firestore.FieldValue.serverTimestamp(),
+        deletionRequestedAt: adminActual.firestore.FieldValue.serverTimestamp(),
       })
     );
   });
@@ -108,12 +106,12 @@ describe('onAnalysisDeletionRequested Pub/Sub Function (Unit)', () => {
   it('should not update if analysis is already "deleted" or "pending_deletion"', async () => {
     const statuses = ['deleted', 'pending_deletion'];
     for (const status of statuses) {
-      const payload = { userId: MOCK_USER_ID, analysisId: MOCK_ANALYSIS_ID };
+      const payload = { userId: MOCK_USER_ID_DEL_PUBSUB, analysisId: MOCK_ANALYSIS_ID_DEL_PUBSUB };
       const message = createPubSubMessage(payload);
       const context = createContext();
 
       mockDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ status }) });
-      mockDocUpdate.mockClear();
+      mockDocUpdate.mockClear(); // Ensure it's clear before this iteration
 
       await onAnalysisDeletionRequested(message, context);
       expect(mockDocUpdate).not.toHaveBeenCalled();
@@ -121,7 +119,7 @@ describe('onAnalysisDeletionRequested Pub/Sub Function (Unit)', () => {
   });
 
   it('should not update if analysis document does not exist', async () => {
-    const payload = { userId: MOCK_USER_ID, analysisId: MOCK_ANALYSIS_ID };
+    const payload = { userId: MOCK_USER_ID_DEL_PUBSUB, analysisId: MOCK_ANALYSIS_ID_DEL_PUBSUB };
     const message = createPubSubMessage(payload);
     const context = createContext();
 
@@ -131,9 +129,9 @@ describe('onAnalysisDeletionRequested Pub/Sub Function (Unit)', () => {
   });
 
   it('should log error and return null if payload is invalid (missing userId)', async () => {
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const payload = { analysisId: MOCK_ANALYSIS_ID };
-    // @ts-expect-error - Testing invalid payload, intentionally missing userId for this test case.
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {}); // Use an empty function
+    const payload = { analysisId: MOCK_ANALYSIS_ID_DEL_PUBSUB }; // Missing userId
+    // @ts-expect-error - Testing invalid payload: userId is missing.
     const message = createPubSubMessage(payload);
     const context = createContext();
 
@@ -149,7 +147,7 @@ describe('onAnalysisDeletionRequested Pub/Sub Function (Unit)', () => {
   });
 
   it('should throw error if Firestore update fails', async () => {
-    const payload = { userId: MOCK_USER_ID, analysisId: MOCK_ANALYSIS_ID };
+    const payload = { userId: MOCK_USER_ID_DEL_PUBSUB, analysisId: MOCK_ANALYSIS_ID_DEL_PUBSUB };
     const message = createPubSubMessage(payload);
     const context = createContext();
     const firestoreError = new Error('Firestore update failed');

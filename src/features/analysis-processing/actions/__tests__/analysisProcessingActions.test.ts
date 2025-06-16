@@ -1,6 +1,13 @@
 // src/features/analysis-processing/actions/analysisProcessingActions.test.ts
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
+import { APP_CONFIG } from '@/config/appConfig';
+import {
+  processAnalysisFile,
+  retryAnalysisAction,
+} from '@/features/analysis-processing/actions/analysisProcessingActions';
+import { functionsInstance } from '@/lib/firebase'; // For httpsCallable mock
+
 // Mock firebase-admin
 const mockAdminUpdate = jest.fn();
 const mockAdminDocGet = jest.fn();
@@ -25,24 +32,17 @@ jest.mock('firebase/functions', () => {
   };
 });
 
-import { APP_CONFIG } from '@/config/appConfig';
-import {
-  processAnalysisFile,
-  retryAnalysisAction,
-} from '@/features/analysis-processing/actions/analysisProcessingActions';
-import { functionsInstance } from '@/lib/firebase'; // For httpsCallable mock
-
 const mockHttpsCallable = httpsCallable as jest.Mock;
 const UPLOAD_COMPLETED_OVERALL_PROGRESS = APP_CONFIG.PROGRESS_PERCENTAGE_UPLOAD_COMPLETE;
 
 const MOCK_USER_ID = 'test-user-proc';
 const MOCK_ANALYSIS_ID = 'test-analysis-proc';
 
-describe('Analysis Processing Server Actions', () => {
+describe('Analysis Processing Server Actions (Unit)', () => {
   beforeEach(() => {
     mockHttpsCallable.mockClear();
-    mockAdminUpdate.mockClear();
-    mockAdminDocGet.mockClear();
+    mockAdminUpdate.mockReset();
+    mockAdminDocGet.mockReset();
     mockAdminDoc.mockClear();
   });
 
@@ -123,7 +123,7 @@ describe('Analysis Processing Server Actions', () => {
     });
 
     it('should handle cases where analysisId is null or undefined', async () => {
-      // @ts-expect-error testing invalid input
+      // @ts-expect-error - Testing invalid input: analysisId cannot be null
       const resultNull = await processAnalysisFile(null, MOCK_USER_ID);
       expect(resultNull.success).toBe(false);
       expect(resultNull.analysisId).toBe('unknown_id'); // As per action's error handling
@@ -131,7 +131,7 @@ describe('Analysis Processing Server Actions', () => {
         `CRITICAL: analysisId is invalid ('null' -> ''). Aborting.`
       );
 
-      // @ts-expect-error testing invalid input
+      // @ts-expect-error - Testing invalid input: analysisId cannot be undefined
       const resultUndefined = await processAnalysisFile(undefined, MOCK_USER_ID);
       expect(resultUndefined.success).toBe(false);
       expect(resultUndefined.analysisId).toBe('unknown_id');

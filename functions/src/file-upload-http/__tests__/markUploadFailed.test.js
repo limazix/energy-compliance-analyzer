@@ -6,6 +6,7 @@
  */
 
 import { httpsMarkUploadAsFailed } from '../../../../functions/src/file-upload-http/markUploadFailed.js';
+// import { APP_CONFIG } from '../../../../src/config/appConfig.ts'; // No longer needed directly
 
 // Mock firebase-admin
 const mockDocGet = jest.fn();
@@ -42,7 +43,7 @@ describe('httpsMarkUploadAsFailed (Unit)', () => {
 
   it('should throw "unauthenticated" if no auth context', async () => {
     const data = { analysisId: MOCK_ANALYSIS_ID, uploadErrorMessage: 'Test error' };
-    // @ts-expect-error - Testing invalid context for unauthenticated error
+    // @ts-expect-error - Testing invalid context: unauthenticated
     await expect(httpsMarkUploadAsFailed(data, {})).rejects.toMatchObject({
       code: 'unauthenticated',
     });

@@ -9,7 +9,6 @@ import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/icons/logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { APP_CONFIG } from '@/config/appConfig';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { auth, googleProvider } from '@/lib/firebase';

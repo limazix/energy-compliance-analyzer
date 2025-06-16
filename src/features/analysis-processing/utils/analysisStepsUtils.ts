@@ -1,4 +1,3 @@
-import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
 import type { Analysis, AnalysisStep } from '@/types/analysis';
 
 const BASE_ANALYSIS_STEPS: Omit<AnalysisStep, 'status' | 'progress' | 'details'>[] = [

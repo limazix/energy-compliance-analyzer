@@ -11,6 +11,7 @@ import {
   httpsCallableAddTag,
   httpsCallableRemoveTag,
 } from '../../../../functions/src/tag-management-http/manageTags.js';
+// import { APP_CONFIG } from '../../../../src/config/appConfig.ts'; // No longer needed directly
 
 // Mock firebase-admin before importing the functions
 jest.mock('firebase-admin', () => {
@@ -73,14 +74,14 @@ describe('Tag Management HTTPS Callable Functions (Unit)', () => {
     const validAuthContext = { auth: { uid: MOCK_USER_ID } };
 
     it('should throw "unauthenticated" if no auth context', async () => {
-      // @ts-expect-error - Testing invalid context for unauth error
+      // @ts-expect-error - Testing invalid context: unauthenticated
       await expect(httpsCallableAddTag(validData, {})).rejects.toMatchObject({
         code: 'unauthenticated',
       });
     });
 
     it('should throw "invalid-argument" if analysisId is missing', async () => {
-      // @ts-expect-error - Testing invalid input: missing analysisId for this test.
+      // @ts-expect-error - Testing invalid input: analysisId missing
       await expect(httpsCallableAddTag({ tag: 'tag1' }, validAuthContext)).rejects.toMatchObject({
         code: 'invalid-argument',
       });

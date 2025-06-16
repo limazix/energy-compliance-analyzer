@@ -1,4 +1,4 @@
-const nextJest = require('next/jest');
+import nextJest from 'next/jest.js';
 
 const createJestConfig = nextJest({
   // Provide the path to your Next.js app to load next.config.js and .env files in your test environment
@@ -6,23 +6,22 @@ const createJestConfig = nextJest({
 });
 
 // Add any custom config to be passed to Jest
+/** @type {import('jest').Config} */
 const customJestConfig = {
   coverageProvider: 'v8',
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/tests/mocks/global-lifecycle.setup.ts'], // Keep setup files here
   testEnvironment: 'jest-environment-jsdom',
-  // Point Jest to the new root directory for tests
-  roots: ['<rootDir>/tests'],
-  // Test match patterns can be more specific if needed, but `roots` often suffices.
-  // Example if you want to be very explicit:
-  // testMatch: [
-  //   '<rootDir>/tests/unit/frontend/**/*.test.[jt]s?(x)',
-  //   '<rootDir>/tests/unit/backend/**/*.test.[jt]s?(x)',
-  //   '<rootDir>/tests/integration/**/*.test.[jt]s?(x)',
-  // ],
+  // Removed 'roots' - Jest will find __tests__ and *.test.js/ts/tsx files by default.
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    // Force 'jose' to resolve to its CommonJS variant for Node.js environment in tests.
-    '^jose$': '<rootDir>/node_modules/jose/dist/node/cjs/index.js', // Adjusted path assumption
+    '^jose$': '<rootDir>/node_modules/jose/dist/node/cjs/index.js',
+    // Mappings for when functions/src/* files require from functions/lib/shared/* during tests
+    '^../../lib/shared/config/appConfig\\.js$': '<rootDir>/src/config/appConfig.ts',
+    '^../../lib/shared/types/(.*)\\.js$': '<rootDir>/src/types/$1.ts',
+    '^../../lib/shared/ai/prompt-configs/(.*)\\.js$': '<rootDir>/src/ai/prompt-configs/$1.ts',
+    '^../../lib/shared/lib/(.*)\\.js$': '<rootDir>/src/lib/$1.ts',
+    // Mapping for functions/src/utils/storage.js if it's directly imported by other function source files
+    '^../utils/storage\\.js$': '<rootDir>/functions/src/utils/storage.js',
   },
   transformIgnorePatterns: [
     '[/\\\\]node_modules[/\\\\](?!(next-mdx-remote|react-tweet|styled-jsx|next|jwks-rsa|firebase-admin|firebase-functions|@genkit-ai|zod)/)',
@@ -32,4 +31,4 @@ const customJestConfig = {
   bail: true,
 };
 
-module.exports = createJestConfig(customJestConfig);
+export default createJestConfig(customJestConfig);

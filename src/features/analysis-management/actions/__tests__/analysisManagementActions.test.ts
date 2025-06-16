@@ -1,6 +1,13 @@
 // src/features/analysis-management/actions/analysisManagementActions.test.ts
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
+import { APP_CONFIG } from '@/config/appConfig';
+import {
+  cancelAnalysisAction,
+  deleteAnalysisAction,
+} from '@/features/analysis-management/actions/analysisManagementActions';
+import { functionsInstance } from '@/lib/firebase';
+
 // Mock firebase-admin for Pub/Sub
 const mockPublishMessage = jest.fn();
 const mockTopic = jest.fn(() => ({
@@ -25,13 +32,6 @@ jest.mock('firebase/functions', () => {
     httpsCallable: jest.fn(),
   };
 });
-
-import { APP_CONFIG } from '@/config/appConfig';
-import {
-  deleteAnalysisAction,
-  cancelAnalysisAction,
-} from '@/features/analysis-management/actions/analysisManagementActions';
-import { functionsInstance } from '@/lib/firebase';
 
 const mockHttpsCallable = httpsCallable as jest.Mock;
 const ANALYSIS_DELETION_TOPIC = APP_CONFIG.TOPIC_ANALYSIS_DELETION_REQUEST;
@@ -64,7 +64,7 @@ describe('Analysis Management Server Actions (Unit)', () => {
       expect(mockAdminDocGet).toHaveBeenCalledTimes(1);
       expect(mockTopic).toHaveBeenCalledWith(ANALYSIS_DELETION_TOPIC);
       expect(mockPublishMessage).toHaveBeenCalledWith({
-        data: expect.any(Buffer),
+        data: expect.any(Buffer), // Check if it's a buffer
       });
       const sentData = JSON.parse(mockPublishMessage.mock.calls[0][0].data.toString());
       expect(sentData.userId).toBe(MOCK_USER_ID);

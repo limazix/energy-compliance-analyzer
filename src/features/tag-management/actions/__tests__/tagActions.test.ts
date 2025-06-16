@@ -2,7 +2,7 @@
 import { httpsCallable } from 'firebase/functions';
 
 import { addTagToAction, removeTagAction } from '@/features/tag-management/actions/tagActions';
-import { functionsInstance } from '@/lib/firebase'; // We need this for the callable mock
+import { functionsInstance } from '@/lib/firebase';
 
 // Mock firebase/functions
 jest.mock('firebase/functions', () => {
@@ -18,26 +18,26 @@ const mockHttpsCallable = httpsCallable as jest.Mock;
 const MOCK_USER_ID = 'test-user-123';
 const MOCK_ANALYSIS_ID = 'test-analysis-456';
 
-describe('Tag Management Server Actions', () => {
-  let mockCallableFunction: jest.Mock;
+describe('Tag Management Server Actions (Unit)', () => {
+  let mockCallableFn: jest.Mock;
 
   beforeEach(() => {
     // Reset all mocks before each test
     mockHttpsCallable.mockClear();
-    mockCallableFunction = jest.fn(); // This will be our specific mock for each function
-    mockHttpsCallable.mockReturnValue(mockCallableFunction);
+    mockCallableFn = jest.fn(); // This will be our specific mock for each function
+    mockHttpsCallable.mockReturnValue(mockCallableFn);
   });
 
   describe('addTagToAction', () => {
     it('should call httpsCallableAddTag and return success on successful tag addition', async () => {
-      mockCallableFunction.mockResolvedValueOnce({
+      mockCallableFn.mockResolvedValueOnce({
         data: { success: true, message: 'Tag adicionada com sucesso.' },
       });
 
       const result = await addTagToAction(MOCK_USER_ID, MOCK_ANALYSIS_ID, 'new-tag');
 
       expect(mockHttpsCallable).toHaveBeenCalledWith(functionsInstance, 'httpsCallableAddTag');
-      expect(mockCallableFunction).toHaveBeenCalledWith({
+      expect(mockCallableFn).toHaveBeenCalledWith({
         analysisId: MOCK_ANALYSIS_ID,
         tag: 'new-tag',
       });
@@ -47,12 +47,12 @@ describe('Tag Management Server Actions', () => {
     });
 
     it('should return an error if httpsCallableAddTag fails', async () => {
-      mockCallableFunction.mockRejectedValueOnce(new Error('Simulated Firebase Function error'));
+      mockCallableFn.mockRejectedValueOnce(new Error('Simulated Firebase Function error'));
 
       const result = await addTagToAction(MOCK_USER_ID, MOCK_ANALYSIS_ID, 'another-tag');
 
       expect(mockHttpsCallable).toHaveBeenCalledWith(functionsInstance, 'httpsCallableAddTag');
-      expect(mockCallableFunction).toHaveBeenCalledWith({
+      expect(mockCallableFn).toHaveBeenCalledWith({
         analysisId: MOCK_ANALYSIS_ID,
         tag: 'another-tag',
       });
@@ -64,27 +64,27 @@ describe('Tag Management Server Actions', () => {
       const result = await addTagToAction(MOCK_USER_ID, '', 'valid-tag');
       expect(result.success).toBe(false);
       expect(result.error).toBe('[SA_addTag] ID da análise e tag são obrigatórios.');
-      expect(mockCallableFunction).not.toHaveBeenCalled();
+      expect(mockCallableFn).not.toHaveBeenCalled();
     });
 
     it('should return an error if tag is empty', async () => {
       const result = await addTagToAction(MOCK_USER_ID, MOCK_ANALYSIS_ID, '  '); // Empty after trim
       expect(result.success).toBe(false);
       expect(result.error).toBe('[SA_addTag] ID da análise e tag são obrigatórios.');
-      expect(mockCallableFunction).not.toHaveBeenCalled();
+      expect(mockCallableFn).not.toHaveBeenCalled();
     });
   });
 
   describe('removeTagAction', () => {
     it('should call httpsCallableRemoveTag and return success on successful tag removal', async () => {
-      mockCallableFunction.mockResolvedValueOnce({
+      mockCallableFn.mockResolvedValueOnce({
         data: { success: true, message: 'Tag removida com sucesso.' },
       });
 
       const result = await removeTagAction(MOCK_USER_ID, MOCK_ANALYSIS_ID, 'tag-to-remove');
 
       expect(mockHttpsCallable).toHaveBeenCalledWith(functionsInstance, 'httpsCallableRemoveTag');
-      expect(mockCallableFunction).toHaveBeenCalledWith({
+      expect(mockCallableFn).toHaveBeenCalledWith({
         analysisId: MOCK_ANALYSIS_ID,
         tag: 'tag-to-remove',
       });
@@ -94,14 +94,12 @@ describe('Tag Management Server Actions', () => {
     });
 
     it('should return an error if httpsCallableRemoveTag fails', async () => {
-      mockCallableFunction.mockRejectedValueOnce(
-        new Error('Simulated Firebase Function removal error')
-      );
+      mockCallableFn.mockRejectedValueOnce(new Error('Simulated Firebase Function removal error'));
 
       const result = await removeTagAction(MOCK_USER_ID, MOCK_ANALYSIS_ID, 'tag-to-remove');
 
       expect(mockHttpsCallable).toHaveBeenCalledWith(functionsInstance, 'httpsCallableRemoveTag');
-      expect(mockCallableFunction).toHaveBeenCalledWith({
+      expect(mockCallableFn).toHaveBeenCalledWith({
         analysisId: MOCK_ANALYSIS_ID,
         tag: 'tag-to-remove',
       });
@@ -117,7 +115,7 @@ describe('Tag Management Server Actions', () => {
       expect(result.error).toBe(
         '[SA_removeTag] ID da análise e tag para remover são obrigatórios.'
       );
-      expect(mockCallableFunction).not.toHaveBeenCalled();
+      expect(mockCallableFn).not.toHaveBeenCalled();
     });
 
     it('should return an error if tag to remove is empty', async () => {
@@ -126,7 +124,7 @@ describe('Tag Management Server Actions', () => {
       expect(result.error).toBe(
         '[SA_removeTag] ID da análise e tag para remover são obrigatórios.'
       );
-      expect(mockCallableFunction).not.toHaveBeenCalled();
+      expect(mockCallableFn).not.toHaveBeenCalled();
     });
   });
 });

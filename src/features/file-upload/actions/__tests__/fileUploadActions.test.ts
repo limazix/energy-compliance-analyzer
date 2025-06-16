@@ -1,6 +1,14 @@
 // src/features/file-upload/actions/fileUploadActions.test.ts
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 
+import { APP_CONFIG } from '@/config/appConfig';
+import {
+  createInitialAnalysisRecordAction,
+  markUploadAsFailedAction,
+  notifyFileUploadCompleteAction, // Changed from finalizeFileUploadRecordAction
+  updateAnalysisUploadProgressAction,
+} from '@/features/file-upload/actions/fileUploadActions';
+import { functionsInstance } from '@/lib/firebase'; // Firebase Functions instance for client SDK
 // Mock firebase-admin for Pub/Sub used in notifyFileUploadCompleteAction
 const mockPublishMessage = jest.fn();
 const mockTopic = jest.fn(() => ({ publishMessage: mockPublishMessage }));
@@ -18,15 +26,6 @@ jest.mock('firebase/functions', () => {
   };
 });
 
-import { APP_CONFIG } from '@/config/appConfig';
-import {
-  createInitialAnalysisRecordAction,
-  updateAnalysisUploadProgressAction,
-  notifyFileUploadCompleteAction,
-  markUploadAsFailedAction,
-} from '@/features/file-upload/actions/fileUploadActions';
-import { functionsInstance } from '@/lib/firebase';
-
 const mockHttpsCallable = httpsCallable as jest.Mock;
 const FILE_UPLOAD_COMPLETED_TOPIC = APP_CONFIG.TOPIC_FILE_UPLOAD_COMPLETED;
 
@@ -41,7 +40,7 @@ describe('File Upload Server Actions (Unit)', () => {
     mockHttpsCallable.mockClear();
     mockCallableFn = jest.fn();
     mockHttpsCallable.mockReturnValue(mockCallableFn);
-    mockPublishMessage.mockReset(); // Use mockReset for jest.fn()
+    mockPublishMessage.mockReset();
     mockTopic.mockClear();
   });
 

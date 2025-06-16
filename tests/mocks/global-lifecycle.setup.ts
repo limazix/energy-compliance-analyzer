@@ -6,7 +6,7 @@ import { act } from '@testing-library/react';
 import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
 import type { Analysis } from '@/types/analysis'; // Assuming Analysis type is correctly defined
 
-import { mockHttpsCallableStore, type FirebaseFunctionsMock } from './firebase-functions.setup';
+import { mockHttpsCallableStore } from './firebase-functions.setup'; // Import the store for clearing
 import {
   mockRouterPush,
   mockRouterReplace,
@@ -20,12 +20,11 @@ import type {
   MockAnalysisManagerReturnValue,
   MockFileUploadManagerReturnValue,
 } from './custom-hooks.setup'; // Ensure this is correctly typed
+import type { FirebaseFunctionsMock } from './firebase-functions.setup'; // Corrected import name
 import type { FirebaseDatabaseMock } from './firebase-rtdb.setup';
 import type { FirebaseStorageMock } from './firebase-storage.setup';
 import type { User } from 'firebase/auth';
 import type { HttpsCallableResult } from 'firebase/functions';
-
-// Import mock control functions/stores from their respective setup files
 
 // --- Global Console Mocking ---
 if (
@@ -76,7 +75,7 @@ beforeEach(() => {
           return Promise.resolve();
         });
       manager.handleCancelAnalysis.mockClear().mockResolvedValue(undefined);
-      manager.handleRetryAnalysis.mockClear().mockResolvedValue(undefined); // Added
+      manager.handleRetryAnalysis.mockClear().mockResolvedValue(undefined);
       manager.downloadReportAsTxt.mockClear();
     }
 

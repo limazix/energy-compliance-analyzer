@@ -1,7 +1,7 @@
 /**
  * @fileoverview Test suite for HomePage authentication scenarios.
  */
-import { act, render, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 
 import HomePage from '@/app/page';
 import { useAuth as originalUseAuth } from '@/contexts/auth-context';

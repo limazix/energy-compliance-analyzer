@@ -2,8 +2,6 @@
  * @fileoverview Mocks for custom application hooks (useAnalysisManager, useFileUploadManager).
  * This file also defines the global mock objects and their types.
  */
-// import { act } from '@testing-library/react'; // 'act' is defined but never used
-
 import type { Analysis, AnalysisStep } from '@/types/analysis'; // Ensure this path is correct
 
 import type { User } from 'firebase/auth';
@@ -59,7 +57,6 @@ declare global {
 globalThis.mockUseAnalysisManagerReturnValue = {
   currentAnalysis: null,
   setCurrentAnalysis: jest.fn((newAnalysis: Analysis | null): void => {
-    // Removed act() wrapper from here
     globalThis.mockUseAnalysisManagerReturnValue.currentAnalysis = newAnalysis;
   }),
   pastAnalyses: [],

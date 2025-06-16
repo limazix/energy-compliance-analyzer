@@ -3,7 +3,7 @@
  */
 import { act } from '@testing-library/react';
 
-import type { Auth, User, AuthProvider, UserCredential } from 'firebase/auth';
+import type { Auth, AuthProvider, User, UserCredential } from 'firebase/auth';
 
 // --- TypeScript Global Augmentation for custom properties on globalThis ---
 declare global {
