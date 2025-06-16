@@ -2,7 +2,7 @@ name: 2. Build for Deployment
 
 on:
   workflow_run:
-    workflows: ['1. Run Integration Tests'] # Triggered by the completion of "1. Run Integration Tests"
+    workflows: ['1. Run Integration Tests'] # This name should match the `name` in 1-integration-tests.yml
     types:
       - completed
 
@@ -10,7 +10,6 @@ jobs:
   build_production_package:
     runs-on: ubuntu-latest
     environment: production
-    # Ensure it runs only if the previous workflow was successful
     if: >
       github.event.workflow_run.workflow.name == '1. Run Integration Tests' &&
       github.event.workflow_run.conclusion == 'success' &&
@@ -37,7 +36,7 @@ jobs:
       - name: Build Next.js application
         run: npm run build
         env:
-          NEXT_PUBLIC_FIREBASE_CONFIG: ${{ secrets.NEXT_PUBLIC_FIREBASE_CONFIG }} # Single JSON config for Firebase Web SDK
+          NEXT_PUBLIC_FIREBASE_CONFIG: ${{ secrets.NEXT_PUBLIC_FIREBASE_CONFIG }}
           NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
           NODE_OPTIONS: '--max-old-space-size=4096'
 

@@ -15,8 +15,14 @@
     "docs:generate": "typedoc",
     "emulators:start": "firebase emulators:start --import=./firebase-emulator-data --export-on-exit",
     "emulators:dev": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data 'npm run dev'",
-    "test": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest",
-    "test:watch": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest --watch",
+    "test": "npm run test:unit:backend && npm run test:unit:frontend",
+    "test:unit:frontend": "jest tests/unit/frontend",
+    "test:unit:backend": "jest tests/unit/backend",
+    "test:integration": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest tests/integration",
+    "test:watch": "jest --watch",
+    "test:watch:frontend": "jest tests/unit/frontend --watch",
+    "test:watch:backend": "jest tests/unit/backend --watch",
+    "test:watch:integration": "mkdir -p ./firebase-emulator-data && firebase emulators:exec --import=./firebase-emulator-data --export-on-exit -- jest tests/integration --watch",
     "prepare": "husky"
   },
   "dependencies": {

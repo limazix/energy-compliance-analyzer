@@ -8,27 +8,28 @@ const createJestConfig = nextJest({
 // Add any custom config to be passed to Jest
 const customJestConfig = {
   coverageProvider: 'v8',
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'], // Changed to .ts
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testEnvironment: 'jest-environment-jsdom',
+  // Point Jest to the new root directory for tests
+  roots: ['<rootDir>/tests'],
+  // Test match patterns can be more specific if needed, but `roots` often suffices.
+  // Example if you want to be very explicit:
+  // testMatch: [
+  //   '<rootDir>/tests/unit/frontend/**/*.test.[jt]s?(x)',
+  //   '<rootDir>/tests/unit/backend/**/*.test.[jt]s?(x)',
+  //   '<rootDir>/tests/integration/**/*.test.[jt]s?(x)',
+  // ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     // Force 'jose' to resolve to its CommonJS variant for Node.js environment in tests.
-    // This path assumes 'jose' is installed within 'functions/node_modules'.
-    // Adjust if 'jose' is hoisted to the root 'node_modules' or has a different CJS path structure.
-    '^jose$': '<rootDir>/functions/node_modules/jose/dist/node/cjs/index.js',
-    // The entry for 'lucide-react' is handled by its mock in jest/mocks/ui-components.setup.ts
+    '^jose$': '<rootDir>/node_modules/jose/dist/node/cjs/index.js', // Adjusted path assumption
   },
   transformIgnorePatterns: [
-    // This pattern tells Jest to NOT ignore (i.e., to transform) the listed packages if they are in node_modules.
-    // 'jose' is removed from this list because it's being handled by moduleNameMapper.
-    // This regex should match 'node_modules/' or 'functions/node_modules/' followed by packages NOT in the list.
-    // "/node_modules/(?!(" + packagesToTransform.join("|") + ")/)"
     '[/\\\\]node_modules[/\\\\](?!(next-mdx-remote|react-tweet|styled-jsx|next|jwks-rsa|firebase-admin|firebase-functions|@genkit-ai|zod)/)',
-    '^.+\\.module\\.(css|sass|scss)$', // Keep this for CSS modules
+    '^.+\\.module\\.(css|sass|scss)$',
   ],
-  // Automatically clear mock calls, instances, contexts and results before every test
   clearMocks: true,
-  bail: true, // Stop running tests after the first failure
+  bail: true,
 };
 
 module.exports = createJestConfig(customJestConfig);
