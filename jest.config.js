@@ -8,19 +8,18 @@ const createNextJestConfig = nextJest({
 
 // Common config to be shared across projects
 const commonConfig = {
-  // Add more setup options before each test is run
   setupFilesAfterEnv: ['<rootDir>/tests/mocks/global-lifecycle.setup.ts'],
   clearMocks: true,
-  bail: true,
-  coverageProvider: 'v8',
+  // bail: true, // Moved to project configs
+  // coverageProvider: 'v8', // Moved to project configs
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@functions/(.*)$': '<rootDir>/functions/src/$1',
     '^jose$': '<rootDir>/node_modules/jose/dist/node/cjs/index.js',
     // Mappers for compiled shared code when functions' source imports from their own /lib/shared
-    '^../lib/shared/(.*)\\.js$': '<rootDir>/src/$1.ts', // e.g. functions/src/some/file.ts imports '../lib/shared/foo.js'
-    '^../../lib/shared/(.*)\\.js$': '<rootDir>/src/$1.ts', // e.g. functions/src/file.ts imports '../lib/shared/foo.js'
-    '^../../../lib/shared/(.*)\\.js$': '<rootDir>/src/$1.ts', // For deeper nesting in functions
+    '^../lib/shared/(.*)\\.js$': '<rootDir>/src/$1.ts',
+    '^../../lib/shared/(.*)\\.js$': '<rootDir>/src/$1.ts',
+    '^../../../lib/shared/(.*)\\.js$': '<rootDir>/src/$1.ts',
     '^../../../../lib/shared/(.*)\\.js$': '<rootDir>/src/$1.ts',
   },
   transformIgnorePatterns: [
@@ -34,15 +33,12 @@ const frontendConfig = {
   ...commonConfig,
   displayName: 'frontend',
   testEnvironment: 'jest-environment-jsdom',
-  // testMatch specifies patterns relative to the project's rootDir,
-  // or Jest's rootDir if not overridden per project.
-  // Since createNextJestConfig is for the Next.js app at root, these paths are from project root.
+  bail: true, // Added here
+  coverageProvider: 'v8', // Added here
   testMatch: [
     '<rootDir>/src/**/__tests__/**/*.[jt]s?(x)',
     '<rootDir>/src/**/?(*.)+(spec|test).[jt]s?(x)',
   ],
-  // moduleNameMapper can be extended here if frontend has specific needs
-  // Transform is handled by createNextJestConfig
 };
 
 // Configuration for the backend (Firebase Functions)
@@ -50,16 +46,16 @@ const backendConfig = {
   ...commonConfig,
   displayName: 'backend',
   testEnvironment: 'node',
-  // testMatch specifies patterns relative to the project's rootDir
+  bail: true, // Added here
+  coverageProvider: 'v8', // Added here
   testMatch: [
     '<rootDir>/functions/src/**/__tests__/**/*.[jt]s?(x)',
-    '<rootDir>/functions/src/**/?(*.)+(spec|test).[jt]s?(x)',
+    '<rootDir>/functions/src/**/?(*.)+(spec|test).[jt]s?(x)', // Corrected .[tj]s?(x) to .[jt]s?(x) for consistency
   ],
   transform: {
     '^.+\\.[tj]sx?$': ['ts-jest', { tsconfig: '<rootDir>/functions/tsconfig.json' }],
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  // moduleNameMapper can be extended here if backend has specific needs
 };
 
 // createNextJestConfig is an async function that needs to be called with the frontend-specific config.
