@@ -1,11 +1,6 @@
 {
   "root": true,
   "parser": "@typescript-eslint/parser",
-  "parserOptions": {
-    "ecmaVersion": "latest",
-    "sourceType": "module",
-    "project": "./tsconfig.json"
-  },
   "plugins": ["@typescript-eslint", "import", "react", "jsx-a11y", "prettier"],
   "extends": [
     "eslint:recommended",
@@ -43,6 +38,11 @@
           {
             "pattern": "@/**",
             "group": "internal"
+          },
+          {
+            "pattern": "@functions/**",
+            "group": "internal",
+            "position": "after"
           }
         ],
         "pathGroupsExcludedImportTypes": ["react"],
@@ -59,7 +59,7 @@
     "import/resolver": {
       "typescript": {
         "alwaysTryTypes": true,
-        "project": "./tsconfig.json"
+        "project": ["./tsconfig.json", "./functions/tsconfig.json"]
       },
       "node": true
     }
@@ -78,14 +78,44 @@
     "coverage/",
     "public/",
     "functions/lib/",
-    "functions/src/**/*.js",
-    "*.config.js",
-    "!jest.config.js",
-    "*.config.ts",
-    "jest.setup.js",
+    "postcss.config.js",
+    "tailwind.config.ts",
+    "next.config.mjs",
     "components.json",
     "apphosting.yaml",
     "!.github/",
     "!.vscode/"
+  ],
+  "overrides": [
+    {
+      "files": ["*.ts", "*.tsx"],
+      "parserOptions": {
+        "ecmaVersion": "latest",
+        "sourceType": "module",
+        "project": ["./tsconfig.json", "./functions/tsconfig.json"]
+      }
+    },
+    {
+      "files": ["*.js", "*.jsx"],
+      "parserOptions": {
+        "ecmaVersion": "latest",
+        "sourceType": "module",
+        "project": null // Do not use project reference for JS files
+      },
+      "rules": {
+        "@typescript-eslint/no-var-requires": "off", // Allow require in JS files
+        "@typescript-eslint/no-explicit-any": "off", // Allow any in JS files
+        "@typescript-eslint/explicit-function-return-type": "off"
+      }
+    },
+    {
+      "files": ["jest.config.js", "next.config.mjs", "tailwind.config.ts", "postcss.config.js"],
+      "parserOptions": {
+        "project": null // Do not use project reference for config files
+      },
+      "rules": {
+        "@typescript-eslint/no-var-requires": "off"
+      }
+    }
   ]
 }

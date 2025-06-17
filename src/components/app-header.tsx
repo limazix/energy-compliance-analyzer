@@ -1,7 +1,7 @@
 'use client';
 
 import { signOut } from 'firebase/auth'; // Added signOut
-import { PlusCircle, LogOut } from 'lucide-react'; // Added LogOut
+import { LogOut, PlusCircle } from 'lucide-react'; // Added LogOut
 import Link from 'next/link';
 import { useRouter } from 'next/navigation'; // Added useRouter
 

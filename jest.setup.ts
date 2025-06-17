@@ -2,10 +2,10 @@
  * @fileoverview Main Jest setup file.
  * This file imports all individual mock setup modules and global configurations.
  */
-import '@testing-library/jest-dom'; // Testing library
 import { TextDecoder, TextEncoder } from 'util'; // Node built-in
 
 import { Timestamp } from 'firebase/firestore'; // Firebase
+import '@testing-library/jest-dom'; // Testing library
 
 // Import feature-specific mock setups
 // These imports must come after global polyfills or mocks if they depend on them.

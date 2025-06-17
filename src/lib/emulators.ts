@@ -4,17 +4,14 @@
  * and, if so, connects the Auth, Firestore, Storage, Realtime Database, and
  * Functions SDKs to their respective emulators.
  */
-import { connectAuthEmulator } from 'firebase/auth';
-import { connectDatabaseEmulator } from 'firebase/database';
-import { connectFirestoreEmulator } from 'firebase/firestore';
-import { connectFunctionsEmulator } from 'firebase/functions';
-import { connectStorageEmulator } from 'firebase/storage';
-
-import type { Auth } from 'firebase/auth';
-import type { Database } from 'firebase/database';
-import type { Firestore } from 'firebase/firestore';
-import type { Functions as FirebaseFunctionsService } from 'firebase/functions'; // Renamed import
-import type { FirebaseStorage } from 'firebase/storage';
+import { type Auth, connectAuthEmulator } from 'firebase/auth';
+import { type Database, connectDatabaseEmulator } from 'firebase/database';
+import { type Firestore, connectFirestoreEmulator } from 'firebase/firestore';
+import {
+  type FirebaseFunctions as FirebaseFunctionsService,
+  connectFunctionsEmulator,
+} from 'firebase/functions'; // Renamed import
+import { type FirebaseStorage, connectStorageEmulator } from 'firebase/storage';
 
 /**
  * Connects Firebase services to their respective emulators if running on localhost.

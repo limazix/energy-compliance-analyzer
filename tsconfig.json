@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@functions/*": ["./functions/src/*"]
     },
     "types": ["jest", "node"]
   },
@@ -27,16 +28,18 @@
     "next-env.d.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
-    "src/**/__tests__/**/*.ts",
-    "src/**/__tests__/**/*.tsx",
-    "functions/src/**/*.js",
-    "functions/src/**/__tests__/**/*.js",
-    "tests/mocks/**/*.ts", // Keep Jest setup files
-    "jest.config.js",
+    "functions/src/**/*.ts", // Include TypeScript files from functions
+    "tests/**/*.ts", // Include all TS files in the root tests folder
+    "tests/**/*.tsx", // Include all TSX files in the root tests folder
+    "tests/mocks/**/*.ts",
+    "jest.config.js", // Keep jest.config.js if it's JS
     "jest.setup.ts",
-    "*.config.js",
+    "*.config.js", // Keep other .config.js files
     "*.config.ts",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "functions/lib" // Exclude compiled output of functions
+  ]
 }

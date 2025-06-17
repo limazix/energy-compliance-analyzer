@@ -39,10 +39,20 @@
     {
       "source": "functions",
       "codebase": "default",
-      "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log", "*.log"],
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.log",
+        "src/**/__tests__/**", // Exclude test files from deployment
+        "src/**/*.test.ts", // Exclude test files from deployment
+        "tsconfig.json", // Exclude tsconfig from deployment
+        "tsconfig.shared.json" // Exclude tsconfig.shared from deployment
+      ],
       "predeploy": [
         "npm --prefix \"$RESOURCE_DIR\" run lint",
-        "npm --prefix \"$RESOURCE_DIR\" run build:shared"
+        "npm --prefix \"$RESOURCE_DIR\" run build"
       ],
       "runtime": "nodejs20"
     }

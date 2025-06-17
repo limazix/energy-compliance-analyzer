@@ -8,11 +8,13 @@
  * markUploadAsFailedAction: Calls an HTTPS Function to mark an upload as failed.
  */
 
-import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 
 import { APP_CONFIG } from '@/config/appConfig';
 import { functionsInstance } from '@/lib/firebase'; // Firebase Functions instance for client SDK
 import { adminPubSub } from '@/lib/firebase-admin'; // For Pub/Sub
+
+import type { HttpsCallableResult } from 'firebase/functions';
 
 const MAX_CLIENT_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_CLIENT_SERVER_ACTION_ERROR_MESSAGE_LENGTH;
 const FILE_UPLOAD_COMPLETED_TOPIC = APP_CONFIG.TOPIC_FILE_UPLOAD_COMPLETED;

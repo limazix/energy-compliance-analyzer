@@ -9,7 +9,7 @@
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
+    "lint": "NODE_OPTIONS=--max-old-space-size=4096 eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,css,yml}\"",
     "typecheck": "tsc --noEmit",
     "docs:generate": "typedoc",
@@ -85,6 +85,7 @@
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "@typescript-eslint/typescript-estree": "^8.34.1",
+    "cross-env": "^7.0.3",
     "eslint": "^8.57.0",
     "eslint-config-next": "15.2.3",
     "eslint-config-prettier": "^9.1.0",
@@ -108,7 +109,7 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
-      "eslint --fix",
+      "cross-env NODE_OPTIONS=--max-old-space-size=4096 eslint --fix",
       "prettier --write"
     ],
     "*.{json,md,css,yml}": [

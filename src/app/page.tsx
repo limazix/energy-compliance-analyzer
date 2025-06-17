@@ -382,6 +382,7 @@ export default function HomePage() {
                               handleDeleteAnalysis(currentAnalysis.id, afterDeleteAnalysis)
                             }
                             onCancelAnalysis={() => handleCancelAnalysis(currentAnalysis.id)}
+                            onRetryAnalysis={() => handleRetryAnalysis(currentAnalysis.id)}
                           />
                         ) : expandedAnalysisId === analysisItem.id &&
                           analysisItem.status === 'error' &&

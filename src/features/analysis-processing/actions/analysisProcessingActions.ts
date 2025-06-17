@@ -7,11 +7,13 @@
  * It also includes an action to retry a failed analysis.
  */
 
-import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 
 import { APP_CONFIG } from '@/config/appConfig';
 import { functionsInstance } from '@/lib/firebase';
 import { adminDb } from '@/lib/firebase-admin'; // Import adminDb for direct Firestore updates
+
+import type { HttpsCallableResult } from 'firebase/functions';
 
 const MAX_CLIENT_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_CLIENT_SERVER_ACTION_ERROR_MESSAGE_LENGTH;
 const UPLOAD_COMPLETED_OVERALL_PROGRESS = APP_CONFIG.PROGRESS_PERCENTAGE_UPLOAD_COMPLETE;

@@ -7,11 +7,13 @@
  * Firebase database interactions.
  */
 
-import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 
 import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
 import { APP_CONFIG } from '@/config/appConfig';
 import { functionsInstance } from '@/lib/firebase'; // Firebase Functions instance for client SDK
+
+import type { HttpsCallableResult } from 'firebase/functions';
 
 const CLIENT_ERROR_MESSAGE_MAX_LENGTH = APP_CONFIG.MAX_CLIENT_SERVER_ACTION_ERROR_MESSAGE_LENGTH;
 

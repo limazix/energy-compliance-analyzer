@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+build
+coverage
+public
+functions/lib
+functions/node_modules
+docs_html
+firebase-emulator-data
+next-env.d.ts
+src/components/ui/
+# Add other specific files or build artifacts if needed

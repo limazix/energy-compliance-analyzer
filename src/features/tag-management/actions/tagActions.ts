@@ -5,10 +5,12 @@
  * These actions invoke HTTPS Callable Firebase Functions to handle Firestore interactions.
  */
 
-import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
+import { httpsCallable } from 'firebase/functions';
 
 import { APP_CONFIG } from '@/config/appConfig';
 import { functionsInstance } from '@/lib/firebase';
+
+import type { HttpsCallableResult } from 'firebase/functions';
 
 const MAX_CLIENT_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_CLIENT_SERVER_ACTION_ERROR_MESSAGE_LENGTH;
 

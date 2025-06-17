@@ -1,22 +1,21 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "noImplicitReturns": false,
-    "noUnusedLocals": false,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
     "outDir": "lib",
+    "rootDir": "src",
     "sourceMap": true,
-    "strict": false,
-    "target": "es2021",
+    "strict": true,
+    "target": "es2020",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "allowJs": true,
-    "checkJs": false,
-    "baseUrl": ".",
+    "baseUrl": "./src",
     "paths": {
-      "@/*": ["../src/*"]
+      "@/*": ["../../src/*"] // Adjusted to point from functions/src to project_root/src
     }
   },
-  "include": ["./src/**/*.js"],
-  "exclude": ["node_modules", "lib"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "lib", "src/**/__tests__/*"]
 }
