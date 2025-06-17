@@ -10,8 +10,6 @@ const createNextJestConfig = nextJest({
 const commonConfig = {
   setupFilesAfterEnv: ['<rootDir>/tests/mocks/global-lifecycle.setup.ts'],
   clearMocks: true,
-  // bail: true, // Moved to project configs
-  // coverageProvider: 'v8', // Moved to project configs
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@functions/(.*)$': '<rootDir>/functions/src/$1',
@@ -33,11 +31,10 @@ const frontendConfig = {
   ...commonConfig,
   displayName: 'frontend',
   testEnvironment: 'jest-environment-jsdom',
-  bail: true, // Added here
-  coverageProvider: 'v8', // Added here
+  bail: true,
+  coverageProvider: 'v8',
   testMatch: [
-    '<rootDir>/src/**/__tests__/**/*.[jt]s?(x)',
-    '<rootDir>/src/**/?(*.)+(spec|test).[jt]s?(x)',
+    '<rootDir>/tests/unit/frontend/**/*.[jt]s?(x)', // Updated to centralized test location
   ],
 };
 
@@ -46,11 +43,10 @@ const backendConfig = {
   ...commonConfig,
   displayName: 'backend',
   testEnvironment: 'node',
-  bail: true, // Added here
-  coverageProvider: 'v8', // Added here
+  bail: true,
+  coverageProvider: 'v8',
   testMatch: [
-    '<rootDir>/functions/src/**/__tests__/**/*.[jt]s?(x)',
-    '<rootDir>/functions/src/**/?(*.)+(spec|test).[jt]s?(x)', // Corrected .[tj]s?(x) to .[jt]s?(x) for consistency
+    '<rootDir>/tests/unit/backend/**/*.[jt]s?(x)', // Updated to centralized test location
   ],
   transform: {
     '^.+\\.[tj]sx?$': ['ts-jest', { tsconfig: '<rootDir>/functions/tsconfig.json' }],
