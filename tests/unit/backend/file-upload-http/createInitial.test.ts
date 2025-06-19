@@ -8,17 +8,20 @@
 import admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
-import { APP_CONFIG } from '@/config/appConfig';
-
-import { createInitialAnalysisEntry } from '@functions/file-upload-http/createInitial';
+import { APP_CONFIG } from '../../../../config/appConfig';
+import { createInitialAnalysisEntry } from '../../../../functions/src/file-upload-http/createInitial';
 
 // Mock firebase-admin
 const mockFirestoreAdd = jest.fn();
-const mockFirestoreDocRef = {
+const mockFirestoreDocRef: {
+  set: jest.Mock;
+  collection: jest.Mock;
+  id: string;
+} = {
   set: jest.fn(),
   collection: jest.fn(() => mockFirestoreCollectionRef),
   id: 'mock-analysis-id',
-}; // Added id
+};
 const mockFirestoreCollectionRef = {
   add: mockFirestoreAdd,
   doc: jest.fn(() => mockFirestoreDocRef),
@@ -44,6 +47,12 @@ jest.mock('firebase-admin', () => {
   };
 });
 
+interface CreateInitialAnalysisEntryPayload {
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
+}
+
 const MOCK_USER_ID = 'test-user-create-initial';
 
 describe('createInitialAnalysisEntry (Unit)', () => {
@@ -67,7 +76,6 @@ describe('createInitialAnalysisEntry (Unit)', () => {
   });
 
   it('should throw "unauthenticated" if no auth context', async () => {
-    // @ts-expect-error - Testing invalid context: unauthenticated user
     await expect(
       createInitialAnalysisEntry(
         { fileName: 'test.csv', fileSize: 100, fileType: 'text/csv' },
@@ -80,9 +88,11 @@ describe('createInitialAnalysisEntry (Unit)', () => {
 
   it('should throw "invalid-argument" if required fields are missing', async () => {
     const context = { auth: { uid: MOCK_USER_ID } } as functions.https.CallableContext;
-    // @ts-expect-error - Testing invalid input: fileName is missing
     await expect(
-      createInitialAnalysisEntry({ fileSize: 100, fileType: 'text/csv' }, context)
+      createInitialAnalysisEntry(
+        { fileSize: 100, fileType: 'text/csv' } as CreateInitialAnalysisEntryPayload,
+        context
+      )
     ).rejects.toMatchObject({
       code: 'invalid-argument',
       message: 'Missing required fields (fileName, fileType, fileSize must be > 0).',

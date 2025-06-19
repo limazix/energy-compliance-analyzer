@@ -130,7 +130,8 @@ if (typeof window !== 'undefined') {
       Object.keys(properties).forEach((key, index) => {
         (mockStyle as Record<number, string>)[index] = key;
         if (key in mockStyle) {
-          (mockStyle as Record<string, string>)[key] = properties[key];
+          // Use a more specific type to bypass strict type checking for this dynamic assignment
+          (mockStyle as { [key: string]: unknown })[key] = properties[key];
         }
       });
       Object.defineProperty(mockStyle, 'length', {

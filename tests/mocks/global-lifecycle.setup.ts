@@ -2,6 +2,7 @@
  * @fileoverview Global test lifecycle hooks (beforeEach, afterEach) and console mocks.
  */
 import { act } from '@testing-library/react';
+import { User } from 'firebase/auth';
 
 import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config';
 import type { Analysis } from '@/types/analysis'; // Assuming Analysis type is correctly defined
@@ -23,20 +24,21 @@ import type {
 import type { FirebaseFunctionsMock } from './firebase-functions.setup'; // Corrected import name
 import type { FirebaseDatabaseMock } from './firebase-rtdb.setup';
 import type { FirebaseStorageMock } from './firebase-storage.setup';
-import type { User } from 'firebase/auth';
 import type { HttpsCallableResult } from 'firebase/functions';
 
 // --- Global Console Mocking ---
-if (
-  typeof globalThis.console.error !== 'function' ||
-  !(globalThis.console.error as jest.Mock).mockClear
-) {
-  const originalConsoleError = console.error;
-  globalThis.console.error = jest.fn((...args: unknown[]) => {
-    const _suppress = originalConsoleError; // Variable is used to avoid lint error
-    const _args = args; // Variable is used to avoid lint error
-  });
-}
+// Store original console.error
+const originalConsoleError = console.error;
+// Mock console.error to suppress specific known "expected" errors during tests if necessary
+// or to assert that it was called.
+globalThis.console.error = jest.fn((...args: unknown[]) => {
+  // Example: Suppress specific React warnings if they are noisy and expected
+  // if (typeof args[0] === 'string' && args[0].includes('Warning: ReactDOM.render is no longer supported in React 18')) {
+  //   return;
+  // }
+  // By default, don't call originalConsoleError to keep test output clean.
+  originalConsoleError(...args); // Uncomment to see original errors during debugging
+});
 // --- End Global Console Mocking ---
 
 beforeEach(() => {
@@ -52,9 +54,12 @@ beforeEach(() => {
 
   // Clear Custom Hook Global Return Values
   act(() => {
-    if (globalThis.mockUseAnalysisManagerReturnValue) {
-      const manager =
-        globalThis.mockUseAnalysisManagerReturnValue as MockAnalysisManagerReturnValue;
+    if ((globalThis as unknown as { [key: string]: unknown }).mockUseAnalysisManagerReturnValue) {
+      const manager = (
+        globalThis as unknown as {
+          [key: string]: MockAnalysisManagerReturnValue;
+        }
+      ).mockUseAnalysisManagerReturnValue;
       manager.currentAnalysis = null;
       manager.pastAnalyses = [];
       manager.isLoadingPastAnalyses = false;
@@ -79,9 +84,12 @@ beforeEach(() => {
       manager.downloadReportAsTxt.mockClear();
     }
 
-    if (globalThis.mockUseFileUploadManagerReturnValue) {
-      const uploader =
-        globalThis.mockUseFileUploadManagerReturnValue as MockFileUploadManagerReturnValue;
+    if ((globalThis as unknown as { [key: string]: unknown }).mockUseFileUploadManagerReturnValue) {
+      const uploader = (
+        globalThis as unknown as {
+          [key: string]: MockFileUploadManagerReturnValue;
+        }
+      ).mockUseFileUploadManagerReturnValue;
       uploader.fileToUpload = null;
       uploader.isUploading = false;
       uploader.uploadProgress = 0;
@@ -106,23 +114,23 @@ beforeEach(() => {
     }
     // Reset to default implementation for common functions
     if (key === 'httpsCreateInitialAnalysisRecord' && mockFn) {
-      mockFn.mockImplementation((_data: { fileName: string }) =>
-        Promise.resolve({
-          data: { analysisId: `mock-analysis-id-for-${_data.fileName}` },
-        } as HttpsCallableResult<{ analysisId: string }>)
+      mockFn.mockImplementation(
+        (
+          _data: unknown // Changed from { fileName: string } to any
+        ) =>
+          Promise.resolve({
+            data: {
+              analysisId: `mock-analysis-id-for-${
+                (_data as { fileName: string })?.fileName || 'unknown'
+              }`,
+            },
+          } as HttpsCallableResult<{ analysisId: string }>)
       );
     } else if (key === 'httpsUpdateAnalysisUploadProgress' && mockFn) {
       mockFn.mockResolvedValue({
         data: { success: true },
       } as HttpsCallableResult<{ success: boolean }>);
-    } else if (key === 'httpsFinalizeFileUploadRecord' && mockFn) {
-      // This function is deprecated/removed, but keep for safety if old tests reference it
-      mockFn.mockResolvedValue({
-        data: { success: true },
-      } as HttpsCallableResult<{ success: boolean }>);
     } else if (key === 'notifyFileUploadCompleteAction' && mockFn) {
-      // For the new Pub/Sub based finalization, if it were callable (it's not)
-      // This is a placeholder as the action calls Pub/Sub directly now.
       mockFn.mockResolvedValue({
         data: { success: true },
       } as HttpsCallableResult<{ success: boolean }>);
@@ -203,12 +211,16 @@ beforeEach(() => {
   });
 
   // Clear Firebase Auth State
-  globalThis.mockFirebaseAuthUserForListener = null;
-  if (globalThis.authStateListenerCallback) {
+  (globalThis as unknown as { [key: string]: unknown }).mockFirebaseAuthUserForListener = null;
+  if ((globalThis as unknown as { [key: string]: unknown }).authStateListenerCallback) {
     act(() => {
-      if (globalThis.authStateListenerCallback) {
+      if ((globalThis as unknown as { [key: string]: unknown }).authStateListenerCallback) {
         // Double check due to potential async nature
-        globalThis.authStateListenerCallback(null);
+        (
+          globalThis as unknown as {
+            [key: string]: (user: User | null) => void;
+          }
+        ).authStateListenerCallback(null);
       }
     });
   }
@@ -248,20 +260,5 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.clearAllMocks(); // Standard Jest clear
-  globalThis.authStateListenerCallback = null; // Reset auth listener callback
+  (globalThis as unknown as { [key: string]: unknown }).authStateListenerCallback = null; // Reset auth listener callback
 });
-
-// Helper to mock useAuth for specific tests if needed, though global mock is primary
-interface UseAuthMockReturnValue {
-  user: User | null;
-  loading: boolean;
-}
-export const mockAuthContext = (
-  user: User | null,
-  loading = false
-): typeof import('@/contexts/auth-context') => {
-  const useAuthActual =
-    jest.requireActual<typeof import('@/contexts/auth-context')>('@/contexts/auth-context');
-  jest.spyOn(useAuthActual, 'useAuth').mockReturnValue({ user, loading } as UseAuthMockReturnValue);
-  return useAuthActual;
-};

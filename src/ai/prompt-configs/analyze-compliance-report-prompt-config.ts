@@ -43,8 +43,9 @@ export const ReportSectionSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Sugestão de diagrama em sintaxe Mermaid para ilustrar esta seção, e os dados que ele representaria. Ex: 'graph TD\\nA[Tensão Média Diária] --> B{Limite PRODIST}; B --> C[Conforme]; B --> D[Não Conforme];'. Consulte a documentação em https://mermaid.js.org/intro/ para referência."
+      "Sugestão de diagrama em sintaxe Mermaid para ilustrar esta seção, e os dados que ele representaria. Ex: 'graph TA[Tensão Média Diária] --> B{Limite PRODIST}; B --> C[Conforme]; B --> D[Não Conforme];'. Consulte a documentação em https://mermaid.js.org/intro/ para referência."
     ),
+  chartUrl: z.string().url().optional().describe('URL pública do gráfico gerado para esta seção.'),
 });
 export type ReportSection = z.infer<typeof ReportSectionSchema>;
 
@@ -169,6 +170,7 @@ Gerar um relatório de conformidade completo no idioma '{{languageCode}}', segui
         *   \`insights\`: Liste os principais insights, observações ou problemas detectados nesta seção específica. Cada insight deve ser uma frase concisa.
         *   \`relevantNormsCited\`: Para cada insight ou problema, **explicite a norma ANEEL e o artigo/item específico em Português** que o respalda (ex: "Resolução XXX/YYYY, Art. Z, Inciso W", ou "PRODIST Módulo 8, item 3.2.1"). Seja preciso.
         *   \`chartOrImageSuggestion\`: (OPCIONAL, MAS RECOMENDADO) Gere uma sugestão de diagrama visual em **sintaxe Mermaid** que poderia ilustrar os achados da seção. Ex: para um gráfico de pizza, \`pie title Título do Gráfico "Seção A": 30 "Seção B": 70\`; para um gráfico de barras, \`xychart-beta title "Variação da Tensão" x-axis "Tempo" y-axis "Tensão (V)" bar [10, 12, 15, 11]\`. **Consulte a documentação oficial do Mermaid.js em https://mermaid.js.org/intro/ para referência da sintaxe.** A sintaxe Mermaid DEVE ser fornecida diretamente neste campo.
+        *   \`chartUrl\`: (OPCIONAL) Este campo será preenchido posteriormente com a URL de um gráfico gerado. Não preencha este campo.
 
 5.  **finalConsiderations:**
     *   Resuma as principais conclusões da análise.

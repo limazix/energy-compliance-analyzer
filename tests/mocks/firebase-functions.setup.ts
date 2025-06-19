@@ -1,49 +1,83 @@
-/**
- * @fileoverview Firebase Functions mock setup for Jest.
- */
-import type { FirebaseApp } from 'firebase/app';
-import type { FirebaseFunctions, HttpsCallable, HttpsCallableResult } from 'firebase/functions';
+import { Request, Response } from 'express';
 
-// This object will store mocks keyed by function name for httpsCallable
-export const mockHttpsCallableStore: Record<
-  string,
-  jest.Mock<Promise<HttpsCallableResult<unknown>>, [unknown?]>
-> = {};
+import type { EventContext, https, pubsub, firestore } from 'firebase-functions';
+
+export const mockHttpsCallableStore = {};
 
 export interface FirebaseFunctionsMock {
-  getFunctions: jest.Mock<FirebaseFunctions, [FirebaseApp?, string?]>;
-  httpsCallable: jest.Mock<HttpsCallable<unknown, unknown>, [FirebaseFunctions, string]>;
-  connectFunctionsEmulator: jest.Mock<void, [FirebaseFunctions, string, number]>;
-  __mockHttpsCallableStore: typeof mockHttpsCallableStore; // Expose for clearing
+  __mockHttpsCallableStore: {
+    [key: string]: jest.Mock;
+  };
 }
 
-jest.mock('firebase/functions', (): FirebaseFunctionsMock => {
-  const actualFunctions =
-    jest.requireActual<typeof import('firebase/functions')>('firebase/functions');
-
-  const httpsCallableMock = jest.fn(
-    (
-      _functionsInstance: FirebaseFunctions,
-      functionName: string
-    ): HttpsCallable<unknown, unknown> => {
-      if (!mockHttpsCallableStore[functionName]) {
-        // Default mock implementation
-        mockHttpsCallableStore[functionName] = jest.fn((_data?: unknown) =>
-          Promise.resolve({
-            data: { success: true, message: `Default mock for ${functionName}` },
-          } as HttpsCallableResult<unknown>)
-        );
-      }
-      // Return the specific mock function for this callable name
-      return mockHttpsCallableStore[functionName] as HttpsCallable<unknown, unknown>;
+jest.mock('firebase/functions', () => ({
+  getFunctions: jest.fn(() => ({})),
+  httpsCallable: jest.fn((_functions, name) => {
+    if (!mockHttpsCallableStore[name]) {
+      mockHttpsCallableStore[name] = jest.fn();
     }
-  ) as FirebaseFunctionsMock['httpsCallable'];
+    return mockHttpsCallableStore[name];
+  }),
+}));
 
-  return {
-    ...actualFunctions,
-    getFunctions: jest.fn(() => ({}) as FirebaseFunctions),
-    httpsCallable: httpsCallableMock,
-    connectFunctionsEmulator: jest.fn(),
-    __mockHttpsCallableStore: mockHttpsCallableStore,
-  };
-});
+jest.mock(
+  'firebase-functions',
+  () => {
+    const https = {
+      onCall: (
+        handler: (
+          data: https.CallableRequest,
+          context: https.CallableContext
+        ) => Promise<void> | void
+      ) => {
+        // Return a function that can be invoked in tests
+        // with the data and context objects.
+        return (data: https.CallableRequest, context: https.CallableContext) =>
+          handler(data, context);
+      },
+      onRequest: (handler: (req: Request, res: Response) => void) => handler,
+    };
+
+    const pubsub = {
+      topic: (_topicName: string) => ({
+        onPublish: (
+          handler: (message: pubsub.Message, context: EventContext) => Promise<void> | void
+        ) => {
+          return (message: pubsub.Message, context: EventContext) => handler(message, context);
+        },
+      }),
+    };
+
+    const firestore = {
+      document: (_path: string) => ({
+        onUpdate: (
+          handler: (
+            change: firestore.DocumentSnapshotChange,
+            context: EventContext
+          ) => Promise<void> | void
+        ) => {
+          return (change: firestore.DocumentSnapshotChange, context: EventContext) =>
+            handler(change, context);
+        },
+        onDelete: (
+          handler: (snapshot: firestore.DocumentSnapshot, context: EventContext) => any
+        ) => {
+          return (snapshot: firestore.DocumentSnapshot, context: EventContext) =>
+            handler(snapshot, context);
+        },
+      }),
+    };
+
+    return {
+      https,
+      pubsub,
+      firestore,
+      config: () => ({
+        firebase: {
+          projectId: 'test-project',
+        },
+      }),
+    };
+  },
+  { virtual: true }
+);

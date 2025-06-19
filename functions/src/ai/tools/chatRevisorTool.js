@@ -7,12 +7,13 @@
  */
 
 const { z } = require('zod');
-const { ai } = require('../genkit-instance'); // Shared AI instance for functions
-const { reviewComplianceReportFlow_Chat } = require('../flows/chatReviewAgent.js');
+
 const {
   AnalyzeComplianceReportOutputSchema, // Used by the Revisor tool and overall interaction output
   OrchestrateReportInteractionInputSchema, // To get languageCode schema
 } = require('../../../lib/shared/ai/prompt-configs/orchestrate-report-interaction-prompt-config.js');
+const { reviewComplianceReportFlow_Chat } = require('../flows/chatReviewAgent.js');
+const { ai } = require('../genkit-instance'); // Shared AI instance for functions
 
 /**
  * Genkit tool that invokes the chat-specific review flow to revise a structured report.

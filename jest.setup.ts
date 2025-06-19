@@ -1,29 +1,34 @@
 /**
  * @fileoverview Main Jest setup file.
- * This file imports all individual mock setup modules and global configurations.
+ * This file imports all individual mock setup modules and global configurations
+ * that are COMMON to BOTH frontend and backend test environments.
+ * Frontend-specific or backend-specific setups are handled by their respective
+ * project configurations in jest.config.ts.
  */
 import { TextDecoder, TextEncoder } from 'util'; // Node built-in
 
 import { Timestamp } from 'firebase/firestore'; // Firebase
 import '@testing-library/jest-dom'; // Testing library
 
-// Import feature-specific mock setups
-// These imports must come after global polyfills or mocks if they depend on them.
-import './tests/mocks/custom-hooks.setup'; // This will also define global mock objects and their types
+// Import feature-specific mock setups that are safe for both environments
+import './tests/mocks/custom-hooks.setup';
 import './tests/mocks/firebase-auth.setup';
 import './tests/mocks/firebase-functions.setup';
 import './tests/mocks/firebase-rtdb.setup';
 import './tests/mocks/firebase-storage.setup';
-import './tests/mocks/global-lifecycle.setup'; // Global lifecycle hooks should be imported after other mocks if it depends on them for clearing, etc.
-import './tests/mocks/jsdom-polyfills.setup'; // JSDOM polyfills should be early
 import './tests/mocks/next-navigation.setup';
 import './tests/mocks/ui-components.setup';
 
-// Assign TextEncoder and TextDecoder to global for Jest environment
+// Import global lifecycle hooks LAST, as it might depend on other mocks/globals for clearing.
+import './tests/mocks/global-lifecycle.setup';
+
+// Assign TextEncoder and TextDecoder to global for Jest environment (all projects)
 Object.assign(global, { TextEncoder, TextDecoder });
 
 // Global assignments that are not part of a specific mock module
-globalThis.Timestamp = Timestamp;
+(globalThis as { [key: string]: unknown }).Timestamp = Timestamp; // Use a more specific type for globalThis
 
 // eslint-disable-next-line no-console
-console.info('Jest setup: Running in unit test mode. Firebase SDKs are mocked.');
+console.info(
+  'Jest common setup: Running. Firebase client SDKs are mocked. Environment-specific setups (frontend/backend) will load their respective additional mocks.'
+);

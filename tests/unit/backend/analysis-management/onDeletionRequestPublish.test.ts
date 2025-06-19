@@ -7,9 +7,8 @@
 import adminActual from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
-import { APP_CONFIG } from '@/config/appConfig';
-
-import { onAnalysisDeletionRequested } from '@functions/analysis-management/onDeletionRequestPublish';
+import { APP_CONFIG } from '../../../../config/appConfig';
+import { onAnalysisDeletionRequested } from '../../../../functions/src/analysis-management/onDeletionRequestPublish';
 
 // Mock firebase-admin
 const mockDocGet = jest.fn();

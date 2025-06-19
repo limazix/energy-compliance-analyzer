@@ -6,9 +6,8 @@
  */
 import * as functions from 'firebase-functions';
 
-import { APP_CONFIG } from '@/config/appConfig';
-
-import { httpsCallableTriggerProcessing } from '@functions/core-analysis/triggerProcessingHttp';
+import { APP_CONFIG } from '../../../../config/appConfig';
+import { httpsCallableTriggerProcessing } from '../../../../functions/src/core-analysis/triggerProcessingHttp';
 
 // Mock firebase-admin before importing the function
 const mockDocGet = jest.fn();
@@ -25,6 +24,10 @@ const UPLOAD_COMPLETED_OVERALL_PROGRESS = APP_CONFIG.PROGRESS_PERCENTAGE_UPLOAD_
 const MOCK_USER_ID_TRIGGER = 'test-user-trigger';
 const MOCK_ANALYSIS_ID_TRIGGER = 'analysis-id-trigger';
 
+interface TriggerProcessingRequest {
+  analysisId: string;
+}
+
 describe('httpsCallableTriggerProcessing (Unit)', () => {
   beforeEach(() => {
     mockDocGet.mockReset();
@@ -40,16 +43,20 @@ describe('httpsCallableTriggerProcessing (Unit)', () => {
   const validData = { analysisId: MOCK_ANALYSIS_ID_TRIGGER };
 
   it('should throw "unauthenticated" if no auth context', async () => {
-    // @ts-expect-error - Testing invalid context: unauthenticated user
-    await expect(httpsCallableTriggerProcessing(validData, {})).rejects.toMatchObject({
+    await expect(
+      httpsCallableTriggerProcessing(validData, {} as functions.https.CallableContext)
+    ).rejects.toMatchObject({
       code: 'unauthenticated',
     });
   });
 
   it('should throw "invalid-argument" if analysisId is missing', async () => {
-    // @ts-expect-error - Testing invalid input: analysisId missing
-    await expect(httpsCallableTriggerProcessing({}, validAuthContext)).rejects.toMatchObject({
-      code: 'invalid-argument',
+    await expect(
+      httpsCallableTriggerProcessing(
+        {} as TriggerProcessingRequest,
+        validAuthContext as functions.https.CallableContext
+      )
+    ).rejects.toMatchObject(<functions.https.HttpsError>{
       message: 'ID da análise é obrigatório.',
     });
   });

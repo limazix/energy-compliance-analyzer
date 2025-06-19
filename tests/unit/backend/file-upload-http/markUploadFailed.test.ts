@@ -6,9 +6,7 @@
  */
 import * as functions from 'firebase-functions';
 
-import { APP_CONFIG } from '@/config/appConfig';
-
-import { httpsMarkUploadAsFailed } from '@functions/file-upload-http/markUploadFailed';
+import { httpsMarkUploadAsFailed } from '../../../../functions/src/file-upload-http/markUploadFailed';
 
 // Mock firebase-admin
 const mockDocGet = jest.fn();
@@ -26,7 +24,6 @@ jest.mock('firebase-admin', () => ({
 
 const MOCK_USER_ID = 'test-user-mark-failed';
 const MOCK_ANALYSIS_ID = 'analysis-id-for-failure';
-const _MAX_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_SERVER_ERROR_MESSAGE_LENGTH; // Not used directly, but kept for context
 
 describe('httpsMarkUploadAsFailed (Unit)', () => {
   beforeEach(() => {
@@ -46,7 +43,6 @@ describe('httpsMarkUploadAsFailed (Unit)', () => {
 
   it('should throw "unauthenticated" if no auth context', async () => {
     const data = { analysisId: MOCK_ANALYSIS_ID, uploadErrorMessage: 'Test error' };
-    // @ts-expect-error - Testing invalid context: unauthenticated user
     await expect(
       httpsMarkUploadAsFailed(data, {} as functions.https.CallableContext)
     ).rejects.toMatchObject({

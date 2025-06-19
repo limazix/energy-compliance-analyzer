@@ -90,6 +90,8 @@ console.info(`Firebase Init: Initializing Functions client for region: ${functio
 const functionsInstance: FirebaseFunctionsService = getFunctions(app, functionsRegion);
 const googleProvider = new GoogleAuthProvider();
 
-connectEmulators(auth, db, storage, rtdb, functionsInstance);
+if (process.env.NODE_ENV !== 'test') {
+  connectEmulators(auth, db, storage, rtdb, functionsInstance);
+}
 
 export { app, auth, db, storage, rtdb, googleProvider, functionsInstance };

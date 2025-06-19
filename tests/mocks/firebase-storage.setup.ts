@@ -10,6 +10,7 @@ import type {
   UploadMetadata,
   UploadTask,
   UploadTaskSnapshot,
+  FullMetadata,
 } from 'firebase/storage';
 
 export interface MockUploadTask extends UploadTask {
@@ -24,17 +25,17 @@ export interface MockUploadTask extends UploadTask {
     ]
   >;
   snapshot: UploadTaskSnapshot; // Already part of UploadTask
-  pause: jest.Mock<boolean, []>; // Updated return type based on actual API
-  resume: jest.Mock<boolean, []>; // Updated return type based on actual API
-  cancel: jest.Mock<boolean, []>; // Updated return type based on actual API
+  pause: jest.Mock<boolean, []>;
+  resume: jest.Mock<boolean, []>;
+  cancel: jest.Mock<boolean, []>;
 }
 
 export interface FirebaseStorageMock {
-  getStorage: jest.Mock<FirebaseStorage, []>; // Explicitly type as taking no arguments
+  getStorage: jest.Mock<FirebaseStorage, []>;
   ref: jest.Mock<StorageReference, [FirebaseStorage | StorageReference, string?]>;
   uploadBytesResumable: jest.Mock<
-    UploadTask, // Use UploadTask as base, specific methods will be jest.Mock
-    [StorageReference, Blob | Uint8Array | ArrayBuffer, UploadMetadata?] // Corrected type
+    UploadTask,
+    [StorageReference, Blob | Uint8Array | ArrayBuffer, UploadMetadata?]
   >;
   getDownloadURL: jest.Mock<Promise<string>, [StorageReference]>;
   // Expose mock instances for test manipulation
@@ -50,15 +51,35 @@ export interface FirebaseStorageMock {
 jest.mock('firebase/storage', (): FirebaseStorageMock => {
   const actualStorage = jest.requireActual<typeof import('firebase/storage')>('firebase/storage');
 
+  // Create a more complete FullMetadata mock
+  const mockFullMetadata: FullMetadata = {
+    bucket: 'fake-bucket',
+    fullPath: 'mock/path/to/file.csv',
+    name: 'file.csv',
+    size: 100,
+    timeCreated: new Date().toISOString(),
+    updated: new Date().toISOString(),
+    md5Hash: 'mockMd5Hash',
+    cacheControl: undefined,
+    contentDisposition: undefined,
+    contentEncoding: undefined,
+    contentLanguage: undefined,
+    contentType: 'text/csv',
+    customMetadata: undefined,
+    // 'type' property was removed as it's not part of FullMetadata
+    generation: 'mockGeneration',
+    metageneration: 'mockMetageneration',
+    downloadTokens: ['mock-token'],
+  };
+
   const mockUploadTaskInternal: MockUploadTask = {
     on: jest.fn(
       (
         event: 'state_changed',
         progressCb?: (snapshot: UploadTaskSnapshot) => void,
-        errorCb?: (error: StorageError) => void, // errorCb added
-        completeCb?: () => void // completeCb added
+        errorCb?: (error: StorageError) => void,
+        completeCb?: () => void
       ): (() => void) => {
-        // Simulate progress
         const snapshotRef = {
           toString: () => 'gs://fake-bucket/mock/path/to/file.csv',
           name: 'file.csv',
@@ -70,11 +91,11 @@ jest.mock('firebase/storage', (): FirebaseStorageMock => {
           bytesTransferred: 50,
           totalBytes: 100,
           state: 'running',
-          metadata: { fullPath: 'mock/path/to/file.csv' } as UploadMetadata, // Cast to UploadMetadata
+          metadata: mockFullMetadata,
           ref: snapshotRef,
           task: null as unknown as UploadTask, // Will be set below
         };
-        progressSnapshot.task = mockUploadTaskInternal; // Reference to itself
+        progressSnapshot.task = mockUploadTaskInternal; // Circular reference setup
 
         if (event === 'state_changed' && progressCb) {
           act(() => progressCb({ ...progressSnapshot, bytesTransferred: 0 }));
@@ -82,15 +103,14 @@ jest.mock('firebase/storage', (): FirebaseStorageMock => {
           act(() => progressCb({ ...progressSnapshot, bytesTransferred: 100, state: 'success' }));
         }
         if (event === 'state_changed' && completeCb) {
-          // Simulate completion after some progress
           Promise.resolve().then(() => act(() => completeCb()));
         }
         if (errorCb) {
-          // This is just a placeholder; real error simulation would be more complex
+          // Placeholder - you can simulate errors by calling errorCb
         }
-        return jest.fn(); // Return unsubscribe function
+        return jest.fn(); // Returns the unsubscribe function
       }
-    ) as MockUploadTask['on'], // Cast to the more specific jest.Mock type
+    ) as MockUploadTask['on'],
     snapshot: {
       ref: {
         toString: () => 'gs://fake-bucket/mock/path/to/file.csv',
@@ -101,20 +121,20 @@ jest.mock('firebase/storage', (): FirebaseStorageMock => {
       bytesTransferred: 100,
       totalBytes: 100,
       state: 'success',
-      metadata: { fullPath: 'mock/path/to/file.csv' } as UploadMetadata, // Cast
+      metadata: mockFullMetadata,
       task: null as unknown as UploadTask, // Will be set below
-    } as UploadTaskSnapshot, // Initial snapshot
+    } as UploadTaskSnapshot,
     pause: jest.fn(() => true) as MockUploadTask['pause'],
     resume: jest.fn(() => true) as MockUploadTask['resume'],
     cancel: jest.fn(() => true) as MockUploadTask['cancel'],
     then: jest.fn((onFulfilled) =>
       Promise.resolve(onFulfilled(mockUploadTaskInternal.snapshot))
-    ) as unknown as Promise<UploadTaskSnapshot>['then'], // Cast 'then'
+    ) as unknown as Promise<UploadTaskSnapshot>['then'],
     catch: jest.fn((onRejected) =>
       Promise.reject(onRejected(new Error('Mock Upload Error') as StorageError))
-    ) as unknown as Promise<UploadTaskSnapshot>['catch'], // Cast 'catch'
+    ) as unknown as Promise<UploadTaskSnapshot>['catch'],
   };
-  mockUploadTaskInternal.snapshot.task = mockUploadTaskInternal; // Self-reference
+  mockUploadTaskInternal.snapshot.task = mockUploadTaskInternal; // Complete circular reference
 
   const refMockInternal = jest.fn(
     (instanceOrRef: FirebaseStorage | StorageReference, path?: string): StorageReference => {
@@ -129,10 +149,10 @@ jest.mock('firebase/storage', (): FirebaseStorageMock => {
         bucket: 'fake-bucket',
         fullPath: fullPath || 'undefined_path',
         name: fullPath ? fullPath.substring(fullPath.lastIndexOf('/') + 1) : 'undefined_filename',
-        parent: null, // Simplified
-        root: null, // Simplified
-        storage: {} as FirebaseStorage, // Dummy storage
-      } as unknown as StorageReference;
+        parent: null, // Simplified for mock
+        root: null, // Simplified for mock
+        storage: {} as FirebaseStorage, // Simplified for mock
+      } as unknown as StorageReference; // Cast to satisfy the return type
     }
   ) as FirebaseStorageMock['__mockRef'];
 
@@ -142,7 +162,11 @@ jest.mock('firebase/storage', (): FirebaseStorageMock => {
   ) as FirebaseStorageMock['__mockGetDownloadURL'];
 
   const uploadBytesResumableMockInternal = jest.fn(
-    (): UploadTask => mockUploadTaskInternal
+    (
+      _ref: StorageReference,
+      _data: Blob | Uint8Array | ArrayBuffer,
+      _metadata?: UploadMetadata
+    ): UploadTask => mockUploadTaskInternal
   ) as FirebaseStorageMock['__mockUploadBytesResumable'];
 
   return {

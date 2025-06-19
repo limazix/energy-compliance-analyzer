@@ -7,11 +7,11 @@
 import adminActual from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
-import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config'; // Path relative to project root
-import { APP_CONFIG } from '@/config/appConfig'; // Path relative to project root
-import { getAdminFileContentFromStorage as originalGetAdminFileContentFromStorage } from '@/utils/storage'; // Path relative to project root
+import { APP_CONFIG } from '../../../../config/appConfig';
+import { httpsCallableGetAnalysisReport } from '../../../../functions/src/analysis-management/reportRetrievalHttp';
+import { getAdminFileContentFromStorage as originalGetAdminFileContentFromStorage } from '../../../../utils/storage';
 
-import { httpsCallableGetAnalysisReport } from '@functions/analysis-management/reportRetrievalHttp'; // Using @functions alias
+import type { AnalyzeComplianceReportOutput } from '../../../../ai/prompt-configs/analyze-compliance-report-prompt-config';
 
 // Mock firebase-admin for Firestore
 // --- Start of Pre-defined Mocks for firebase-admin ---
@@ -36,7 +36,7 @@ jest.mock('firebase-admin', () => {
   };
 });
 
-jest.mock('@/utils/storage', () => ({
+jest.mock('../../../../utils/storage', () => ({
   // Use @/ alias
   getAdminFileContentFromStorage: jest.fn(),
 }));
@@ -70,20 +70,26 @@ describe('Report Retrieval HTTPS Callable (Unit)', () => {
     mockGetAdminFileContentFromStorage.mockReset();
   });
 
-  const authContext = { auth: { uid: MOCK_USER_ID_REPORT } } as functions.https.CallableContext;
+  const authContext: functions.https.CallableContext = {
+    auth: { uid: MOCK_USER_ID_REPORT },
+  };
 
   it('should throw "unauthenticated" if no auth context', async () => {
-    // @ts-expect-error - Testing invalid context: unauthenticated user
     await expect(
-      httpsCallableGetAnalysisReport({ analysisId: MOCK_ANALYSIS_ID_REPORT }, {})
+      httpsCallableGetAnalysisReport(
+        { analysisId: MOCK_ANALYSIS_ID_REPORT },
+        {} as functions.https.CallableContext
+      )
     ).rejects.toMatchObject({
       code: 'unauthenticated',
     });
   });
 
   it('should throw "invalid-argument" if analysisId is missing', async () => {
-    // @ts-expect-error - Testing invalid input: analysisId is required for this function call
-    await expect(httpsCallableGetAnalysisReport({}, authContext)).rejects.toMatchObject({
+    // Use the pre-defined auth context
+    await expect(
+      httpsCallableGetAnalysisReport({} as { analysisId: string }, authContext)
+    ).rejects.toMatchObject({
       code: 'invalid-argument',
       message: 'ID da análise é obrigatório.',
     });

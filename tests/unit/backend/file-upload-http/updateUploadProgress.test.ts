@@ -6,9 +6,8 @@
  */
 import * as functions from 'firebase-functions';
 
-import { APP_CONFIG } from '@/config/appConfig';
-
-import { httpsUpdateAnalysisUploadProgress } from '@functions/file-upload-http/updateUploadProgress';
+import { APP_CONFIG } from '../../../../config/appConfig';
+import { httpsUpdateAnalysisUploadProgress } from '../../../../functions/src/file-upload-http/updateUploadProgress';
 
 // Mock firebase-admin
 const mockDocGet = jest.fn();
@@ -27,7 +26,11 @@ jest.mock('firebase-admin', () => ({
 const MOCK_USER_ID_UPDATE_PROG = 'test-user-update-progress';
 const MOCK_ANALYSIS_ID_UPDATE_PROG = 'analysis-id-for-progress';
 const UPLOAD_COMPLETED_OVERALL_PROGRESS = APP_CONFIG.PROGRESS_PERCENTAGE_UPLOAD_COMPLETE;
-const _MAX_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_SERVER_ERROR_MESSAGE_LENGTH; // Not used directly, but kept for context
+
+interface UpdateProgressPayload {
+  analysisId?: string;
+  uploadProgress?: number;
+}
 
 describe('httpsUpdateAnalysisUploadProgress (Unit)', () => {
   beforeEach(() => {
@@ -52,7 +55,6 @@ describe('httpsUpdateAnalysisUploadProgress (Unit)', () => {
 
   it('should throw "unauthenticated" if no auth context', async () => {
     const data = { analysisId: MOCK_ANALYSIS_ID_UPDATE_PROG, uploadProgress: 50 };
-    // @ts-expect-error - Testing invalid context: unauthenticated user
     await expect(
       httpsUpdateAnalysisUploadProgress(data, {} as functions.https.CallableContext)
     ).rejects.toMatchObject({
@@ -62,9 +64,8 @@ describe('httpsUpdateAnalysisUploadProgress (Unit)', () => {
 
   it('should throw "invalid-argument" if analysisId is missing', async () => {
     const context = { auth: { uid: MOCK_USER_ID_UPDATE_PROG } } as functions.https.CallableContext;
-    // @ts-expect-error - Testing invalid data: missing analysisId
     await expect(
-      httpsUpdateAnalysisUploadProgress({ uploadProgress: 50 }, context)
+      httpsUpdateAnalysisUploadProgress({ uploadProgress: 50 } as UpdateProgressPayload, context)
     ).rejects.toMatchObject({
       code: 'invalid-argument',
     });
@@ -72,16 +73,20 @@ describe('httpsUpdateAnalysisUploadProgress (Unit)', () => {
 
   it('should throw "invalid-argument" if uploadProgress is not a number', async () => {
     const context = { auth: { uid: MOCK_USER_ID_UPDATE_PROG } } as functions.https.CallableContext;
-    // @ts-expect-error - Testing invalid data: uploadProgress missing
     await expect(
-      httpsUpdateAnalysisUploadProgress({ analysisId: MOCK_ANALYSIS_ID_UPDATE_PROG }, context)
+      httpsUpdateAnalysisUploadProgress(
+        { analysisId: MOCK_ANALYSIS_ID_UPDATE_PROG } as UpdateProgressPayload,
+        context
+      )
     ).rejects.toMatchObject({
       code: 'invalid-argument',
     });
-    // @ts-expect-error - Testing invalid data: uploadProgress is not a number
     await expect(
       httpsUpdateAnalysisUploadProgress(
-        { analysisId: MOCK_ANALYSIS_ID_UPDATE_PROG, uploadProgress: 'fifty' },
+        {
+          analysisId: MOCK_ANALYSIS_ID_UPDATE_PROG,
+          uploadProgress: 'fifty',
+        } as UpdateProgressPayload,
         context
       )
     ).rejects.toMatchObject({

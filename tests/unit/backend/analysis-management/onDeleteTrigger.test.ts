@@ -7,9 +7,9 @@
 import adminActual from 'firebase-admin';
 import functionsTest from 'firebase-functions-test';
 
-import { APP_CONFIG } from '@/config/appConfig';
-import { handleDeleteTrigger } from '@/functions/analysis-management/onDeleteTrigger'; // Adjusted path for SUT
-import { deleteAdminFileFromStorage as originalDeleteAdminFileFromStorage } from '@/utils/storage';
+import { APP_CONFIG } from '../../../../config/appConfig';
+import { handleDeleteTrigger } from '../../../../functions/src/analysis-management/onDeleteTrigger'; // Adjusted path for SUT
+import { deleteAdminFileFromStorage as originalDeleteAdminFileFromStorage } from '../../../../utils/storage';
 
 import type * as functions from 'firebase-functions';
 
@@ -80,9 +80,8 @@ jest.mock('firebase-admin', () => {
       auth: jest.fn().mockReturnValue({}),
       database: jest.fn().mockReturnValue({ ref: jest.fn() }),
       messaging: jest.fn().mockReturnValue({}),
-      // @ts-expect-error - Test: Pubsub is not always available on App
       pubsub: jest.fn().mockReturnValue({ topic: jest.fn() }),
-    }) as adminActual.app.App;
+    }) as unknown as adminActual.app.App;
 
   const mockInitializeAppInternal = jest.fn(
     (_options?: adminActual.AppOptions, appNameParam?: string) => {
@@ -141,7 +140,7 @@ jest.mock('firebase-admin', () => {
   };
 });
 
-jest.mock('@/utils/storage', () => ({
+jest.mock('../../../../utils/storage', () => ({
   deleteAdminFileFromStorage: jest.fn(),
 }));
 const mockDeleteAdminFileFromStorage = originalDeleteAdminFileFromStorage as jest.Mock;
@@ -156,7 +155,13 @@ describe('handleAnalysisDeletionRequest Firestore Trigger', () => {
   let wrappedHandleAnalysisDeletionRequest: functions.CloudFunction<
     functions.Change<functions.firestore.DocumentSnapshot>
   >;
-  let testInstance: functionsTest.FeaturesTest;
+  let testInstance: {
+    wrap: (
+      handler: functions.CloudFunction<functions.Change<functions.firestore.DocumentSnapshot>>
+    ) => functions.CloudFunction<functions.Change<functions.firestore.DocumentSnapshot>>;
+    mockConfig: (config: object) => void;
+    cleanup: () => void;
+  };
 
   beforeAll(() => {
     testInstance = functionsTest({
@@ -164,7 +169,6 @@ describe('handleAnalysisDeletionRequest Firestore Trigger', () => {
     });
     testInstance.mockConfig({
       firebase: { projectId: 'test-project-ondelete' },
-      // @ts-expect-error - Test: app_config is not a standard firebase config key
       app_config: APP_CONFIG,
     });
   });
@@ -178,9 +182,7 @@ describe('handleAnalysisDeletionRequest Firestore Trigger', () => {
       .mockImplementation(() => currentFirestoreDocRefMethods_onDeleteTrigger);
     mockFirestoreServiceInstance_onDeleteTrigger.collection.mockClear();
     mockDeleteAdminFileFromStorage.mockReset();
-    wrappedHandleAnalysisDeletionRequest = testInstance.wrap(
-      handleDeleteTrigger // Use the exported name from SUT
-    ) as functions.CloudFunction<functions.Change<functions.firestore.DocumentSnapshot>>;
+    wrappedHandleAnalysisDeletionRequest = testInstance.wrap(handleDeleteTrigger);
   });
 
   afterAll(() => {

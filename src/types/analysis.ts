@@ -1,3 +1,5 @@
+import * as admin from 'firebase-admin';
+
 import type { AnalyzeComplianceReportOutput } from '@/ai/prompt-configs/analyze-compliance-report-prompt-config'; // Importar o novo tipo
 
 import type { Timestamp } from 'firebase/firestore';
@@ -49,6 +51,41 @@ export interface Analysis {
   completedAt?: string | Timestamp; // ISO string on client, Timestamp from Firestore
   reportLastModifiedAt?: string | Timestamp; // For chat revisions
   deletionRequestedAt?: string | Timestamp; // For event-driven deletion
+}
+
+export interface AnalysisData {
+  analysisId: string;
+  userId: string;
+  fileName: string;
+  fileType?: string; // Make optional if not always present
+  status:
+    | 'initial'
+    | 'uploading'
+    | 'processing'
+    | 'summarizing_data'
+    | 'identifying_regulations'
+    | 'assessing_compliance'
+    | 'reviewing_report'
+    | 'completed'
+    | 'failed' // Changed from 'error' to 'failed' for consistency if needed, or add 'failed'
+    | 'error' // Keep 'error' if used
+    | 'cancelling'
+    | 'cancelled'
+    | 'deleted' // Add 'deleted'
+    | 'pending_deletion'; // Add 'pending_deletion'
+  createdAt: admin.firestore.FieldValue | admin.firestore.Timestamp | string; // Allow string for ISO
+  updatedAt?: admin.firestore.FieldValue | admin.firestore.Timestamp | string; // Allow string for ISO
+  powerQualityDataUrl?: string;
+  progress?: number;
+  isDataChunked?: boolean;
+  powerQualityDataSummary?: string;
+  identifiedRegulations?: string[];
+  structuredReport?: AnalyzeComplianceReportOutput;
+  summary?: string;
+  mdxReportStoragePath?: string;
+  completedAt?: admin.firestore.FieldValue | admin.firestore.Timestamp | string; // Allow string for ISO
+  errorMessage?: string | null;
+  languageCode?: string;
 }
 
 // Define the return type for the getAnalysisReportAction (and its HTTPS Function counterpart)

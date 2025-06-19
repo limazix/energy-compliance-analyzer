@@ -1,7 +1,8 @@
 /**
  * @fileoverview Next.js navigation mocks for Jest.
  */
-import type { NextRouter, AppRouterInstance } from 'next/dist/shared/lib/router/router';
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import type { NextRouter } from 'next/dist/shared/lib/router/router';
 import type { ReadonlyURLSearchParams } from 'next/navigation';
 
 export const mockRouterPush = jest.fn();

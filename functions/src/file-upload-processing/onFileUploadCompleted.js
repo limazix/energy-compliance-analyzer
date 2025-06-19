@@ -11,8 +11,8 @@
  * Component: onFileUploadCompleted
  */
 
-const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const functions = require('firebase-functions');
 
 const { APP_CONFIG } = require('../../lib/shared/config/appConfig.js');
 

@@ -7,13 +7,14 @@
 import adminActual from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
-import { APP_CONFIG } from '@/config/appConfig';
-import type { Analysis } from '@/types/analysis'; // Path relative to project root
-
 import {
+  CancelAnalysisRequest,
+  GetPastAnalysesRequest,
   httpsCallableCancelAnalysis,
   httpsCallableGetPastAnalyses,
-} from '@functions/analysis-management/crudHttp'; // Using @functions alias
+} from '../../../../functions/src/analysis-management/crudHttp'; // Using @functions alias
+
+import type { Analysis } from '../../../../types/analysis'; // Path relative to project root
 
 // --- Start of Pre-defined Mocks for firebase-admin ---
 // DEFINE ALL MOCK COMPONENTS BEFORE jest.mock('firebase-admin')
@@ -24,7 +25,11 @@ const mockCollectionWhere_crudHttp = jest.fn().mockReturnThis();
 const mockCollectionGet_crudHttp = jest.fn();
 const mockCollectionAdd_crudHttp = jest.fn();
 
-const mockFirestoreDocRef_crudHttp = {
+const mockFirestoreDocRef_crudHttp: {
+  get: jest.Mock;
+  update: jest.Mock;
+  collection: jest.Mock;
+} = {
   get: mockDocGet_crudHttp,
   update: mockDocUpdate_crudHttp,
   collection: jest.fn(() => mockFirestoreCollectionRef_crudHttp),
@@ -73,9 +78,8 @@ jest.mock('firebase-admin', () => {
       auth: jest.fn().mockReturnValue({}),
       database: jest.fn().mockReturnValue({ ref: jest.fn() }),
       messaging: jest.fn().mockReturnValue({}),
-      // @ts-expect-error - Test: Pubsub is not always available on App
       pubsub: jest.fn().mockReturnValue({ topic: jest.fn() }),
-    }) as adminActual.app.App;
+    }) as unknown as adminActual.app.App;
 
   const mockInitializeAppInternal = jest.fn(
     (_options?: adminActual.AppOptions, appNameParam?: string) => {
@@ -136,7 +140,6 @@ jest.mock('firebase-admin', () => {
 
 const MOCK_USER_ID_CRUD = 'test-user-crud';
 const MOCK_ANALYSIS_ID_CRUD = 'analysis-crud-id';
-const _MAX_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_SERVER_ERROR_MESSAGE_LENGTH; // Not used in this file, kept for reference if needed
 
 describe('Analysis Management CRUD HTTPS Callables', () => {
   beforeEach(() => {
@@ -163,9 +166,11 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
 
   describe('httpsCallableGetPastAnalyses', () => {
     it('should throw "invalid-argument" if userId is missing', async () => {
-      // @ts-expect-error - Testing invalid input: userId missing
       await expect(
-        httpsCallableGetPastAnalyses({}, {} as functions.https.CallableContext)
+        httpsCallableGetPastAnalyses(
+          {} as GetPastAnalysesRequest,
+          {} as functions.https.CallableContext
+        ) // This specific test case intentionally uses an empty object to check for the missing userId validation, so keeping `any` here is acceptable for the test's purpose.
       ).rejects.toMatchObject({
         code: 'invalid-argument',
         message: 'O ID do usuário (userId) é obrigatório no payload da solicitação.',
@@ -225,7 +230,7 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
 
       const result = await httpsCallableGetPastAnalyses(
         { userId: MOCK_USER_ID_CRUD },
-        {} as functions.https.CallableContext
+        {} as functions.https.CallableContext // Context is not used in this specific test, so casting to an empty context type is acceptable.
       );
 
       expect(mockFirestoreServiceInstance_crudHttp.collection).toHaveBeenCalledWith('users');
@@ -260,7 +265,7 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
 
       const result = await httpsCallableGetPastAnalyses(
         { userId: MOCK_USER_ID_CRUD },
-        {} as functions.https.CallableContext
+        {} as functions.https.CallableContext // Context is not used in this specific test, so casting to an empty context type is acceptable.
       );
       expect(result.analyses).toHaveLength(1);
       expect(result.analyses[0].status).toBe('error');
@@ -272,7 +277,7 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
       await expect(
         httpsCallableGetPastAnalyses(
           { userId: MOCK_USER_ID_CRUD },
-          {} as functions.https.CallableContext
+          {} as functions.https.CallableContext // Context is not used in this specific test, so casting to an empty context type is acceptable.
         )
       ).rejects.toMatchObject({
         code: 'internal',
@@ -285,17 +290,21 @@ describe('Analysis Management CRUD HTTPS Callables', () => {
     const authContext = { auth: { uid: MOCK_USER_ID_CRUD } } as functions.https.CallableContext;
 
     it('should throw "unauthenticated" if no auth context', async () => {
-      // @ts-expect-error - Testing invalid context: unauthenticated user
       await expect(
-        httpsCallableCancelAnalysis({ analysisId: MOCK_ANALYSIS_ID_CRUD }, {})
+        httpsCallableCancelAnalysis(
+          { analysisId: MOCK_ANALYSIS_ID_CRUD },
+          {} as functions.https.CallableContext
+        )
       ).rejects.toMatchObject({
         code: 'unauthenticated',
       });
     });
 
     it('should throw "invalid-argument" if analysisId is missing', async () => {
-      // @ts-expect-error - Testing invalid input: analysisId is required
-      await expect(httpsCallableCancelAnalysis({}, authContext)).rejects.toMatchObject({
+      await expect(
+        httpsCallableCancelAnalysis({} as CancelAnalysisRequest, authContext)
+      ).rejects.toMatchObject({
+        // This specific test case intentionally uses an empty object to check for the missing analysisId validation, so keeping `any` here is acceptable for the test's purpose.
         code: 'invalid-argument',
         message: 'ID da análise é obrigatório.',
       });

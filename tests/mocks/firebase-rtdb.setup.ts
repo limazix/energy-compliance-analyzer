@@ -17,44 +17,49 @@ interface MockRTDBMessage {
   isError?: boolean;
 }
 
+// Define a custom type for our mock DatabaseReference that includes _databaseInstance
+export interface MockDatabaseReference extends DatabaseReference {
+  _databaseInstance: Database;
+}
+
 export interface FirebaseDatabaseMock {
-  getDatabase: jest.Mock<Database, []>; // Explicitly type as taking no arguments
-  ref: jest.Mock<DatabaseReference, [Database, string?]>;
-  onValue: jest.Mock<Unsubscribe, [Query, (snapshot: DataSnapshot) => void]>; // Query instead of DatabaseReference
-  push: jest.Mock<DatabaseReference, [DatabaseReference, Partial<MockRTDBMessage>]>; // Promise<DatabaseReference> not needed as per firebase v9+ push returns ref sync
+  getDatabase: jest.Mock<Database, []>;
+  ref: jest.Mock<MockDatabaseReference, [Database, string?]>;
+  onValue: jest.Mock<Unsubscribe, [Query, (snapshot: DataSnapshot) => void]>;
+  push: jest.Mock<MockDatabaseReference, [DatabaseReference, Partial<MockRTDBMessage>]>;
   update: jest.Mock<Promise<void>, [DatabaseReference, Partial<MockRTDBMessage>]>;
-  serverTimestamp: jest.Mock<object, []>; // Explicitly type as taking no arguments
-  off: jest.Mock<
-    void,
-    [Query, string?, ((a: DataSnapshot | null) => unknown)?] // Query instead of DatabaseReference
-  >;
-  child: jest.Mock<DatabaseReference, [DatabaseReference, string]>;
+  serverTimestamp: jest.Mock<object, []>;
+  off: jest.Mock<void, [Query, string?, ((a: DataSnapshot | null) => unknown)?]>;
+  child: jest.Mock<MockDatabaseReference, [DatabaseReference, string]>;
   // Expose mock instances for test manipulation
   __mockGetDatabase: jest.Mock<Database, []>;
-  __mockRef: jest.Mock<DatabaseReference, [Database, string?]>;
+  __mockRef: jest.Mock<MockDatabaseReference, [Database, string?]>;
   __mockOnValue: jest.Mock<Unsubscribe, [Query, (snapshot: DataSnapshot) => void]>;
-  __mockPush: jest.Mock<DatabaseReference, [DatabaseReference, Partial<MockRTDBMessage>]>;
+  __mockPush: jest.Mock<MockDatabaseReference, [DatabaseReference, Partial<MockRTDBMessage>]>;
   __mockUpdate: jest.Mock<Promise<void>, [DatabaseReference, Partial<MockRTDBMessage>]>;
   __mockServerTimestamp: jest.Mock<object, []>;
   __mockOff: jest.Mock<void, [Query, string?, ((a: DataSnapshot | null) => unknown)?]>;
-  __mockChild: jest.Mock<DatabaseReference, [DatabaseReference, string]>;
+  __mockChild: jest.Mock<MockDatabaseReference, [DatabaseReference, string]>;
 }
 
 // Define mock functions *within* the factory scope
 const mockGetDatabaseInternal = jest.fn(
   () => ({}) as Database
 ) as FirebaseDatabaseMock['getDatabase'];
+
 const mockRefInternal = jest.fn(
-  (db: Database, path?: string): DatabaseReference =>
+  (db: Database, path?: string): MockDatabaseReference =>
     ({
       key: path?.split('/').pop() || null,
-      path,
-      toJSON: () => ({ path }), // Basic toJSON
-      toString: () => path || '', // Basic toString
       parent: null, // Simplified
       root: null, // Simplified
-      database: db, // Reference to the database instance
-    }) as unknown as DatabaseReference
+      _databaseInstance: db, // Store the Database instance
+      // Implement toString to return the path for the mock
+      toString: () => path || 'mock-db-path',
+      // Add other DatabaseReference properties/methods if needed by tests
+      // For example, a basic toJSON:
+      toJSON: () => ({ path }),
+    }) as unknown as MockDatabaseReference // Cast to our extended type
 ) as FirebaseDatabaseMock['ref'];
 
 const mockOnValueInternal = jest.fn() as FirebaseDatabaseMock['onValue'];
@@ -62,14 +67,18 @@ const mockPushInternal = jest.fn() as FirebaseDatabaseMock['push'];
 const mockUpdateInternal = jest.fn() as FirebaseDatabaseMock['update'];
 const mockServerTimestampInternal = jest.fn() as FirebaseDatabaseMock['serverTimestamp'];
 const mockOffInternal = jest.fn() as FirebaseDatabaseMock['off'];
+
 const mockChildInternal = jest.fn(
-  (parentRef: DatabaseReference, childPath: string): DatabaseReference =>
+  (parentRef: DatabaseReference, childPath: string): MockDatabaseReference =>
     ({
-      ...parentRef,
-      path: `${(parentRef as { path: string }).path}/${childPath}`,
+      ...(parentRef as object), // Spread parent properties
       key: childPath,
-      toString: () => `${(parentRef as { path: string }).path}/${childPath}`,
-    }) as unknown as DatabaseReference
+      // Construct child path correctly using parent's toString()
+      toString: () => `${parentRef.toString()}/${childPath}`,
+      // Other child ref properties as needed
+      _databaseInstance: (parentRef as MockDatabaseReference)._databaseInstance, // Inherit database instance
+      parent: parentRef, // Set parent
+    }) as unknown as MockDatabaseReference // Cast to our extended type
 ) as FirebaseDatabaseMock['child'];
 
 jest.mock('firebase/database', (): FirebaseDatabaseMock => {
