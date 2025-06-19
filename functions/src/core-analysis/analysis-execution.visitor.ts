@@ -25,10 +25,10 @@ import { getAdminFileContentFromStorage } from '@/utils/storage';
 
 import type { AnalysisVisitor } from './analysis-visitor';
 import type { AssessingComplianceState } from './states/assessing-compliance.state';
-import type { IdentifyingRegulationsState } from './states/identifying-regulations.state';
-import type { SummarizingState } from './states/summarizing.state';
-import type { ReviewingReportState } from './states/reviewing-report.state';
 import type { GeneratingChartsState } from './states/generating-charts.state';
+import type { IdentifyingRegulationsState } from './states/identifying-regulations.state';
+import type { ReviewingReportState } from './states/reviewing-report.state';
+import type { SummarizingState } from './states/summarizing.state';
 
 const CHUNK_SIZE = APP_CONFIG.ANALYSIS_CSV_CHUNK_SIZE_BYTES;
 const OVERLAP_SIZE = APP_CONFIG.ANALYSIS_CSV_OVERLAP_SIZE_BYTES;

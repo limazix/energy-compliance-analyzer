@@ -36,7 +36,7 @@ exports.onFileUploadCompleted = functions
   .pubsub.topic(FILE_UPLOAD_COMPLETED_TOPIC_NAME)
   .onPublish(async (message, context) => {
     const eventId = context.eventId;
-    // eslint-disable-next-line no-console
+
     console.info(
       `[Func_onFileUploadCompleted] Received Pub/Sub message (Event ID: ${eventId}). Topic: ${context.resource.name}`
     );
@@ -52,7 +52,7 @@ exports.onFileUploadCompleted = functions
       }
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : String(e);
-      // eslint-disable-next-line no-console
+
       console.error(
         `[Func_onFileUploadCompleted] Error parsing Pub/Sub message payload (Event ID: ${eventId}): ${errorMsg}. Message data: ${message.data}`
       );
@@ -62,7 +62,6 @@ exports.onFileUploadCompleted = functions
     const { userId, analysisId, downloadURL } = payload;
 
     if (!userId || typeof userId !== 'string') {
-      // eslint-disable-next-line no-console
       console.error(
         `[Func_onFileUploadCompleted] Invalid or missing userId in payload (Event ID: ${eventId}). Payload:`,
         payload
@@ -70,7 +69,6 @@ exports.onFileUploadCompleted = functions
       return null;
     }
     if (!analysisId || typeof analysisId !== 'string') {
-      // eslint-disable-next-line no-console
       console.error(
         `[Func_onFileUploadCompleted] Invalid or missing analysisId in payload (Event ID: ${eventId}). Payload:`,
         payload
@@ -78,7 +76,6 @@ exports.onFileUploadCompleted = functions
       return null;
     }
     if (!downloadURL || typeof downloadURL !== 'string') {
-      // eslint-disable-next-line no-console
       console.error(
         `[Func_onFileUploadCompleted] Invalid or missing downloadURL in payload (Event ID: ${eventId}). Payload:`,
         payload
@@ -88,7 +85,6 @@ exports.onFileUploadCompleted = functions
       return null;
     }
 
-    // eslint-disable-next-line no-console
     console.info(
       `[Func_onFileUploadCompleted] Processing file upload completion for userId: ${userId}, analysisId: ${analysisId}. Event ID: ${eventId}.`
     );
@@ -102,7 +98,6 @@ exports.onFileUploadCompleted = functions
     try {
       const docSnap = await analysisDocRef.get();
       if (!docSnap.exists) {
-        // eslint-disable-next-line no-console
         console.warn(
           `[Func_onFileUploadCompleted] Analysis document ${analysisId} for user ${userId} not found. Cannot finalize. Event ID: ${eventId}.`
         );
@@ -111,7 +106,6 @@ exports.onFileUploadCompleted = functions
 
       const currentData = docSnap.data();
       if (currentData?.status !== 'uploading' && currentData?.status !== 'error') {
-        // eslint-disable-next-line no-console
         console.warn(
           `[Func_onFileUploadCompleted] Analysis ${analysisId} is not in 'uploading' or 'error' state (current: ${currentData?.status}). Potentially already processed or finalized by another event. Skipping update. Event ID: ${eventId}.`
         );
@@ -134,13 +128,13 @@ exports.onFileUploadCompleted = functions
       };
 
       await analysisDocRef.update(updatePayload);
-      // eslint-disable-next-line no-console
+
       console.info(
         `[Func_onFileUploadCompleted] Analysis ${analysisId} finalized. Status set to 'summarizing_data'. Event ID: ${eventId}. This should trigger 'processAnalysisOnUpdate'.`
       );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      // eslint-disable-next-line no-console
+
       console.error(
         `[Func_onFileUploadCompleted] Error updating Firestore for analysis ${analysisId} (Event ID: ${eventId}): ${errorMessage}`,
         error
@@ -153,7 +147,6 @@ exports.onFileUploadCompleted = functions
           uploadProgress: 100, // Upload to Storage was successful, but Firestore update failed.
         });
       } catch (updateError) {
-        // eslint-disable-next-line no-console
         console.error(
           `[Func_onFileUploadCompleted] CRITICAL: Failed to update Firestore with error state for ${analysisId} after finalization failure (Event ID: ${eventId}):`,
           updateError

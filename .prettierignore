@@ -1,7 +1,7 @@
-node_modules
 .next
-out
+node_modules
 build
+out
 coverage
 public
 functions/lib
@@ -10,4 +10,3 @@ docs_html
 firebase-emulator-data
 next-env.d.ts
 src/components/ui/
-# Add other specific files or build artifacts if needed

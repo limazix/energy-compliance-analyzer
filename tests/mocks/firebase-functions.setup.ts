@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 
 import type { EventContext, https, pubsub, firestore } from 'firebase-functions';
 
-export const mockHttpsCallableStore = {};
+export const mockHttpsCallableStore: { [key: string]: jest.Mock } = {};
 
 export interface FirebaseFunctionsMock {
   __mockHttpsCallableStore: {
@@ -60,7 +60,7 @@ jest.mock(
             handler(change, context);
         },
         onDelete: (
-          handler: (snapshot: firestore.DocumentSnapshot, context: EventContext) => any
+          handler: (snapshot: firestore.DocumentSnapshot, context: EventContext) => unknown
         ) => {
           return (snapshot: firestore.DocumentSnapshot, context: EventContext) =>
             handler(snapshot, context);

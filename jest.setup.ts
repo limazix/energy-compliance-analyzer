@@ -28,7 +28,6 @@ Object.assign(global, { TextEncoder, TextDecoder });
 // Global assignments that are not part of a specific mock module
 (globalThis as { [key: string]: unknown }).Timestamp = Timestamp; // Use a more specific type for globalThis
 
-// eslint-disable-next-line no-console
 console.info(
   'Jest common setup: Running. Firebase client SDKs are mocked. Environment-specific setups (frontend/backend) will load their respective additional mocks.'
 );

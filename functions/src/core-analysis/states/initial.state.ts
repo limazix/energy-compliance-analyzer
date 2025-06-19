@@ -3,7 +3,7 @@ import { AnalysisState } from './analysis.state';
 import { SummarizingState } from './summarizing.state';
 
 export class InitialState extends AnalysisState {
-  public async accept(_visitor?: any): Promise<void> {
+  public async accept(_visitor?: unknown): Promise<void> {
     // InitialState does not interact with visitors in a typical accept pattern.
   }
 

@@ -12,12 +12,16 @@ import {
   addTagLogic,
   removeTagLogic,
 } from '../../../../functions/src/tag-management-http/manageTags';
-import { firebaseServerProvider } from '../../../../lib/firebase-server-provider';
+import { firebaseServerProvider } from '@/lib/firebase-server-provider';
 
 import type * as functions from 'firebase-functions';
 
 const MOCK_USER_ID = 'test-user-123';
 const MOCK_ANALYSIS_ID = 'analysis-abc-789';
+
+declare module '../../../../lib/firebase-server-provider' {
+  export const firebaseServerProvider: any;
+}
 
 describe('Tag Management Logic (Unit)', () => {
   const db = firebaseServerProvider.getFirestore();
@@ -76,7 +80,11 @@ describe('Tag Management Logic (Unit)', () => {
           .collection('analyses')
           .doc(MOCK_ANALYSIS_ID).update as jest.Mock
       ).mockResolvedValueOnce({});
-      const result = await addTagLogic(validData, validAuthContext as any, db);
+      const result = await addTagLogic(
+        validData,
+        validAuthContext as functions.https.CallableContext,
+        db
+      );
       expect(
         (db.collection as any)('users')
           .doc(MOCK_USER_ID)
@@ -111,7 +119,11 @@ describe('Tag Management Logic (Unit)', () => {
           .collection('analyses')
           .doc(MOCK_ANALYSIS_ID).update as jest.Mock
       ).mockResolvedValueOnce({});
-      const result = await removeTagLogic(validData, validAuthContext as any, db);
+      const result = await removeTagLogic(
+        validData,
+        validAuthContext as functions.https.CallableContext,
+        db
+      );
       expect(
         (db.collection as any)('users')
           .doc(MOCK_USER_ID)

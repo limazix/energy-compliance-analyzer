@@ -29,6 +29,7 @@
     "next-env.d.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
+    "src/lib/**/*.ts", // Ensure src/lib is included for test imports
     "functions/src/**/*.ts", // Include TypeScript files from functions
     "tests/**/*.ts", // Include all TS files in the root tests folder
     "tests/**/*.tsx", // Include all TSX files in the root tests folder
@@ -37,10 +38,16 @@
     "jest.setup.ts",
     "*.config.js", // Keep other .config.js files
     "*.config.ts",
-    ".next/types/**/*.ts"
+    "global.d.ts"
   ],
   "exclude": [
     "node_modules",
-    "functions/lib" // Exclude compiled output of functions
+    "functions/lib", // Exclude compiled output of functions
+    ".next",
+    "dist",
+    "build",
+    "coverage",
+    "out",
+    "public"
   ]
 }
