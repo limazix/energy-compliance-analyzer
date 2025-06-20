@@ -43,11 +43,32 @@ function statusIsValid(status: unknown): status is Analysis['status'] {
 }
 
 /**
+ * Interface for the request payload for fetching past analyses.
+ */
+interface HttpsCallableGetPastAnalysesRequest {
+  /**
+   * The ID of the user whose analyses are being fetched.
+   * Note: This function explicitly uses the userId from the data payload,
+   * NOT the context.auth.uid. This is intended for internal server-to-server
+   * communication or trusted clients. Use with caution in untrusted environments.
+   */
+  userId: string;
+  /**
+   * Optional: The maximum number of analyses to return per page.
+   */
+  limit?: number;
+  /**
+   * Optional: The ID of the last document from the previous page.
+   * Used for fetching the next page of results.
+   */
+  startAfterDocId?: string;
+}
+
+/**
  * Fetches past analyses for a user. Note: This function explicitly uses the userId from the data payload,
  * NOT the context.auth.uid. This is intended for internal server-to-server communication or trusted clients.
  * Use with caution in untrusted environments.
- * @param {{userId: string}} data - The data object sent from the client, must contain userId.
- * @returns {Promise<{analyses: Analysis[]}>}
+ *
  *          A promise that resolves with an array of analysis objects.
  * @throws {functions.https.HttpsError} If userId is missing or a Firestore error occurs.
  */
@@ -64,11 +85,41 @@ export const httpsCallableGetPastAnalyses = functions.https.onCall(
 
     // eslint-disable-next-line no-console
     console.info(
-      `[AnalysisMgmt_GetPast] Fetching for explicit userId: ${userId}, Project: ${
-        process.env.GCLOUD_PROJECT || 'PROJECT_ID_NOT_SET_IN_FUNC_ENV'
-      }`
+      `[AnalysisMgmt_GetPast] Fetching for explicit userId: ${userId}${data.limit ? `, limit: ${data.limit}` : ''}${data.startAfterDocId ? `, startAfterDocId: ${data.startAfterDocId}` : ''}, Project: ${process.env.GCLOUD_PROJECT || 'PROJECT_ID_NOT_SET_IN_FUNC_ENV'}`
     );
 
+    // Start query
+    let q: firestore.Query = db
+      .collection('users')
+      .doc(userId)
+      .collection('analyses')
+      .orderBy('createdAt', 'desc');
+
+    // Apply limit if provided
+    if (data.limit !== undefined) {
+      q = q.limit(data.limit + 1); // Fetch one extra to check if there are more pages
+    }
+
+    // Apply startAfter if provided
+    if (data.startAfterDocId !== undefined) {
+      try {
+        const startAfterDoc = await db
+          .collection('users')
+          .doc(userId)
+          .collection('analyses')
+          .doc(data.startAfterDocId)
+          .get();
+        if (startAfterDoc.exists) {
+          q = q.startAfter(startAfterDoc);
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[AnalysisMgmt_GetPast] Failed to get startAfterDoc ${data.startAfterDocId}:`,
+          error
+        );
+      }
+    }
     const analysesCol = db.collection('users').doc(userId).collection('analyses');
     const q = analysesCol.orderBy('createdAt', 'desc');
 
@@ -140,8 +191,14 @@ export const httpsCallableGetPastAnalyses = functions.https.onCall(
         })
         .filter((a) => a.status !== 'deleted' && a.status !== 'pending_deletion');
 
+      const hasNextPage = data.limit !== undefined && snapshot.docs.length > data.limit;
+      const analysesToReturn = hasNextPage ? analyses.slice(0, data.limit) : analyses;
+      const lastDocId =
+        analysesToReturn.length > 0 ? analysesToReturn[analysesToReturn.length - 1].id : undefined;
+
       return {
-        analyses: analyses,
+        analyses: analysesToReturn,
+        lastDocId: hasNextPage ? lastDocId : undefined, // Return lastDocId only if there's a next page
       };
     } catch (error: unknown) {
       // Changed from any to unknown
@@ -158,6 +215,22 @@ export const httpsCallableGetPastAnalyses = functions.https.onCall(
     }
   }
 );
+
+/**
+ * Interface for the response payload when fetching past analyses.
+ */
+interface HttpsCallableGetPastAnalysesResponse {
+  /**
+   * An array of Analysis objects for the current page.
+   */
+  analyses: Analysis[];
+  /**
+   * The ID of the last document in the current page.
+   * This should be used as `startAfterDocId` for the next request to get the subsequent page.
+   * Undefined if there are no more pages.
+   */
+  lastDocId?: string;
+}
 
 /**
  * Requests cancellation of an analysis.

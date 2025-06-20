@@ -11,12 +11,6 @@ import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app-header';
 import { AnalysisView } from '@/components/features/analysis/AnalysisView';
 import { NewAnalysisForm } from '@/components/features/analysis/NewAnalysisForm';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,9 +20,15 @@ import {
   type FileUploadManagerResult,
 } from '@/features/file-upload/hooks/useFileUploadManager';
 import { useAnalysisManager } from '@/hooks/useAnalysisManager';
+// Import AnalysesList
 import { db } from '@/lib/firebase';
-import type { Analysis } from '@/types/analysis';
+import { Button } from '@/components/ui/button';
 
+/**
+ * Determines the appropriate badge variant based on the analysis status.
+ * @param status The status of the analysis.
+ * @returns The corresponding badge variant string.
+ */
 const getStatusBadgeVariant = (status: Analysis['status']) => {
   switch (status) {
     case 'completed':
@@ -46,6 +46,11 @@ const getStatusBadgeVariant = (status: Analysis['status']) => {
   }
 };
 
+/**
+ * Returns a user-friendly label for the analysis status in Portuguese.
+ * @param status The status of the analysis.
+ * @returns The corresponding localized status label.
+ */
 const getStatusLabel = (status: Analysis['status']) => {
   switch (status) {
     case 'uploading':
@@ -75,13 +80,24 @@ const getStatusLabel = (status: Analysis['status']) => {
   }
 };
 
+/**
+ * The main home page component. Handles user authentication, displays the new analysis form,
+ * and renders the list of past analyses with pagination.
+ * @returns The HomePage component.
+ */
 export default function HomePage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
+  /**
+   * State variable to control the visibility of the New Analysis Form.
+   */
   const [showNewAnalysisForm, setShowNewAnalysisForm] = useState(false);
+  /**
+   * State variable to control which analysis accordion item is expanded.
+   * Stores the ID of the expanded analysis or null if none are expanded.
+   */
   const [expandedAnalysisId, setExpandedAnalysisId] = useState<string | null>(null);
-
   const {
     fileToUpload,
     isUploading,
@@ -94,7 +110,9 @@ export default function HomePage() {
   const {
     currentAnalysis,
     setCurrentAnalysis,
-    pastAnalyses,
+    analyses, // Renamed from pastAnalyses
+    isLoadingMoreAnalyses, // Added
+    hasMoreAnalyses, // Added
     isLoadingPastAnalyses,
     tagInput,
     setTagInput,
@@ -103,6 +121,7 @@ export default function HomePage() {
     handleAddTag,
     handleRemoveTag,
     handleDeleteAnalysis,
+    handleRetryAnalysis, // Added
     handleCancelAnalysis,
     downloadReportAsTxt,
     displayedAnalysisSteps,
@@ -240,6 +259,11 @@ export default function HomePage() {
     [user, uploadFileAndCreateRecord, handleUploadResult, router]
   );
 
+  /**
+   * Toggles the visibility of the New Analysis Form.
+   * If showing the form, collapses any currently expanded analysis.
+   * @param value The ID of the analysis item being expanded or undefined if collapsing.
+   */
   const handleToggleNewAnalysisForm = () => {
     setShowNewAnalysisForm((prev) => !prev);
     if (!showNewAnalysisForm) {
@@ -249,6 +273,10 @@ export default function HomePage() {
   };
 
   const handleNavigateToDashboard = () => {
+    /**
+     * Resets the component state to show the list of past analyses
+     * and fetches the initial list.
+     */
     setShowNewAnalysisForm(false);
     setExpandedAnalysisId(null);
     setCurrentAnalysis(null);
@@ -256,10 +284,14 @@ export default function HomePage() {
   };
 
   const handleAccordionChange = (value: string | undefined) => {
+    /**
+     * Handles the change in the Accordion component, updating the expanded analysis ID
+     * and setting the current analysis for display in the AnalysisView.
+     */
     const newExpandedId = value || null;
     setExpandedAnalysisId(newExpandedId);
     if (newExpandedId) {
-      const analysisToExpand = pastAnalyses.find((a) => a.id === newExpandedId);
+      const analysisToExpand = analyses.find((a) => a.id === newExpandedId); // Use analyses state
       if (analysisToExpand) {
         setCurrentAnalysis(analysisToExpand);
       }
@@ -269,6 +301,10 @@ export default function HomePage() {
     if (showNewAnalysisForm) setShowNewAnalysisForm(false);
   };
 
+  /**
+   * Callback function executed after an analysis is successfully deleted.
+   * Refreshes the list of past analyses and collapses any expanded items.
+   */
   const afterDeleteAnalysis = async () => {
     await fetchPastAnalyses(); // Await the fetchPastAnalyses call
     setExpandedAnalysisId(null);
@@ -316,14 +352,14 @@ export default function HomePage() {
                   <Loader2 className="h-10 w-10 animate-spin text-primary" />
                 </div>
               )}
-              {!isLoadingPastAnalyses && pastAnalyses.length === 0 && (
+              {!isLoadingPastAnalyses && analyses.length === 0 && (
                 <div className="py-10 text-center text-muted-foreground">
                   <Inbox className="mx-auto mb-4 h-12 w-12" />
                   <p className="text-lg">Nenhuma análise anterior encontrada.</p>
                   <p>Clique em &quot;Nova Análise&quot; para começar.</p>
                 </div>
               )}
-              {!isLoadingPastAnalyses && pastAnalyses.length > 0 && (
+              {!isLoadingPastAnalyses && analyses.length > 0 && (
                 <Accordion
                   type="single"
                   collapsible
@@ -331,82 +367,101 @@ export default function HomePage() {
                   onValueChange={handleAccordionChange}
                   className="w-full"
                 >
-                  {pastAnalyses.map((analysisItem) => (
-                    <AccordionItem
-                      value={analysisItem.id}
-                      key={analysisItem.id}
-                      className="border-b"
-                    >
-                      <AccordionTrigger className="w-full px-2 py-4 text-left hover:bg-muted/50">
-                        <div className="flex w-full flex-col md:flex-row md:items-center md:justify-between">
-                          <span className="max-w-[200px] truncate font-medium text-foreground sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl">
-                            {analysisItem.title || analysisItem.fileName}
-                          </span>
-                          <div className="mt-1 flex flex-col text-sm text-muted-foreground md:mt-0 md:ml-4 md:flex-row md:items-center md:space-x-3 md:space-y-0">
-                            <span>
-                              {analysisItem.createdAt
-                                ? format(
-                                    new Date(analysisItem.createdAt as string),
-                                    'dd/MM/yy HH:mm',
-                                    { locale: ptBR }
-                                  )
-                                : 'Data N/A'}
+                  {analyses.map(
+                    (
+                      analysisItem // Map analyses state
+                    ) => (
+                      <AccordionItem
+                        value={analysisItem.id}
+                        key={analysisItem.id}
+                        className="border-b"
+                      >
+                        <AccordionTrigger className="w-full px-2 py-4 text-left hover:bg-muted/50">
+                          <div className="flex w-full flex-col md:flex-row md:items-center md:justify-between">
+                            <span className="max-w-[200px] truncate font-medium text-foreground sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl">
+                              {analysisItem.title || analysisItem.fileName}
                             </span>
-                            <Badge
-                              variant={getStatusBadgeVariant(analysisItem.status)}
-                              className={`
+                            <div className="mt-1 flex flex-col text-sm text-muted-foreground md:mt-0 md:ml-4 md:flex-row md:items-center md:space-x-3 md:space-y-0">
+                              <span>
+                                {analysisItem.createdAt
+                                  ? format(
+                                      new Date(analysisItem.createdAt as string),
+                                      'dd/MM/yy HH:mm',
+                                      { locale: ptBR }
+                                    )
+                                  : 'Data N/A'}
+                              </span>
+                              <Badge
+                                variant={getStatusBadgeVariant(analysisItem.status)}
+                                className={`
                                 ${analysisItem.status === 'completed' ? 'bg-green-600 text-white' : ''}
                                 ${analysisItem.status === 'error' ? 'bg-red-600 text-white' : ''}
                                 ${analysisItem.status === 'cancelled' || analysisItem.status === 'cancelling' || analysisItem.status === 'pending_deletion' ? 'bg-yellow-500 text-white' : ''}
                                 ${analysisItem.status === 'reviewing_report' ? 'bg-blue-500 text-white' : ''}
                               `}
-                            >
-                              {getStatusLabel(analysisItem.status)}
-                            </Badge>
+                              >
+                                {getStatusLabel(analysisItem.status)}
+                              </Badge>
+                            </div>
                           </div>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="bg-background p-4">
-                        {expandedAnalysisId === analysisItem.id &&
-                        currentAnalysis &&
-                        currentAnalysis.id === analysisItem.id ? (
-                          <AnalysisView
-                            analysis={currentAnalysis}
-                            analysisSteps={displayedAnalysisSteps}
-                            onDownloadReport={() => downloadReportAsTxt(currentAnalysis)}
-                            tagInput={tagInput}
-                            onTagInputChange={setTagInput}
-                            onAddTag={(tag) => handleAddTag(currentAnalysis.id, tag)}
-                            onRemoveTag={(tag) => handleRemoveTag(currentAnalysis.id, tag)}
-                            onDeleteAnalysis={() =>
-                              handleDeleteAnalysis(currentAnalysis.id, afterDeleteAnalysis)
-                            }
-                            onCancelAnalysis={() => handleCancelAnalysis(currentAnalysis.id)}
-                            onRetryAnalysis={() => handleRetryAnalysis(currentAnalysis.id)}
-                          />
-                        ) : expandedAnalysisId === analysisItem.id &&
-                          analysisItem.status === 'error' &&
-                          analysisItem.id.startsWith('error-') ? (
-                          <Alert variant="destructive" className="mt-4">
-                            <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Ocorreu um Erro</AlertTitle>
-                            <AlertDescription>
-                              Não foi possível carregar ou processar esta análise.
-                              <br />
-                              <strong>Detalhes:</strong>{' '}
-                              {analysisItem.errorMessage || 'Erro desconhecido.'}
-                            </AlertDescription>
-                          </Alert>
-                        ) : expandedAnalysisId === analysisItem.id ? (
-                          <div className="flex justify-center py-4">
-                            <Loader2 className="h-6 w-6 animate-spin text-primary" /> Carregando
-                            detalhes...
-                          </div>
-                        ) : null}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
+                        </AccordionTrigger>
+                        <AccordionContent className="bg-background p-4">
+                          {expandedAnalysisId === analysisItem.id &&
+                          currentAnalysis &&
+                          currentAnalysis.id === analysisItem.id ? (
+                            <AnalysisView
+                              analysis={currentAnalysis}
+                              analysisSteps={displayedAnalysisSteps}
+                              onDownloadReport={() => downloadReportAsTxt(currentAnalysis)}
+                              tagInput={tagInput}
+                              onTagInputChange={setTagInput}
+                              onAddTag={(tag) => handleAddTag(currentAnalysis.id, tag)}
+                              onRemoveTag={(tag) => handleRemoveTag(currentAnalysis.id, tag)}
+                              onDeleteAnalysis={() =>
+                                handleDeleteAnalysis(currentAnalysis.id, afterDeleteAnalysis)
+                              }
+                              onCancelAnalysis={() => handleCancelAnalysis(currentAnalysis.id)}
+                              onRetryAnalysis={() => handleRetryAnalysis(currentAnalysis.id)}
+                            />
+                          ) : expandedAnalysisId === analysisItem.id &&
+                            analysisItem.status === 'error' &&
+                            analysisItem.id.startsWith('error-') ? (
+                            <Alert variant="destructive" className="mt-4">
+                              <AlertTriangle className="h-4 w-4" />
+                              <AlertTitle>Ocorreu um Erro</AlertTitle>
+                              <AlertDescription>
+                                Não foi possível carregar ou processar esta análise.
+                                <br />
+                                <strong>Detalhes:</strong>{' '}
+                                {analysisItem.errorMessage || 'Erro desconhecido.'}
+                              </AlertDescription>
+                            </Alert>
+                          ) : expandedAnalysisId === analysisItem.id ? (
+                            <div className="flex justify-center py-4">
+                              <Loader2 className="h-6 w-6 animate-spin text-primary" /> Carregando
+                              detalhes...
+                            </div>
+                          ) : null}
+                        </AccordionContent>
+                      </AccordionItem>
+                    )
+                  )}
                 </Accordion>
+              )}
+              {/* Load More Button */}
+              {hasMoreAnalyses && !isLoadingPastAnalyses && (
+                <div className="flex justify-center py-4">
+                  <Button
+                    onClick={() => fetchPastAnalyses(true)}
+                    disabled={isLoadingMoreAnalyses}
+                    variant="outline"
+                  >
+                    {isLoadingMoreAnalyses ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
+                    Carregar Mais Análises
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
