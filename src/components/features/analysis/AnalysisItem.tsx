@@ -1,7 +1,7 @@
 // src/components/features/analysis/AnalysisItem.tsx
 'use client';
 
-import { format } from 'date-fns';
+import { format } from 'date-fns'; // Removed memo import
 import { ptBR } from 'date-fns/locale';
 import { AlertTriangle, Loader2 } from 'lucide-react'; // Removed Inbox as it's likely not needed here
 
@@ -9,6 +9,7 @@ import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { AnalysisView } from '@/components/features/analysis/AnalysisView';
+import { memo } from 'react';
 import type { Analysis } from '@/types/analysis';
 
 /**
@@ -91,7 +92,7 @@ const getStatusLabel = (status: Analysis['status']) => {
  * Renders a single analysis item within an Accordion.
  * Displays analysis details and status, and provides actions when expanded.
  */
-export default function AnalysisItem({
+function AnalysisItem({
   analysisItem,
   expandedAnalysisId,
   currentAnalysis,
@@ -174,3 +175,5 @@ export default function AnalysisItem({
     </AccordionItem>
   );
 }
+
+export default memo(AnalysisItem);

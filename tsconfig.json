@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -19,26 +23,36 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@functions/*": ["./functions/src/*"],
-      "@lib/*": ["./src/lib/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@functions/*": [
+        "./functions/src/*"
+      ],
+      "@lib/*": [
+        "./src/lib/*"
+      ]
     },
-    "types": ["jest", "node"]
+    "types": [
+      "jest",
+      "node"
+    ]
   },
   "include": [
-    "next-env.d.ts",
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "src/lib/**/*.ts", // Ensure src/lib is included for test imports
-    "functions/src/**/*.ts", // Include TypeScript files from functions
-    "tests/**/*.ts", // Include all TS files in the root tests folder
-    "tests/**/*.tsx", // Include all TSX files in the root tests folder
-    "tests/mocks/**/*.ts",
-    "jest.config.js", // Keep jest.config.js if it's JS
-    "jest.setup.ts",
-    "*.config.js", // Keep other .config.js files
+    "*.config.js",
     "*.config.ts",
-    "global.d.ts"
+    "functions/src/**/*.ts",
+    "global.d.ts", // Ensure src/lib is included for test imports
+    "jest.config.js", // Include TypeScript files from functions
+    "jest.setup.ts", // Include all TS files in the root tests folder
+    "next-env.d.ts", // Include all TSX files in the root tests folder
+    "src/**/*.ts",
+    "src/**/*.tsx", // Keep jest.config.js if it's JS
+    "src/lib/**/*.ts",
+    "tests/**/*.ts", // Keep other .config.js files
+    "tests/**/*.tsx",
+    "tests/mocks/**/*.ts",
+    ".next/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

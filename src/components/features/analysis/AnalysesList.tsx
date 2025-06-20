@@ -1,5 +1,5 @@
 // src/components/features/analysis/AnalysesList.tsx
-'use client';
+import { memo } from 'react';
 import {
   Accordion,
   AccordionContent,
@@ -136,3 +136,4 @@ export function AnalysesList({
     </Card>
   );
 }
+export default memo(AnalysesList);

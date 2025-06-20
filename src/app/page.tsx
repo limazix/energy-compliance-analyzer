@@ -1,7 +1,7 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 
-import { format } from 'date-fns';
+import { format } from 'date-fns'; // Keep date-fns import
 import { ptBR } from 'date-fns/locale';
 import { doc, getDoc } from 'firebase/firestore';
 import { AlertTriangle, Inbox, Loader2 } from 'lucide-react';
@@ -9,8 +9,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { AppHeader } from '@/components/app-header';
-import { AnalysisView } from '@/components/features/analysis/AnalysisView';
-import { NewAnalysisForm } from '@/components/features/analysis/NewAnalysisForm';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +22,11 @@ import { useAnalysisManager } from '@/hooks/useAnalysisManager';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 
+/**
+ * Lazy load components for better performance.
+ */
+const NewAnalysisForm = lazy(() => import('@/components/features/analysis/NewAnalysisForm'));
+const AnalysesList = lazy(() => import('@/components/features/analysis/AnalysesList'));
 /**
  * Determines the appropriate badge variant based on the analysis status.
  * @param status The status of the analysis.
@@ -327,144 +330,82 @@ export default function HomePage() {
       />
       <main className="container mx-auto flex-1 px-4 py-8">
         {showNewAnalysisForm ? (
-          <NewAnalysisForm
-            fileToUpload={fileToUpload}
-            isUploading={isUploading}
-            uploadProgress={uploadProgress}
-            uploadError={uploadError}
-            onFileChange={handleFileSelection}
-            onUploadAndAnalyze={handleStartUploadAndAnalyze}
-            onCancel={() => setShowNewAnalysisForm(false)}
-          />
+          // Wrap the NewAnalysisForm with Suspense
+          <Suspense fallback={<div>Carregando formulário...</div>}>
+            <NewAnalysisForm
+              fileToUpload={fileToUpload}
+              isUploading={isUploading}
+              uploadProgress={uploadProgress}
+              uploadError={uploadError}
+              onFileChange={handleFileSelection}
+              onUploadAndAnalyze={handleStartUploadAndAnalyze}
+              onCancel={() => setShowNewAnalysisForm(false)}
+            />
+          </Suspense>
         ) : (
-          <Card className="shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-2xl font-headline text-primary">
-                Suas Análises Anteriores
-              </CardTitle>
-              <CardDescription>
-                Veja o histórico de suas análises ou inicie uma nova no botão acima.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoadingPastAnalyses && (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                </div>
-              )}
-              {!isLoadingPastAnalyses && analyses.length === 0 && (
-                <div className="py-10 text-center text-muted-foreground">
-                  <Inbox className="mx-auto mb-4 h-12 w-12" />
-                  <p className="text-lg">Nenhuma análise anterior encontrada.</p>
-                  <p>Clique em &quot;Nova Análise&quot; para começar.</p>
-                </div>
-              )}
-              {!isLoadingPastAnalyses && analyses.length > 0 && (
-                <Accordion
-                  type="single"
-                  collapsible
-                  value={expandedAnalysisId || undefined}
-                  onValueChange={handleAccordionChange}
-                  className="w-full"
-                >
-                  {analyses.map(
-                    (
-                      analysisItem // Map analyses state
-                    ) => (
-                      <AccordionItem
-                        value={analysisItem.id}
-                        key={analysisItem.id}
-                        className="border-b"
-                      >
-                        <AccordionTrigger className="w-full px-2 py-4 text-left hover:bg-muted/50">
-                          <div className="flex w-full flex-col md:flex-row md:items-center md:justify-between">
-                            <span className="max-w-[200px] truncate font-medium text-foreground sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl">
-                              {analysisItem.title || analysisItem.fileName}
-                            </span>
-                            <div className="mt-1 flex flex-col text-sm text-muted-foreground md:mt-0 md:ml-4 md:flex-row md:items-center md:space-x-3 md:space-y-0">
-                              <span>
-                                {analysisItem.createdAt
-                                  ? format(
-                                      new Date(analysisItem.createdAt as string),
-                                      'dd/MM/yy HH:mm',
-                                      { locale: ptBR }
-                                    )
-                                  : 'Data N/A'}
-                              </span>
-                              <Badge
-                                variant={getStatusBadgeVariant(analysisItem.status)}
-                                className={`
-                                ${analysisItem.status === 'completed' ? 'bg-green-600 text-white' : ''}
-                                ${analysisItem.status === 'error' ? 'bg-red-600 text-white' : ''}
-                                ${analysisItem.status === 'cancelled' || analysisItem.status === 'cancelling' || analysisItem.status === 'pending_deletion' ? 'bg-yellow-500 text-white' : ''}
-                                ${analysisItem.status === 'reviewing_report' ? 'bg-blue-500 text-white' : ''}
-                              `}
-                              >
-                                {getStatusLabel(analysisItem.status)}
-                              </Badge>
-                            </div>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="bg-background p-4">
-                          {expandedAnalysisId === analysisItem.id &&
-                          currentAnalysis &&
-                          currentAnalysis.id === analysisItem.id ? (
-                            <AnalysisView
-                              analysis={currentAnalysis}
-                              analysisSteps={displayedAnalysisSteps}
-                              onDownloadReport={() => downloadReportAsTxt(currentAnalysis)}
-                              tagInput={tagInput}
-                              onTagInputChange={setTagInput}
-                              onAddTag={(tag) => handleAddTag(currentAnalysis.id, tag)}
-                              onRemoveTag={(tag) => handleRemoveTag(currentAnalysis.id, tag)}
-                              onDeleteAnalysis={() =>
-                                handleDeleteAnalysis(currentAnalysis.id, afterDeleteAnalysis)
-                              }
-                              onCancelAnalysis={() => handleCancelAnalysis(currentAnalysis.id)}
-                              onRetryAnalysis={() => handleRetryAnalysis(currentAnalysis.id)}
-                            />
-                          ) : expandedAnalysisId === analysisItem.id &&
-                            analysisItem.status === 'error' &&
-                            analysisItem.id.startsWith('error-') ? (
-                            <Alert variant="destructive" className="mt-4">
-                              <AlertTriangle className="h-4 w-4" />
-                              <AlertTitle>Ocorreu um Erro</AlertTitle>
-                              <AlertDescription>
-                                Não foi possível carregar ou processar esta análise.
-                                <br />
-                                <strong>Detalhes:</strong>{' '}
-                                {analysisItem.errorMessage || 'Erro desconhecido.'}
-                              </AlertDescription>
-                            </Alert>
-                          ) : expandedAnalysisId === analysisItem.id ? (
-                            <div className="flex justify-center py-4">
-                              <Loader2 className="h-6 w-6 animate-spin text-primary" /> Carregando
-                              detalhes...
-                            </div>
-                          ) : null}
-                        </AccordionContent>
-                      </AccordionItem>
-                    )
-                  )}
-                </Accordion>
-              )}
-              {/* Load More Button */}
-              {hasMoreAnalyses && !isLoadingPastAnalyses && (
-                <div className="flex justify-center py-4">
-                  <Button
-                    onClick={() => fetchPastAnalyses(true)}
-                    disabled={isLoadingMoreAnalyses}
-                    variant="outline"
-                  >
-                    {isLoadingMoreAnalyses ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : null}
-                    Carregar Mais Análises
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          // Wrap the Card (containing AnalysesList) with Suspense
+          <Suspense fallback={<div>Carregando lista de análises...</div>}>
+            <Card className="shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-2xl font-headline text-primary">
+                  Suas Análises Anteriores
+                </CardTitle>
+                <CardDescription>
+                  Veja o histórico de suas análises ou inicie uma nova no botão acima.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingPastAnalyses && (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  </div>
+                )}
+                {!isLoadingPastAnalyses && analyses.length === 0 && (
+                  <div className="py-10 text-center text-muted-foreground">
+                    <Inbox className="mx-auto mb-4 h-12 w-12" />
+                    <p className="text-lg">Nenhuma análise anterior encontrada.</p>
+                    <p>Clique em &quot;Nova Análise&quot; para começar.</p>
+                  </div>
+                )}
+                {!isLoadingPastAnalyses && analyses.length > 0 && (
+                  // Render AnalysesList component
+                  <AnalysesList
+                    analyses={analyses}
+                    expandedAnalysisId={expandedAnalysisId}
+                    currentAnalysis={currentAnalysis}
+                    displayedAnalysisSteps={displayedAnalysisSteps}
+                    tagInput={tagInput}
+                    onAccordionChange={handleAccordionChange}
+                    onDownloadReport={downloadReportAsTxt}
+                    onTagInputChange={setTagInput}
+                    onAddTag={handleAddTag}
+                    onRemoveTag={handleRemoveTag}
+                    onDeleteAnalysis={handleDeleteAnalysis}
+                    afterDeleteAnalysis={afterDeleteAnalysis}
+                    onCancelAnalysis={handleCancelAnalysis}
+                    onRetryAnalysis={handleRetryAnalysis}
+                    getStatusBadgeVariant={getStatusBadgeVariant} // Pass helper function
+                    getStatusLabel={getStatusLabel} // Pass helper function
+                  />
+                )}
+                {/* Load More Button */}
+                {hasMoreAnalyses && !isLoadingPastAnalyses && (
+                  <div className="flex justify-center py-4">
+                    <Button
+                      onClick={() => fetchPastAnalyses(true)}
+                      disabled={isLoadingMoreAnalyses}
+                      variant="outline"
+                    >
+                      {isLoadingMoreAnalyses ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Carregar Mais Análises
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </Suspense>
         )}
       </main>
       <footer className="border-t border-border/50 bg-muted/20 py-6 text-center text-sm text-muted-foreground">
