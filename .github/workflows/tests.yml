@@ -1,5 +1,0 @@
-# This file has been renamed to 1-integration-tests.yml
-# and its content updated there.
-# This placeholder ensures the old file path is "deleted" by providing empty content.
-# If your system truly deletes files, this <change> block can be removed entirely
-# when you are sure the old file path .github/workflows/tests.yml is gone.

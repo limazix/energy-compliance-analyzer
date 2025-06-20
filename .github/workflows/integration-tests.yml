@@ -1,4 +1,4 @@
-name: Build for Deployment
+name: Integration Tests
 
 on:
   push:
@@ -9,9 +9,8 @@ on:
       - main
 
 jobs:
-  build:
+  integration-tests:
     runs-on: ubuntu-latest
-    needs: integration-tests # This job needs the integration-tests job to complete successfully
 
     steps:
       - name: Checkout code
@@ -25,7 +24,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build application
-        run: npm run build # Assuming you have a build script in package.json
-
-      # Add steps to potentially artifact the build output if needed for later deployment jobs
+      - name: Run Integration Tests
+        run: npm run test:integration
