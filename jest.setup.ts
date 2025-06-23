@@ -5,7 +5,6 @@
  * Frontend-specific or backend-specific setups are handled by their respective
  * project configurations in jest.config.ts.
  */
-import { TextDecoder, TextEncoder } from 'util'; // Node built-in
 
 import { Timestamp } from 'firebase/firestore'; // Firebase
 import '@testing-library/jest-dom'; // Testing library
@@ -19,14 +18,15 @@ import './tests/mocks/firebase-storage.setup';
 import './tests/mocks/next-navigation.setup';
 import './tests/mocks/ui-components.setup';
 
+import { TextDecoder, TextEncoder } from 'util'; // Node built-in
+
 // Import global lifecycle hooks LAST, as it might depend on other mocks/globals for clearing.
 import './tests/mocks/global-lifecycle.setup';
 
 // Assign TextEncoder and TextDecoder to global for Jest environment (all projects)
-Object.assign(global, { TextEncoder, TextDecoder });
+Object.assign(global, { TextEncoder, TextDecoder, Timestamp });
 
-// Global assignments that are not part of a specific mock module
-(globalThis as { [key: string]: unknown }).Timestamp = Timestamp; // Use a more specific type for globalThis
+// Global assignments that are not part of a specific mock module.
 
 console.info(
   'Jest common setup: Running. Firebase client SDKs are mocked. Environment-specific setups (frontend/backend) will load their respective additional mocks.'
