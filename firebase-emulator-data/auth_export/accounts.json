@@ -1,0 +1,23 @@
+{
+  "users": [
+    {
+      "localId": "test-user-e2e-001",
+      "email": "testuser001@example.com",
+      "emailVerified": true,
+      "displayName": "Test User One",
+      "photoUrl": "https://placehold.co/100x100.png?text=U1",
+      "providerUserInfo": [
+        {
+          "providerId": "google.com",
+          "rawId": "google-user-id-for-test-user-e2e-001",
+          "federatedId": "google-user-id-for-test-user-e2e-001",
+          "displayName": "Test User One",
+          "email": "testuser001@example.com",
+          "photoUrl": "https://placehold.co/100x100.png?text=U1"
+        }
+      ],
+      "createdAt": "1672531200000",
+      "lastLoginAt": "1672617600000"
+    }
+  ]
+}
