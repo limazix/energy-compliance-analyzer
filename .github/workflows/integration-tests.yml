@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  integration-tests:
+  run-integration-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,10 +19,41 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
+          node-version: 20
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
 
-      - name: Run Integration Tests
-        run: npm run test:integration
+      - name: Install project dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install functions dependencies
+        run: cd functions && npm ci --legacy-peer-deps
+
+      - name: Build Firebase Functions
+        run: cd functions && npm run build
+
+      - name: Cache Firebase Emulators
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: ${{ runner.os }}-firebase-emulators-${{ hashFiles('package-lock.json') }}
+
+      - name: Download Firebase Emulators
+        run: |
+          firebase setup:emulators:firestore
+          firebase setup:emulators:database
+          firebase setup:emulators:auth
+          firebase setup:emulators:storage
+          firebase setup:emulators:pubsub
+
+      - name: Run integration tests
+        run: |
+          mkdir -p ./firebase-emulator-data
+          firebase emulators:exec --import=./firebase-emulator-data --export-on-exit=./firebase-emulator-data -- npm run test:integration
+        env:
+          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          STORAGE_EMULATOR_HOST: 127.0.0.1:9199
+          PUBSUB_EMULATOR_HOST: 127.0.0.1:8085
+          DATABASE_EMULATOR_HOST: 127.0.0.1:9000
