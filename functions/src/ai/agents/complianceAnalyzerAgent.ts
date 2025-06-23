@@ -9,7 +9,7 @@ import {
   analyzeComplianceReportPromptConfig,
   type AnalyzeComplianceReportInput,
   type AnalyzeComplianceReportOutput,
-} from '../../../../src/ai/prompt-configs/analyze-compliance-report-prompt-config'; // Adjusted path
+} from '@/ai/prompt-configs/analyze-compliance-report-prompt-config'; // Adjusted path
 import { ai } from '../genkit-instance';
 
 export const analyzeReportFlow = ai.definePrompt<

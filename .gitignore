@@ -131,3 +131,6 @@ patches/
 .docusaurus/
 build-docs/
 docs/build/
+
+**/*.js
+**/*.js.map

@@ -11,7 +11,7 @@ import {
   reviewComplianceReportPromptConfig,
   type ReviewComplianceReportInput,
   type AnalyzeComplianceReportOutput,
-} from '../../../lib/shared/ai/prompt-configs/review-compliance-report-prompt-config'; // Path from functions/src to functions/lib/shared
+} from '@/ai/prompt-configs/review-compliance-report-prompt-config'; // Path from functions/src to functions/lib/shared
 import { ai } from '../genkit-instance'; // Shared AI instance for functions
 
 /**

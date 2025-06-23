@@ -6,8 +6,8 @@
  * Component: CrudHttp (HTTPS Callable)
  */
 
-import * as admin from 'firebase-admin/app';
-import * as firestore from 'firebase-admin/firestore';
+import { initializeApp, getApps } from 'firebase-admin/app';
+import { getFirestore, Timestamp, Query } from 'firebase-admin/firestore';
 import * as functions from 'firebase-functions';
 
 import { APP_CONFIG } from '@/config/appConfig'; // Adjusted path
@@ -15,11 +15,10 @@ import type { Analysis } from '@/types/analysis'; // Adjusted path
 
 // Initialize Firebase Admin SDK if not already initialized.
 if (admin.apps.length === 0) {
-  admin.initializeApp(); // No options needed if project ID is set via env vars
+  initializeApp(); // No options needed if project ID is set via env vars
 }
-const db = admin.firestore();
+const db = getFirestore();
 const MAX_ERROR_MESSAGE_LENGTH = APP_CONFIG.MAX_SERVER_ERROR_MESSAGE_LENGTH;
-
 /**
  * Validates if a given status string is a valid Analysis status.
  * @param {unknown} status - The status to validate. // Changed from any to unknown
@@ -89,7 +88,7 @@ export const httpsCallableGetPastAnalyses = functions.https.onCall(
     );
 
     // Start query
-    let q: firestore.Query = db
+    let q: Query = db
       .collection('users')
       .doc(userId)
       .collection('analyses')
@@ -120,12 +119,11 @@ export const httpsCallableGetPastAnalyses = functions.https.onCall(
         );
       }
     }
+
     const analysesCol = db.collection('users').doc(userId).collection('analyses');
     const q = analysesCol.orderBy('createdAt', 'desc');
-
     try {
       const snapshot = await q.get();
-      // eslint-disable-next-line no-console
       console.info(
         `[AnalysisMgmt_GetPast] Found ${snapshot.docs.length} analyses for userId: ${userId}`
       );
@@ -133,8 +131,8 @@ export const httpsCallableGetPastAnalyses = functions.https.onCall(
       const mapTimestampToISO = (
         timestampFieldValue: admin.firestore.Timestamp | string | undefined
       ): string | undefined => {
-        if (timestampFieldValue instanceof firestore.Timestamp) {
-          return (timestampFieldValue as admin.firestore.Timestamp).toDate().toISOString();
+        if (timestampFieldValue instanceof Timestamp) {
+          return (timestampFieldValue as Timestamp).toDate().toISOString();
         }
         if (
           // Allow ISO strings for backward compatibility or manual entry, though not standard Firestore behavior

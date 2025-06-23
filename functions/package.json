@@ -2,8 +2,8 @@
   "name": "functions",
   "description": "Cloud Functions for Firebase",
   "scripts": {
-    "lint": "eslint --ext .js,.ts ./src --no-error-on-unmatched-pattern || true",
-    "build:shared": "tsc -p tsconfig.shared.json",
+    "lint": "cd .. && eslint --ext .js,.ts ./functions/src --no-error-on-unmatched-pattern || true",
+    "build:shared": "tsc -p ./tsconfig.shared.json",
     "build": "npm run build:shared && tsc -p tsconfig.json",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
@@ -26,9 +26,9 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
-    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^9.0.0",
     "eslint-plugin-import": "^2.29.1",
     "firebase-functions-test": "^3.1.0",
     "typescript": "^5.4.5"

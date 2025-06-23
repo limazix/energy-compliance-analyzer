@@ -9,7 +9,7 @@ import {
   orchestrateReportInteractionPromptConfig,
   type OrchestrateReportInteractionInput,
   type OrchestrateReportInteractionOutput,
-} from '../../../../src/ai/prompt-configs/orchestrate-report-interaction-prompt-config'; // Adjusted path
+} from '@/ai/prompt-configs/orchestrate-report-interaction-prompt-config'; // Adjusted path
 import { ai } from '../genkit-instance'; // Shared AI instance for functions
 import { callRevisorTool_Chat } from '../tools/chatRevisorTool';
 

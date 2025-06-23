@@ -9,7 +9,7 @@ import {
   reviewComplianceReportPromptConfig, // Assuming shared prompt configs are here now
   type ReviewComplianceReportInput,
   type ReviewComplianceReportOutput,
-} from '../../../../lib/shared/ai/prompt-configs/review-compliance-report-prompt-config'; // Path from functions/src to functions/lib/shared
+} from '@/ai/prompt-configs/review-compliance-report-prompt-config'; // Path from functions/src to functions/lib/shared
 import { ai } from '../genkit-instance';
 
 export const reviewReportFlow = ai.definePrompt<

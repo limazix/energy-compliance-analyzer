@@ -11,13 +11,14 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "declaration": false,
+    "declaration": true,
     "sourceMap": false,
     "allowJs": false
   },
   "include": [
     "../src/ai/prompt-configs/**/*.ts",
     "../src/lib/reportUtils.ts",
+    "../src/lib/firebase-server-provider.ts",
     "../src/config/appConfig.ts",
     "../src/types/**/*.ts"
   ],

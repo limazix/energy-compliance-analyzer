@@ -10,7 +10,7 @@ import { z } from 'zod';
 import {
   AnalyzeComplianceReportOutputSchema, // Used by the Revisor tool and overall interaction output
   OrchestrateReportInteractionInputSchema, // To get languageCode schema
-} from '../../../../src/ai/prompt-configs/orchestrate-report-interaction-prompt-config';
+} from '@/ai/prompt-configs/orchestrate-report-interaction-prompt-config';
 import { reviewComplianceReportFlow_Chat } from '../flows/chatReviewAgent';
 import { ai } from '../genkit-instance'; // Shared AI instance for functions
 
